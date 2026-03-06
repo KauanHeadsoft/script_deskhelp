@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.37
+// @version      2.15.38
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -44,7 +44,7 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.36";
+  const SCRIPT_VERSION = "2.15.38";
   const UPDATES_LOG_REMOTE_URL =
     "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/updates-log.json";
   const UPDATES_LOG_CACHE_JSON_LS_KEY = "hs2025-updates-log-json";
@@ -107,6 +107,16 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.38",
+      notes: [
+        "Correcao de sincronismo de versao interna para o botao 'Nova versao' sumir apos atualizar.",
+        "Historico de atualizacoes agora abre em modal e prioriza dados do updates-log.json.",
+        "Preview de imagens em anexos ganhou clique para ampliar no modal.",
+        "Texto de envio para orcamento padronizado com saudacao por horario e assinatura do usuario logado.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.36",
@@ -967,6 +977,148 @@ Atenciosamente.`;
       align-items:stretch;
     }
   }
+  .hs-updates-log-modal .hs-update-modal-card{
+    width:min(940px, 96vw);
+  }
+  .hs-updates-log-meta{
+    font-size:12px;
+    line-height:1.35;
+    opacity:.96;
+  }
+  .hs-updates-log-rules{
+    margin:0;
+    padding-left:18px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    font-size:12px;
+    line-height:1.3;
+  }
+  .hs-updates-log-list{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .hs-updates-log-item{
+    border:1px solid var(--border);
+    border-radius:10px;
+    background:rgba(15,23,42,.18);
+    padding:9px 10px;
+    color:var(--fg);
+  }
+  .hs-updates-log-item.is-highlight{
+    border-color:#d6b54f;
+    box-shadow:0 0 0 1px rgba(214,181,79,.34) inset;
+    background:linear-gradient(180deg, rgba(214,181,79,.12), rgba(15,23,42,.18));
+  }
+  .hs-updates-log-item-head{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:8px;
+    font-size:12px;
+    line-height:1.3;
+    font-weight:800;
+  }
+  .hs-updates-log-item-head .date{
+    opacity:.82;
+    font-weight:600;
+  }
+  .hs-updates-log-item ul{
+    margin:7px 0 0;
+    padding-left:18px;
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+    font-size:12px;
+    line-height:1.3;
+  }
+  .hs-updates-log-empty{
+    font-size:12px;
+    line-height:1.35;
+    opacity:.9;
+  }
+  .hs-updates-log-footer{
+    font-size:11px;
+    line-height:1.3;
+    opacity:.75;
+  }
+  .hs-image-viewer{
+    position:fixed;
+    inset:0;
+    z-index:1000004;
+    display:none;
+  }
+  .hs-image-viewer.open{ display:block; }
+  .hs-image-viewer-backdrop{
+    position:absolute;
+    inset:0;
+    background:rgba(2,8,18,.72);
+  }
+  .hs-image-viewer-card{
+    position:absolute;
+    top:4vh;
+    left:50%;
+    transform:translateX(-50%);
+    width:min(980px, 96vw);
+    max-height:92vh;
+    display:flex;
+    flex-direction:column;
+    border-radius:12px;
+    overflow:hidden;
+    background:var(--panel);
+    border:1px solid var(--border);
+    box-shadow:0 20px 58px rgba(0,0,0,.45);
+  }
+  .hs-image-viewer-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:8px 10px;
+    background:var(--panel2);
+    border-bottom:1px solid var(--border);
+    color:var(--fg);
+    font-size:12px;
+    font-weight:800;
+  }
+  .hs-image-viewer-head button{
+    min-height:25px!important;
+    height:25px!important;
+    border-radius:8px!important;
+    padding:2px 10px!important;
+    cursor:pointer;
+  }
+  .hs-image-viewer-body{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:10px;
+    overflow:auto;
+    min-height:180px;
+    max-height:calc(92vh - 42px);
+  }
+  .hs-image-viewer-body img{
+    max-width:100%;
+    max-height:100%;
+    width:auto;
+    height:auto;
+    object-fit:contain;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:rgba(2,8,18,.45);
+  }
+  @media (max-width:760px){
+    .hs-image-viewer-card{
+      top:2vh;
+      max-height:96vh;
+      width:min(98vw, 98vw);
+    }
+    .hs-image-viewer-body{
+      max-height:calc(96vh - 42px);
+      padding:8px;
+    }
+  }
 
   @keyframes hsRowAlertBlinkNew{
     0%,100%{ box-shadow: inset 0 0 0 999px rgba(56,189,248,0); }
@@ -1547,6 +1699,7 @@ Atenciosamente.`;
     background:var(--panel)!important;
     padding:4px!important;
     overflow:hidden!important;
+    cursor:zoom-in!important;
   }
   body.hs-request-page #interno .hs-attach-thumb img{
     width:100%!important;
@@ -1554,6 +1707,7 @@ Atenciosamente.`;
     object-fit:cover!important;
     border-radius:6px!important;
     display:block!important;
+    cursor:zoom-in!important;
   }
   body.hs-request-page #interno .hs-attach-thumb figcaption{
     font-size:9px!important;
@@ -3607,36 +3761,234 @@ Atenciosamente.`;
     return list;
   }
   /**
-   * Objetivo: Exibe resumo das ultimas atualizacoes do userscript.
+   * Objetivo: Fecha modal do historico de atualizacoes.
    *
-   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Contexto: reutilizado por backdrop, botao fechar e tecla ESC.
    * Parametros: nenhum.
    * Retorno: void.
-   * Efeitos colaterais: abre dialogo nativo com historico recente.
    */
-  async function showRecentUpdatesDialog() {
-    const localUpdates = enforceUpdateHistoryRules(true);
-    const remotePayload = await fetchUpdatesLog(true);
-    const remoteUpdates = normalizeUpdatesLogList(remotePayload?.list || []);
-    const updates = mergeUpdateHistoryAppendOnly(localUpdates, remoteUpdates);
-    writeUpdateHistoryToStorage(updates);
-    const lines = [
-      `Headsoft Suporte Modern UI v${SCRIPT_VERSION}`,
-      "",
-      "Regras do campo de atualizacoes:",
-      ...UPDATE_LOG_RULES.map((r) => `- ${r}`),
-      "",
-      "Ultimas atualizacoes:",
-    ];
-    updates.forEach((item) => {
-      lines.push(`- ${item.date} (v${item.version})`);
-      (item.notes || []).forEach((note) => lines.push(`  * ${String(note || "").trim()}`));
-    });
-    if (remotePayload?.source !== "remote") {
-      lines.push("");
-      lines.push("Obs.: exibindo historico local de fallback.");
+  function closeUpdatesLogModal() {
+    if (!hsUpdatesLogModal) hsUpdatesLogModal = document.getElementById("hs-updates-log-modal");
+    if (!(hsUpdatesLogModal instanceof HTMLElement)) return;
+    hsUpdatesLogModal.classList.remove("open");
+  }
+  /**
+   * Objetivo: Cria modal de historico de atualizacoes.
+   *
+   * Contexto: substitui alert nativo por UI consistente.
+   * Parametros: nenhum.
+   * Retorno: HTMLElement|null.
+   */
+  function ensureUpdatesLogModal() {
+    if (hsUpdatesLogModal && hsUpdatesLogModal.isConnected) return hsUpdatesLogModal;
+    let modal = document.getElementById("hs-updates-log-modal");
+    if (!(modal instanceof HTMLElement)) {
+      modal = document.createElement("div");
+      modal.id = "hs-updates-log-modal";
+      modal.className = "hs-update-modal hs-updates-log-modal";
+      modal.innerHTML = `
+        <div class="hs-update-modal-backdrop"></div>
+        <section class="hs-update-modal-card" role="dialog" aria-modal="true" aria-label="Historico de atualizacoes">
+          <header class="hs-update-modal-head">
+            <span>Historico de Atualizacoes</span>
+            <button type="button" data-action="close">Fechar</button>
+          </header>
+          <div class="hs-update-modal-body">
+            <p class="hs-updates-log-meta"></p>
+            <ul class="hs-updates-log-rules"></ul>
+            <div class="hs-updates-log-list"></div>
+            <p class="hs-updates-log-footer"></p>
+            <div class="hs-update-modal-actions">
+              <button type="button" class="is-main" data-action="install" style="display:none;">Atualizar agora</button>
+              <button type="button" data-action="refresh">Recarregar lista</button>
+              <button type="button" data-action="close-bottom">Fechar</button>
+            </div>
+          </div>
+        </section>
+      `;
+      document.body.appendChild(modal);
     }
-    window.alert(lines.join("\n"));
+    hsUpdatesLogModal = modal;
+    if (modal.dataset.hsBound === "1") return modal;
+    modal.dataset.hsBound = "1";
+
+    modal.querySelector(".hs-update-modal-backdrop")?.addEventListener("click", closeUpdatesLogModal);
+    modal.querySelector('[data-action="close"]')?.addEventListener("click", closeUpdatesLogModal);
+    modal.querySelector('[data-action="close-bottom"]')?.addEventListener("click", closeUpdatesLogModal);
+    modal.addEventListener("click", (ev) => {
+      const btn = ev.target instanceof HTMLElement ? ev.target.closest("button[data-action]") : null;
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const action = String(btn.dataset.action || "").trim();
+      const payload = hsUpdatesLogPayload || {};
+      if (action === "refresh") {
+        if (btn.dataset.hsBusy === "1") return;
+        btn.dataset.hsBusy = "1";
+        const oldLabel = btn.textContent;
+        btn.textContent = "Atualizando...";
+        showRecentUpdatesDialog({
+          forceRefresh: true,
+          remoteVersion: String(payload.remoteVersion || ""),
+          remoteUrl: String(payload.remoteUrl || ""),
+          highlightVersion: String(payload.highlightVersion || ""),
+          checkedAt: Number(payload.checkedAt || Date.now()),
+        })
+          .catch(() => toast("Nao foi possivel recarregar o historico agora.", "err", 2800))
+          .finally(() => {
+            btn.textContent = oldLabel || "Recarregar lista";
+            delete btn.dataset.hsBusy;
+          });
+        return;
+      }
+      if (action === "install") {
+        openScriptUpdatePage(String(payload.remoteUrl || ""));
+      }
+    });
+    return modal;
+  }
+  /**
+   * Objetivo: Renderiza conteudo do modal de historico de atualizacoes.
+   *
+   * Contexto: alimentado por updates-log.json remoto com fallback local.
+   * Parametros:
+   * - payload: dados consolidados para UI.
+   * Retorno: void.
+   */
+  function renderUpdatesLogModal(payload) {
+    const modal = ensureUpdatesLogModal();
+    if (!(modal instanceof HTMLElement)) return;
+    const list = Array.isArray(payload?.list) ? payload.list : [];
+    const source = String(payload?.source || "").trim();
+    const sourceLabelByKey = {
+      remote: "updates-log.json (remoto)",
+      cache: "cache local",
+      "cache-fallback": "cache local (fallback)",
+      "local-fallback": "RECENT_UPDATES local (fallback)",
+    };
+    const sourceLabel = sourceLabelByKey[source] || "fonte local";
+    const remoteVersion = String(payload?.remoteVersion || "").trim();
+    const remoteUrl = String(payload?.remoteUrl || "").trim();
+    const hasUpdate = compareVersionTexts(remoteVersion, SCRIPT_VERSION) > 0;
+    const checkedAt = Number(payload?.checkedAt || Date.now());
+    const highlightVersion = String(payload?.highlightVersion || "").trim();
+    const metaEl = modal.querySelector(".hs-updates-log-meta");
+    const rulesEl = modal.querySelector(".hs-updates-log-rules");
+    const listEl = modal.querySelector(".hs-updates-log-list");
+    const footerEl = modal.querySelector(".hs-updates-log-footer");
+    const installBtn = modal.querySelector('button[data-action="install"]');
+
+    if (metaEl instanceof HTMLElement) {
+      const headline = hasUpdate
+        ? `Nova versao v${remoteVersion} disponivel (atual: v${SCRIPT_VERSION}).`
+        : `Versao atual: v${SCRIPT_VERSION}.`;
+      metaEl.textContent = `${headline} Fonte: ${sourceLabel}.`;
+    }
+    if (rulesEl instanceof HTMLElement) {
+      rulesEl.innerHTML = "";
+      UPDATE_LOG_RULES.forEach((rule) => {
+        const li = document.createElement("li");
+        li.textContent = rule;
+        rulesEl.appendChild(li);
+      });
+    }
+    if (listEl instanceof HTMLElement) {
+      listEl.innerHTML = "";
+      if (!list.length) {
+        const empty = document.createElement("p");
+        empty.className = "hs-updates-log-empty";
+        empty.textContent = "Nenhuma atualizacao registrada ate o momento.";
+        listEl.appendChild(empty);
+      } else {
+        list.slice(0, 60).forEach((item) => {
+          const article = document.createElement("article");
+          article.className = "hs-updates-log-item";
+          const version = String(item?.version || "").trim();
+          if (highlightVersion && version === highlightVersion) article.classList.add("is-highlight");
+
+          const head = document.createElement("header");
+          head.className = "hs-updates-log-item-head";
+          const versionEl = document.createElement("span");
+          versionEl.className = "version";
+          versionEl.textContent = version ? `v${version}` : "v?";
+          const dateEl = document.createElement("span");
+          dateEl.className = "date";
+          dateEl.textContent = String(item?.date || "").trim() || "sem data";
+          head.appendChild(versionEl);
+          head.appendChild(dateEl);
+          article.appendChild(head);
+
+          const notes = Array.isArray(item?.notes) ? item.notes : [];
+          if (notes.length) {
+            const ul = document.createElement("ul");
+            notes.forEach((note) => {
+              const li = document.createElement("li");
+              li.textContent = String(note || "").trim();
+              ul.appendChild(li);
+            });
+            article.appendChild(ul);
+          }
+          listEl.appendChild(article);
+        });
+      }
+    }
+    if (footerEl instanceof HTMLElement) {
+      footerEl.textContent = `Ultima leitura: ${new Date(checkedAt).toLocaleString("pt-BR")}.`;
+    }
+    if (installBtn instanceof HTMLButtonElement) {
+      const canInstall = hasUpdate;
+      installBtn.style.display = canInstall ? "inline-flex" : "none";
+      installBtn.textContent = canInstall ? `Atualizar para v${remoteVersion}` : "Atualizar agora";
+      installBtn.disabled = !canInstall;
+      installBtn.title = canInstall ? "Abrir instalacao da nova versao" : "";
+    }
+
+    hsUpdatesLogPayload = {
+      list,
+      source,
+      remoteVersion,
+      remoteUrl,
+      hasUpdate,
+      highlightVersion,
+      checkedAt,
+    };
+    modal.classList.add("open");
+  }
+  /**
+   * Objetivo: Exibe historico de atualizacoes em modal.
+   *
+   * Contexto: usa updates-log.json remoto e fallback local.
+   * Parametros:
+   * - options: entradas de controle para refresh e destaque de versao.
+   * Retorno: Promise<void>.
+   */
+  async function showRecentUpdatesDialog(options = {}) {
+    const opts = options && typeof options === "object" ? options : {};
+    const forceRefresh = opts.forceRefresh !== false;
+    const localUpdates = enforceUpdateHistoryRules(true);
+    const remotePayload = await fetchUpdatesLog(forceRefresh);
+    const remoteUpdates = normalizeUpdatesLogList(remotePayload?.list || []);
+    const merged = mergeUpdateHistoryAppendOnly(localUpdates, remoteUpdates);
+    writeUpdateHistoryToStorage(merged);
+
+    const remoteSorted = mergeUpdateHistoryAppendOnly([], remoteUpdates);
+    const displayList = remoteSorted.length ? remoteSorted : merged;
+    const remoteVersion =
+      String(opts.remoteVersion || "").trim() ||
+      String(hsScriptUpdateLastResult?.remoteVersion || "").trim();
+    const remoteUrl =
+      String(opts.remoteUrl || "").trim() ||
+      String(hsScriptUpdateLastResult?.remoteUrl || "").trim() ||
+      String(MANUAL_UPDATE_SOURCE_URL || "").trim();
+    const highlightVersion = String(opts.highlightVersion || remoteVersion || "").trim();
+    const checkedAt = Number(opts.checkedAt || Date.now());
+
+    renderUpdatesLogModal({
+      list: displayList,
+      source: String(remotePayload?.source || (remoteUpdates.length ? "remote" : "local-fallback")),
+      remoteVersion,
+      remoteUrl,
+      highlightVersion,
+      checkedAt,
+    });
   }
   /**
    * Objetivo: Compara versoes no formato numerico separado por ponto.
@@ -3687,7 +4039,8 @@ Atenciosamente.`;
       if (!Number.isFinite(checkedAt) || checkedAt <= 0) return null;
       const remoteVersion = String(localStorage.getItem(UPDATE_CHECK_REMOTE_VERSION_LS_KEY) || "").trim();
       const remoteUrl = String(localStorage.getItem(UPDATE_CHECK_REMOTE_URL_LS_KEY) || "").trim();
-      const hasUpdate = localStorage.getItem(UPDATE_CHECK_HAS_UPDATE_LS_KEY) === "1";
+      const hasUpdateComputed = remoteVersion ? compareVersionTexts(remoteVersion, SCRIPT_VERSION) > 0 : false;
+      const hasUpdate = hasUpdateComputed;
       return { ok: true, checkedAt, remoteVersion, remoteUrl, hasUpdate };
     } catch {
       return null;
@@ -3703,12 +4056,14 @@ Atenciosamente.`;
    * Efeitos colaterais: escrita em localStorage.
    */
   function persistUpdateCheckResult(result) {
+    const remoteVersion = String(result?.remoteVersion || "").trim();
+    const hasUpdateComputed = remoteVersion ? compareVersionTexts(remoteVersion, SCRIPT_VERSION) > 0 : false;
     const next = {
       ok: !!result?.ok,
       checkedAt: Number(result?.checkedAt || Date.now()),
-      remoteVersion: String(result?.remoteVersion || "").trim(),
+      remoteVersion,
       remoteUrl: String(result?.remoteUrl || "").trim(),
-      hasUpdate: !!result?.hasUpdate,
+      hasUpdate: hasUpdateComputed,
       error: String(result?.error || "").trim(),
     };
     hsScriptUpdateLastResult = next;
@@ -4144,6 +4499,8 @@ Atenciosamente.`;
         (ev) => {
           if (ev.key !== "Escape") return;
           closeManualUpdateModal();
+          closeUpdatesLogModal();
+          closeImagePreviewModal();
         },
         true
       );
@@ -4239,7 +4596,7 @@ Atenciosamente.`;
    * Parametros:
    * - result: entrada usada por esta rotina.
    * Retorno: void.
-   * Efeitos colaterais: prompt/confirmacao visual e persistencia de versao notificada.
+   * Efeitos colaterais: abre modal de atualizacao e persiste versao notificada.
    */
   function showUpdatePopupOnce(result) {
     const hasUpdate = !!result?.hasUpdate && !!String(result?.remoteVersion || "").trim();
@@ -4252,9 +4609,15 @@ Atenciosamente.`;
     setLastUpdatePopupVersion(remoteVersion);
 
     setTimeout(() => {
-      const msg = `Nova versao ${remoteVersion} disponivel.\n\nClique em OK para abrir a atualizacao agora.`;
-      const openNow = window.confirm(msg);
-      if (openNow) openScriptUpdatePage(result?.remoteUrl || "");
+      showRecentUpdatesDialog({
+        forceRefresh: true,
+        remoteVersion,
+        remoteUrl: String(result?.remoteUrl || ""),
+        highlightVersion: remoteVersion,
+        checkedAt: Number(result?.checkedAt || Date.now()),
+      }).catch(() => {
+        toast(`Nova versao ${remoteVersion} disponivel.`, "info", 3000);
+      });
     }, 120);
   }
   /**
@@ -5459,7 +5822,7 @@ Atenciosamente.`;
       }
       const remoteVersion = String(result.remoteVersion || "").trim();
       alertBtn.value = `Nova versao ${remoteVersion}`;
-      alertBtn.title = `Existe atualizacao disponivel (${remoteVersion}). Clique para abrir.`;
+      alertBtn.title = `Existe atualizacao disponivel (${remoteVersion}). Clique para ver detalhes e atualizar.`;
       alertBtn.dataset.hsRemoteUrl = String(result?.remoteUrl || "").trim();
       alertBtn.style.setProperty("display", "inline-flex", "important");
       showUpdatePopupOnce(result);
@@ -5533,7 +5896,15 @@ Atenciosamente.`;
     alertBtn.onclick = (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      openScriptUpdatePage(alertBtn.dataset.hsRemoteUrl || "");
+      showRecentUpdatesDialog({
+        forceRefresh: true,
+        remoteVersion: String(alertBtn.value || "").replace(/^Nova versao\s*/i, "").trim(),
+        remoteUrl: String(alertBtn.dataset.hsRemoteUrl || ""),
+        highlightVersion: String(alertBtn.value || "").replace(/^Nova versao\s*/i, "").trim(),
+        checkedAt: Date.now(),
+      }).catch(() => {
+        openScriptUpdatePage(alertBtn.dataset.hsRemoteUrl || "");
+      });
     };
     const cached = hsScriptUpdateLastResult || readCachedUpdateCheckResult();
     applyUpdateState(cached);
@@ -6923,6 +7294,78 @@ Atenciosamente.`;
     return /visualizar_requisicao\.php/i.test(location.pathname);
   }
   /**
+   * Objetivo: Fecha modal de preview de imagem.
+   *
+   * Contexto: usado nos previews de anexos locais/remotos.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function closeImagePreviewModal() {
+    if (!hsImagePreviewModal) hsImagePreviewModal = document.getElementById("hs-image-viewer");
+    if (!(hsImagePreviewModal instanceof HTMLElement)) return;
+    hsImagePreviewModal.classList.remove("open");
+  }
+  /**
+   * Objetivo: Garante modal para visualizar imagem ampliada.
+   *
+   * Contexto: compartilhado por anexos selecionados e anexos ja carregados.
+   * Parametros: nenhum.
+   * Retorno: HTMLElement|null.
+   */
+  function ensureImagePreviewModal() {
+    if (hsImagePreviewModal && hsImagePreviewModal.isConnected) return hsImagePreviewModal;
+    let modal = document.getElementById("hs-image-viewer");
+    if (!(modal instanceof HTMLElement)) {
+      modal = document.createElement("div");
+      modal.id = "hs-image-viewer";
+      modal.className = "hs-image-viewer";
+      modal.innerHTML = `
+        <div class="hs-image-viewer-backdrop"></div>
+        <section class="hs-image-viewer-card" role="dialog" aria-modal="true" aria-label="Preview da imagem do anexo">
+          <header class="hs-image-viewer-head">
+            <span class="hs-image-viewer-title">Preview da imagem</span>
+            <button type="button" data-action="close">Fechar</button>
+          </header>
+          <div class="hs-image-viewer-body">
+            <img alt="Preview do anexo" />
+          </div>
+        </section>
+      `;
+      document.body.appendChild(modal);
+    }
+    hsImagePreviewModal = modal;
+    if (modal.dataset.hsBound === "1") return modal;
+    modal.dataset.hsBound = "1";
+    modal.querySelector(".hs-image-viewer-backdrop")?.addEventListener("click", closeImagePreviewModal);
+    modal.querySelector('[data-action="close"]')?.addEventListener("click", closeImagePreviewModal);
+    return modal;
+  }
+  /**
+   * Objetivo: Abre modal de preview para URL de imagem.
+   *
+   * Contexto: acionado por clique nas miniaturas e links de anexos.
+   * Parametros:
+   * - imageUrl: URL da imagem.
+   * - label: titulo opcional.
+   * Retorno: void.
+   */
+  function openImagePreviewModal(imageUrl, label = "") {
+    const src = String(imageUrl || "").trim();
+    if (!src) return;
+    const modal = ensureImagePreviewModal();
+    if (!(modal instanceof HTMLElement)) return;
+    const titleEl = modal.querySelector(".hs-image-viewer-title");
+    const img = modal.querySelector(".hs-image-viewer-body img");
+    if (!(img instanceof HTMLImageElement)) return;
+    if (titleEl instanceof HTMLElement) {
+      const title = String(label || "").trim();
+      titleEl.textContent = title ? `Preview da imagem - ${title}` : "Preview da imagem";
+    }
+    img.src = src;
+    img.alt = String(label || "Preview do anexo");
+    modal.classList.add("open");
+  }
+  /**
    * Objetivo: Habilita selecao multipla de imagens no campo de anexos.
    *
    * Contexto: Tela "Visualizar requisicao" no bloco de novo acompanhamento.
@@ -6934,6 +7377,38 @@ Atenciosamente.`;
     if (!isRequestVisualizarPage()) return;
     const root = document.getElementById("interno") || document.body;
     if (!(root instanceof HTMLElement)) return;
+    const imageUrlRx = /\.(avif|bmp|gif|heic|heif|jpe?g|png|svg|tiff?|webp)(?:[?#].*)?$/i;
+    const hasImageExtension = (value) => imageUrlRx.test(String(value || "").trim());
+    const toAbsoluteUrl = (value) => {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      try {
+        return new URL(raw, location.href).toString();
+      } catch {
+        return raw;
+      }
+    };
+    const bindClickableImagePreview = (target, imageUrl, label = "") => {
+      if (!(target instanceof HTMLElement)) return;
+      const resolvedUrl = toAbsoluteUrl(imageUrl);
+      if (!resolvedUrl) return;
+      if (/^javascript:/i.test(resolvedUrl)) return;
+      if (target.dataset.hsImgPreviewUrl === resolvedUrl) return;
+      target.dataset.hsImgPreviewUrl = resolvedUrl;
+      target.style.setProperty("cursor", "zoom-in", "important");
+      target.addEventListener(
+        "click",
+        (ev) => {
+          if (ev.defaultPrevented) return;
+          if ("button" in ev && ev.button !== 0) return;
+          if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          openImagePreviewModal(resolvedUrl, label);
+        },
+        true
+      );
+    };
 
     const setInputMulti = (input) => {
       if (!(input instanceof HTMLInputElement)) return;
@@ -7025,6 +7500,10 @@ Atenciosamente.`;
 
           const fig = document.createElement("figure");
           fig.className = "hs-attach-thumb";
+          fig.tabIndex = 0;
+          fig.setAttribute("role", "button");
+          fig.setAttribute("aria-label", `Abrir preview de ${String(file.name || "imagem")}`);
+          fig.title = "Clique para ampliar";
 
           const img = document.createElement("img");
           img.alt = String(file.name || "imagem");
@@ -7038,6 +7517,13 @@ Atenciosamente.`;
           fig.appendChild(img);
           fig.appendChild(caption);
           preview.appendChild(fig);
+          if (src) bindClickableImagePreview(fig, src, String(file.name || "imagem"));
+          fig.addEventListener("keydown", (ev) => {
+            const key = String(ev.key || "").toLowerCase();
+            if (key !== "enter" && key !== " ") return;
+            ev.preventDefault();
+            if (src) openImagePreviewModal(src, String(file.name || "imagem"));
+          });
         }
       };
 
@@ -7065,6 +7551,41 @@ Atenciosamente.`;
         setInputMulti(input);
         decorateInputPreview(input);
       }
+    });
+    const attachmentBlocks = [];
+    const detailRows = Array.from(root.querySelectorAll("table:not(.sortable) tr")).filter((tr) => {
+      const cells = Array.from(tr.querySelectorAll("th,td"));
+      if (!cells.length) return false;
+      const firstLabel = norm(cells[0]?.textContent || "");
+      return /^anex/.test(firstLabel) || /\banex/.test(norm(tr.textContent || ""));
+    });
+    detailRows.forEach((row) => attachmentBlocks.push(row));
+    root
+      .querySelectorAll(
+        "[id*='anex'], [class*='anex'], [name*='anex']"
+      )
+      .forEach((el) => {
+        if (el instanceof HTMLElement) attachmentBlocks.push(el);
+      });
+    const uniqueBlocks = Array.from(new Set(attachmentBlocks));
+    uniqueBlocks.forEach((scope) => {
+      scope.querySelectorAll("a[href], img[src]").forEach((el) => {
+        let url = "";
+        let label = "";
+        if (el instanceof HTMLAnchorElement) {
+          url = String(el.getAttribute("href") || "").trim();
+          label = String(el.textContent || el.getAttribute("title") || "").trim();
+        } else if (el instanceof HTMLImageElement) {
+          url = String(el.currentSrc || el.src || "").trim();
+          label = String(el.getAttribute("alt") || el.getAttribute("title") || "").trim();
+        } else {
+          return;
+        }
+        const probe = norm(`${url} ${label}`);
+        const isLikelyImage = hasImageExtension(url) || /^data:image\//i.test(url) || /imagem|image|anex|upload/.test(probe);
+        if (!isLikelyImage) return;
+        bindClickableImagePreview(el, url, label);
+      });
     });
 
     if (root.dataset.hsMultiAnexoBind === "1") return;
@@ -7402,12 +7923,6 @@ Atenciosamente.`;
    * Efeitos colaterais: pode ler/alterar DOM, storage e estado de execucao conforme o caso.
    */
   function getLoggedUserDisplayName() {
-    const menu =
-      document.getElementById("cabecalho_menu") ||
-      document.querySelector("#cabecalho #cabecalho_menu") ||
-      document.getElementById("cabecalho");
-    if (!(menu instanceof HTMLElement)) return "";
-
     const toCandidateName = (value) => {
       let raw = String(value || "").replace(/\s+/g, " ").trim();
       if (!raw) return "";
@@ -7439,23 +7954,78 @@ Atenciosamente.`;
       return formatPersonDisplayName(raw, false);
     };
 
-    const directTexts = Array.from(menu.childNodes)
-      .filter((node) => node.nodeType === Node.TEXT_NODE)
-      .map((node) => String(node.textContent || "").replace(/\s+/g, " ").trim())
-      .filter(Boolean);
-    for (const txt of directTexts) {
-      const candidate = toCandidateName(txt);
-      if (candidate) return candidate;
+    const roots = Array.from(
+      new Set(
+        [
+          document.getElementById("cabecalho_menu"),
+          document.querySelector("#cabecalho #cabecalho_menu"),
+          document.getElementById("cabecalho"),
+          document.querySelector("#cabecalho"),
+          document.querySelector("header"),
+        ].filter((el) => el instanceof HTMLElement)
+      )
+    );
+    const extractFromRoot = (menu) => {
+      const directTexts = Array.from(menu.childNodes)
+        .filter((node) => node.nodeType === Node.TEXT_NODE)
+        .map((node) => String(node.textContent || "").replace(/\s+/g, " ").trim())
+        .filter(Boolean);
+      for (const txt of directTexts) {
+        const candidate = toCandidateName(txt);
+        if (candidate) return candidate;
+      }
+
+      const leaves = Array.from(menu.querySelectorAll("span,strong,b,font,a,td,div,label")).filter((el) => {
+        if (!(el instanceof HTMLElement)) return false;
+        if (el.querySelector("input,button,select,textarea,img,svg,i")) return false;
+        return true;
+      });
+      for (const el of leaves) {
+        const candidate = toCandidateName(el.textContent || "");
+        if (candidate) return candidate;
+      }
+
+      const controls = Array.from(menu.querySelectorAll("input,select")).filter(
+        (el) => el instanceof HTMLInputElement || el instanceof HTMLSelectElement
+      );
+      for (const control of controls) {
+        const meta = norm(
+          [
+            control.getAttribute("name") || "",
+            control.getAttribute("id") || "",
+            control.getAttribute("class") || "",
+            control.getAttribute("aria-label") || "",
+          ].join(" ")
+        );
+        if (!/(usuario|user|login|tecnico|responsavel)/.test(meta)) continue;
+        const value =
+          control instanceof HTMLSelectElement
+            ? String(control.options?.[control.selectedIndex]?.textContent || control.value || "").trim()
+            : String(control.value || "").trim();
+        const candidate = toCandidateName(value);
+        if (candidate) return candidate;
+      }
+
+      return "";
+    };
+    for (const root of roots) {
+      const fromRoot = extractFromRoot(root);
+      if (fromRoot) return fromRoot;
     }
 
-    const leaves = Array.from(menu.querySelectorAll("span,strong,b,font,a,td,div")).filter((el) => {
-      if (!(el instanceof HTMLElement)) return false;
-      if (el.querySelector("input,button,select,textarea,img,svg,i")) return false;
-      return true;
-    });
-    for (const el of leaves) {
-      const candidate = toCandidateName(el.textContent || "");
-      if (candidate) return candidate;
+    const logoutLinks = Array.from(
+      document.querySelectorAll(
+        "#cabecalho a[href*='logout'], #cabecalho_menu a[href*='logout'], #cabecalho a[href*='sair'], #cabecalho_menu a[href*='sair']"
+      )
+    ).filter((el) => el instanceof HTMLAnchorElement);
+    for (const link of logoutLinks) {
+      const holders = [link.parentElement, link.closest("td,div,span,li,p"), link.previousElementSibling].filter(
+        (el) => el instanceof HTMLElement
+      );
+      for (const holder of holders) {
+        const candidate = toCandidateName(holder.textContent || "");
+        if (candidate) return candidate;
+      }
     }
 
     return "";
@@ -7475,7 +8045,7 @@ Atenciosamente.`;
     const responsavelRaw = responsavelConsumoRaw || getRequestFieldValueByLabel(/^responsavel\b/);
     const fallbackResponsavel = formatPersonDisplayName(responsavelRaw, false);
     const assinatura = loggedUser || fallbackResponsavel || "Equipe de Suporte";
-    return `${greeting}\nSegue or\u00e7amento para servi\u00e7o solicitado!\n\nAtenciosamente,\n${assinatura}`;
+    return `${greeting}\nSegue or\u00e7amento para servi\u00e7o solicitado\n\nAtenciosamente,\n${assinatura}`;
   }
   /**
    * Objetivo: Monta resposta final com saudaÃ§Ã£o, corpo e assinatura.
@@ -8710,6 +9280,9 @@ Atenciosamente.`;
   let reqPopup = null;
   let hsManualUpdateModal = null;
   let hsManualUpdatePayload = null;
+  let hsUpdatesLogModal = null;
+  let hsUpdatesLogPayload = null;
+  let hsImagePreviewModal = null;
   let reqPopupEscBound = false;
   let hsReqClicksBound = false;
   let hsAjaxRefreshBusy = false;
