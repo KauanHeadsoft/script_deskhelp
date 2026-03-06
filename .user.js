@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.28
+// @version      2.15.29
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -44,7 +44,7 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.28";
+  const SCRIPT_VERSION = "2.15.29";
   const UPDATE_LOG_HISTORY_LS_KEY = "hs2025-updates-history";
   const UPDATE_LOG_RULES = Object.freeze([
     "Regra 1: nunca remover entradas antigas do campo de atualizacoes.",
@@ -95,6 +95,14 @@ Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const T_ENVIAR_ORCAMENTO = "Orcamento enviado ao solicitante.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.29",
+      notes: [
+        "Notificacao global de update em qualquer pagina (nao depende do dashboard).",
+        "Fluxo de aviso reforcado para facilitar atualizacao manual imediata.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.28",
@@ -3566,6 +3574,24 @@ Atenciosamente.`;
       const openNow = window.confirm(msg);
       if (openNow) openScriptUpdatePage(result?.remoteUrl || "");
     }, 120);
+  }
+  /**
+   * Objetivo: Dispara verificacao/notificacao de update de forma global na pagina.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros: nenhum.
+   * Retorno: void.
+   * Efeitos colaterais: consulta remota e popup de update quando houver nova versao.
+   */
+  function ensureGlobalUpdateNotification() {
+    const root = document.documentElement;
+    if (!(root instanceof HTMLElement)) return;
+    if (root.dataset.hsGlobalUpdateCheckStarted === "1") return;
+    root.dataset.hsGlobalUpdateCheckStarted = "1";
+
+    checkScriptUpdateAvailability(false)
+      .then((result) => showUpdatePopupOnce(result))
+      .catch(() => {});
   }
   /**
    * Objetivo: Le cache local do catalogo de versoes.
@@ -8913,6 +8939,7 @@ Atenciosamente.`;
     runStep(ensureWindowOpenDedupGuard, "ensureWindowOpenDedupGuard");
     runStep(injectStyle, "injectStyle");
     runStep(enforceUpdateHistoryRules, "enforceUpdateHistoryRules");
+    runStep(ensureGlobalUpdateNotification, "ensureGlobalUpdateNotification");
     runStep(ensureThemeBtn, "ensureThemeBtn");
     runStep(() => applyTheme(getTheme()), "applyTheme");
     runStep(ensureBadge, "ensureBadge");
