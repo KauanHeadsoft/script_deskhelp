@@ -5,7 +5,9 @@
         "notes":  [
                       "Modal de atualizacao manual agora revalida o fallback direto no GitHub ao abrir o bloco de codigo.",
                       "Texto de status da atualizacao manual permanece fixo e troca somente o numero da versao remota.",
-                      "Versao local passou a usar GM_info.script.version automaticamente (com fallback)."
+                      "Versao local passou a usar GM_info.script.version automaticamente (com fallback).",
+                      "Anexos do chamado agora possuem botao Limpar e remocao individual por miniatura antes do envio.",
+                      "Cabecalho sticky da grade em consulta_requisicao voltou a respeitar offset do topo, sem sobrepor no scroll."
                   ]
     },
     {
