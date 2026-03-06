@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.43
+// @version      2.15.44
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -48,7 +48,7 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION_FALLBACK = "2.15.43";
+  const SCRIPT_VERSION_FALLBACK = "2.15.44";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -115,6 +115,14 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.44",
+      notes: [
+        "Correcao do header sticky da grade: topo restaurado para 0 para evitar cabecalho no meio da tabela ao rolar.",
+        "Ajuste de camada do thead sticky para manter leitura correta da grade sem quebrar a ordem visual das linhas.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.43",
@@ -3360,8 +3368,8 @@ Atenciosamente.`;
     font-weight:800!important;
     padding:9px 10px!important;
     position:sticky!important;
-    top:var(--hs-dashboard-top-offset, 72px)!important;
-    z-index:3!important;
+    top:0!important;
+    z-index:2!important;
   }
   body.hs-dashboard-page table.sortable tbody td{
     font-size:13px!important;

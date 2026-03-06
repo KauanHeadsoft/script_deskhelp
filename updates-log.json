@@ -1,6 +1,14 @@
 ﻿[
     {
         "date":  "2026-03-06",
+        "version":  "2.15.44",
+        "notes":  [
+                      "Correcao do header sticky da grade: topo restaurado para 0 para evitar cabecalho no meio da tabela.",
+                      "Ajuste de camada do thead sticky para manter ordem visual correta das linhas ao rolar."
+                  ]
+    },
+    {
+        "date":  "2026-03-06",
         "version":  "2.15.43",
         "notes":  [
                       "Atualizacao manual agora escolhe a maior versao entre todas as fontes remotas.",
