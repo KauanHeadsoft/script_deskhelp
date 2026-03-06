@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.24
+// @version      2.15.25
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -44,7 +44,13 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.24";
+  const SCRIPT_VERSION = "2.15.25";
+  const UPDATE_LOG_HISTORY_LS_KEY = "hs2025-updates-history";
+  const UPDATE_LOG_RULES = Object.freeze([
+    "Regra 1: nunca remover entradas antigas do campo de atualizacoes.",
+    "Regra 2: toda nova versao deve adicionar uma entrada no RECENT_UPDATES.",
+    "Regra 3: manter notas objetivas do que mudou em cada versao.",
+  ]);
   const THEME_LABEL_WHEN_DARK = "Modo Claro";
   const THEME_LABEL_WHEN_LIGHT = "Modo Escuro";
   const SCRIPT_REPO_URL = "https://github.com/KauanHeadsoft/script_deskhelp";
@@ -86,6 +92,14 @@ Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const T_ENVIAR_ORCAMENTO = "Orcamento enviado ao solicitante.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.25",
+      notes: [
+        "Regras append-only no historico de atualizacoes.",
+        "Painel de atualizacoes agora usa historico protegido e persistente.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.24",
@@ -3107,6 +3121,144 @@ Atenciosamente.`;
     } catch {}
   }
   /**
+   * Objetivo: Normaliza item do historico de atualizacoes para formato consistente.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - entry: entrada usada por esta rotina.
+   * Retorno: object|null.
+   * Efeitos colaterais: nenhum.
+   */
+  function normalizeUpdateHistoryEntry(entry) {
+    if (!entry || typeof entry !== "object") return null;
+    const version = String(entry.version || "").trim();
+    const date = String(entry.date || "").trim();
+    const notesRaw = Array.isArray(entry.notes) ? entry.notes : [];
+    const notes = Array.from(
+      new Set(
+        notesRaw
+          .map((n) => String(n || "").trim())
+          .filter(Boolean)
+      )
+    );
+    if (!version && !date && !notes.length) return null;
+    return { version, date, notes };
+  }
+  /**
+   * Objetivo: Mescla historicos no modo append-only (nunca remove entradas existentes).
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - oldList: entrada usada por esta rotina.
+   * - newList: entrada usada por esta rotina.
+   * Retorno: Array<object>.
+   * Efeitos colaterais: nenhum.
+   */
+  function mergeUpdateHistoryAppendOnly(oldList = [], newList = []) {
+    const map = new Map();
+    const upsert = (entry) => {
+      const normalized = normalizeUpdateHistoryEntry(entry);
+      if (!normalized) return;
+      const key =
+        normalized.version
+          ? `v:${normalized.version}`
+          : `d:${normalized.date}|n:${normalized.notes.join("||")}`;
+      const current = map.get(key);
+      if (!current) {
+        map.set(key, normalized);
+        return;
+      }
+      const mergedNotes = Array.from(new Set([...(current.notes || []), ...(normalized.notes || [])]));
+      map.set(key, {
+        version: current.version || normalized.version,
+        date: current.date || normalized.date,
+        notes: mergedNotes,
+      });
+    };
+
+    (Array.isArray(oldList) ? oldList : []).forEach(upsert);
+    (Array.isArray(newList) ? newList : []).forEach(upsert);
+
+    return Array.from(map.values()).sort((a, b) => {
+      const byVersion = compareVersionTexts(String(b.version || ""), String(a.version || ""));
+      if (byVersion !== 0) return byVersion;
+      return String(b.date || "").localeCompare(String(a.date || ""));
+    });
+  }
+  /**
+   * Objetivo: Le historico append-only de atualizacoes do storage local.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros: nenhum.
+   * Retorno: Array<object>.
+   * Efeitos colaterais: leitura de localStorage.
+   */
+  function readUpdateHistoryFromStorage() {
+    try {
+      const raw = String(localStorage.getItem(UPDATE_LOG_HISTORY_LS_KEY) || "").trim();
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map((x) => normalizeUpdateHistoryEntry(x)).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+  /**
+   * Objetivo: Persiste historico append-only de atualizacoes.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - list: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: escrita em localStorage.
+   */
+  function writeUpdateHistoryToStorage(list) {
+    try {
+      localStorage.setItem(UPDATE_LOG_HISTORY_LS_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+    } catch {}
+  }
+  /**
+   * Objetivo: Sincroniza RECENT_UPDATES com historico persistido sem apagar entradas antigas.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros: nenhum.
+   * Retorno: Array<object>.
+   * Efeitos colaterais: leitura/escrita em localStorage.
+   */
+  function getAppendOnlyUpdateHistory() {
+    const persisted = readUpdateHistoryFromStorage();
+    const merged = mergeUpdateHistoryAppendOnly(persisted, RECENT_UPDATES);
+
+    // Garante que a versao atual sempre apareca no painel de atualizacoes.
+    if (!merged.some((entry) => String(entry.version || "").trim() === SCRIPT_VERSION)) {
+      merged.unshift({
+        version: SCRIPT_VERSION,
+        date: new Date().toISOString().slice(0, 10),
+        notes: ["Atualizacao registrada automaticamente nesta versao."],
+      });
+    }
+
+    writeUpdateHistoryToStorage(merged);
+    return merged;
+  }
+  /**
+   * Objetivo: Valida e reforca regras do campo de atualizacoes no runtime.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros: nenhum.
+   * Retorno: Array<object>.
+   * Efeitos colaterais: warnings no console quando regras nao forem atendidas.
+   */
+  function enforceUpdateHistoryRules() {
+    const list = getAppendOnlyUpdateHistory();
+    const current = list.find((entry) => String(entry.version || "").trim() === SCRIPT_VERSION);
+    if (!current || !Array.isArray(current.notes) || current.notes.length === 0) {
+      console.warn("[HeadsoftHelper][updates] Regra violada: adicione notas para a versao atual no RECENT_UPDATES.");
+    }
+    return list;
+  }
+  /**
    * Objetivo: Exibe resumo das ultimas atualizacoes do userscript.
    *
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
@@ -3115,12 +3267,16 @@ Atenciosamente.`;
    * Efeitos colaterais: abre dialogo nativo com historico recente.
    */
   function showRecentUpdatesDialog() {
+    const updates = enforceUpdateHistoryRules();
     const lines = [
       `Headsoft Suporte Modern UI v${SCRIPT_VERSION}`,
       "",
+      "Regras do campo de atualizacoes:",
+      ...UPDATE_LOG_RULES.map((r) => `- ${r}`),
+      "",
       "Ultimas atualizacoes:",
     ];
-    RECENT_UPDATES.forEach((item) => {
+    updates.forEach((item) => {
       lines.push(`- ${item.date} (v${item.version})`);
       (item.notes || []).forEach((note) => lines.push(`  * ${String(note || "").trim()}`));
     });
@@ -8646,6 +8802,7 @@ Atenciosamente.`;
     runStep(ensureReqOpenDebugTools, "ensureReqOpenDebugTools");
     runStep(ensureWindowOpenDedupGuard, "ensureWindowOpenDedupGuard");
     runStep(injectStyle, "injectStyle");
+    runStep(enforceUpdateHistoryRules, "enforceUpdateHistoryRules");
     runStep(ensureThemeBtn, "ensureThemeBtn");
     runStep(() => applyTheme(getTheme()), "applyTheme");
     runStep(ensureBadge, "ensureBadge");
