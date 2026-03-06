@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.34
+// @version      2.15.35
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -44,7 +44,7 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.34";
+  const SCRIPT_VERSION = "2.15.35";
   const UPDATE_LOG_HISTORY_LS_KEY = "hs2025-updates-history";
   const UPDATE_LOG_RULES = Object.freeze([
     "Regra 1: nunca remover entradas antigas do campo de atualizacoes.",
@@ -63,6 +63,8 @@
   const UPDATE_POPUP_LAST_VERSION_LS_KEY = "hs2025-update-popup-last-version";
   const UPDATE_INSTALL_BRIDGE_BASE_URL = "https://www.tampermonkey.net/script_installation.php#url=";
   const MANUAL_UPDATE_SOURCE_URL = "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/HEAD/.user.js";
+  const MANUAL_UPDATE_GITHUB_RAW_URL = "https://github.com/KauanHeadsoft/script_deskhelp/raw/main/.user.js";
+  const MANUAL_UPDATE_GITHUB_FILE_URL = "https://github.com/KauanHeadsoft/script_deskhelp/blob/main/.user.js";
   const VERSION_CATALOG_CACHE_LS_KEY = "hs2025-version-catalog-json";
   const VERSION_CATALOG_CACHE_AT_LS_KEY = "hs2025-version-catalog-at";
   const VERSION_CATALOG_CACHE_MS = 6 * 60 * 60 * 1000;
@@ -101,6 +103,14 @@ Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const T_ENVIAR_ORCAMENTO = "Orcamento enviado ao solicitante.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.35",
+      notes: [
+        "Atualizacao manual ganhou modal com botoes de copiar codigo, copiar link, baixar .user.js e abrir GitHub.",
+        "Removido alert longo sem acao pratica; fluxo agora e mais direto para o usuario final.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.34",
@@ -798,6 +808,137 @@ Atenciosamente.`;
   .hs-toast.ok .dot{ background:#22c55e; }
   .hs-toast.err .dot{ background:#ef4444; }
   .hs-toast.soft .dot{ background:#38bdf8; }
+
+  .hs-update-modal{
+    position:fixed;
+    inset:0;
+    z-index:1000003;
+    display:none;
+  }
+  .hs-update-modal.open{ display:block; }
+  .hs-update-modal-backdrop{
+    position:absolute;
+    inset:0;
+    background:rgba(2,8,18,.64);
+  }
+  .hs-update-modal-card{
+    position:absolute;
+    width:min(860px, 94vw);
+    max-height:90vh;
+    top:5vh;
+    left:50%;
+    transform:translateX(-50%);
+    display:flex;
+    flex-direction:column;
+    border-radius:14px;
+    overflow:hidden;
+    background:var(--panel);
+    border:1px solid var(--border);
+    box-shadow:0 20px 58px rgba(0,0,0,.45);
+  }
+  .hs-update-modal-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:10px 12px;
+    background:var(--panel2);
+    border-bottom:1px solid var(--border);
+    color:var(--fg);
+    font-weight:800;
+  }
+  .hs-update-modal-head button{
+    min-height:26px!important;
+    height:26px!important;
+    padding:2px 10px!important;
+    border-radius:8px!important;
+    cursor:pointer;
+  }
+  .hs-update-modal-body{
+    padding:12px;
+    overflow:auto;
+    color:var(--fg);
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .hs-update-modal-status{
+    font-size:12px;
+    line-height:1.35;
+    opacity:.95;
+    margin:0;
+  }
+  .hs-update-modal-url-wrap{
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .hs-update-modal-url{
+    flex:1 1 auto;
+    min-width:0;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:rgba(15,23,42,.28);
+    color:var(--fg);
+    padding:8px 10px;
+    font-size:12px;
+    line-height:1.3;
+    white-space:nowrap;
+    overflow:auto;
+  }
+  .hs-update-modal-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .hs-update-modal-actions button{
+    min-height:28px!important;
+    border-radius:8px!important;
+    padding:4px 10px!important;
+    font-size:11px!important;
+    font-weight:700!important;
+    cursor:pointer;
+  }
+  .hs-update-modal-actions button.is-main{
+    background:linear-gradient(180deg, #ffe9a8, #f6d36a)!important;
+    border-color:#e5bf4f!important;
+    color:#1f2b18!important;
+  }
+  .hs-update-modal-code details{
+    border:1px solid var(--border);
+    border-radius:10px;
+    background:rgba(15,23,42,.18);
+    padding:8px;
+  }
+  .hs-update-modal-code summary{
+    cursor:pointer;
+    font-weight:700;
+    font-size:12px;
+  }
+  .hs-update-modal-code textarea{
+    width:100%;
+    min-height:260px;
+    margin-top:8px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:rgba(2,6,14,.62);
+    color:#f8fbff;
+    font-size:11px;
+    line-height:1.35;
+    padding:8px;
+    resize:vertical;
+  }
+  @media (max-width:760px){
+    .hs-update-modal-card{
+      width:min(96vw, 96vw);
+      top:2vh;
+      max-height:95vh;
+    }
+    .hs-update-modal-url-wrap{
+      flex-direction:column;
+      align-items:stretch;
+    }
+  }
 
   @keyframes hsRowAlertBlinkNew{
     0%,100%{ box-shadow: inset 0 0 0 999px rgba(56,189,248,0); }
@@ -3651,37 +3792,262 @@ Atenciosamente.`;
     throw new Error("Nao foi possivel carregar o codigo remoto do script.");
   }
   /**
-   * Objetivo: Facilita atualizacao manual (abrir codigo e tentar copiar).
+   * Objetivo: Copia texto para clipboard com fallback para execCommand.
+   *
+   * Contexto: Utilizado no modal de atualizacao manual.
+   * Parametros:
+   * - text: conteudo a copiar.
+   * Retorno: Promise<boolean>.
+   * Efeitos colaterais: acesso ao clipboard.
+   */
+  async function copyTextToClipboard(text) {
+    const raw = String(text || "");
+    if (!raw) return false;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(raw);
+        return true;
+      }
+    } catch {}
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = raw;
+      ta.setAttribute("readonly", "readonly");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      ta.style.top = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      const ok = !!document.execCommand("copy");
+      ta.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+  /**
+   * Objetivo: Gera nome de arquivo seguro para download local do userscript.
+   *
+   * Contexto: usado no botao "Baixar .user.js".
+   * Parametros:
+   * - version: versao remota detectada.
+   * Retorno: string.
+   */
+  function buildUserscriptDownloadFileName(version) {
+    const v = String(version || "latest").trim().replace(/[^\w.-]+/g, "_");
+    return `headsoft-suporte-modern-ui-v${v}.user.js`;
+  }
+  /**
+   * Objetivo: Baixa o userscript remoto como arquivo local.
+   *
+   * Contexto: fallback simples quando instalacao direta falhar.
+   * Parametros:
+   * - source: objeto retornado por fetchLatestUserscriptSource.
+   * Retorno: boolean.
+   * Efeitos colaterais: dispara download no navegador.
+   */
+  function downloadUserscriptSource(source) {
+    const content = String(source?.content || "");
+    if (!content) return false;
+    try {
+      const blob = new Blob([content], { type: "application/javascript;charset=utf-8" });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = buildUserscriptDownloadFileName(source?.version);
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  /**
+   * Objetivo: Fecha modal de atualizacao manual.
+   *
+   * Contexto: reutilizado por backdrop, botao fechar e tecla ESC.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function closeManualUpdateModal() {
+    if (!hsManualUpdateModal) hsManualUpdateModal = document.getElementById("hs-update-modal");
+    if (!(hsManualUpdateModal instanceof HTMLElement)) return;
+    hsManualUpdateModal.classList.remove("open");
+  }
+  /**
+   * Objetivo: Cria modal de atualizacao manual com acoes de copiar/baixar/abrir.
+   *
+   * Contexto: evita alert longo e melhora UX do fluxo manual.
+   * Parametros: nenhum.
+   * Retorno: HTMLElement|null.
+   * Efeitos colaterais: injeta DOM e binds de evento idempotentes.
+   */
+  function ensureManualUpdateModal() {
+    if (hsManualUpdateModal && hsManualUpdateModal.isConnected) return hsManualUpdateModal;
+    let modal = document.getElementById("hs-update-modal");
+    if (!(modal instanceof HTMLElement)) {
+      modal = document.createElement("div");
+      modal.id = "hs-update-modal";
+      modal.className = "hs-update-modal";
+      modal.innerHTML = `
+        <div class="hs-update-modal-backdrop"></div>
+        <section class="hs-update-modal-card" role="dialog" aria-modal="true" aria-label="Atualizacao manual do script">
+          <header class="hs-update-modal-head">
+            <span>Atualizacao Manual do Script</span>
+            <button type="button" data-action="close">Fechar</button>
+          </header>
+          <div class="hs-update-modal-body">
+            <p class="hs-update-modal-status"></p>
+            <div class="hs-update-modal-url-wrap">
+              <input type="text" class="hs-update-modal-url" readonly />
+              <button type="button" data-action="copy-link">Copiar link</button>
+            </div>
+            <div class="hs-update-modal-actions">
+              <button type="button" class="is-main" data-action="copy-code">Copiar codigo</button>
+              <button type="button" data-action="download">Baixar .user.js</button>
+              <button type="button" data-action="install">Instalar direto</button>
+              <button type="button" data-action="open-raw">Abrir raw</button>
+              <button type="button" data-action="open-github">Abrir GitHub</button>
+            </div>
+            <div class="hs-update-modal-code">
+              <details class="hs-update-modal-code-details">
+                <summary>Mostrar codigo (fallback manual)</summary>
+                <textarea class="hs-update-modal-code-text" readonly></textarea>
+              </details>
+            </div>
+          </div>
+        </section>
+      `;
+      document.body.appendChild(modal);
+    }
+    hsManualUpdateModal = modal;
+    if (modal.dataset.hsBound === "1") return modal;
+    modal.dataset.hsBound = "1";
+
+    modal.querySelector(".hs-update-modal-backdrop")?.addEventListener("click", closeManualUpdateModal);
+    modal.querySelector('[data-action="close"]')?.addEventListener("click", closeManualUpdateModal);
+    modal.addEventListener("click", async (ev) => {
+      const btn = ev.target instanceof HTMLElement ? ev.target.closest("button[data-action]") : null;
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const action = String(btn.dataset.action || "").trim();
+      const payload = hsManualUpdatePayload || {};
+      const scriptUrl = String(payload.url || MANUAL_UPDATE_SOURCE_URL).trim();
+      const noCacheUrl = buildNoCacheUserscriptUrl(scriptUrl || MANUAL_UPDATE_SOURCE_URL);
+
+      if (action === "copy-code") {
+        const ok = await copyTextToClipboard(String(payload.content || ""));
+        toast(ok ? "Codigo copiado." : "Falha ao copiar codigo.", ok ? "ok" : "err", 2600);
+        return;
+      }
+      if (action === "copy-link") {
+        const link = String(scriptUrl || MANUAL_UPDATE_SOURCE_URL).trim();
+        const ok = await copyTextToClipboard(link);
+        toast(ok ? "Link copiado." : "Falha ao copiar link.", ok ? "ok" : "err", 2400);
+        return;
+      }
+      if (action === "download") {
+        const ok = downloadUserscriptSource(payload);
+        if (ok) toast("Download iniciado.", "ok", 2200);
+        else {
+          toast("Nao foi possivel baixar agora; abrindo raw.", "info", 2600);
+          window.open(noCacheUrl || MANUAL_UPDATE_GITHUB_RAW_URL, "_blank", "noopener");
+        }
+        return;
+      }
+      if (action === "install") {
+        openScriptUpdatePage(scriptUrl || MANUAL_UPDATE_SOURCE_URL);
+        return;
+      }
+      if (action === "open-raw") {
+        window.open(noCacheUrl || MANUAL_UPDATE_GITHUB_RAW_URL, "_blank", "noopener");
+        return;
+      }
+      if (action === "open-github") {
+        window.open(MANUAL_UPDATE_GITHUB_FILE_URL, "_blank", "noopener");
+      }
+    });
+
+    const details = modal.querySelector(".hs-update-modal-code-details");
+    const ta = modal.querySelector(".hs-update-modal-code-text");
+    if (details instanceof HTMLDetailsElement && ta instanceof HTMLTextAreaElement) {
+      details.addEventListener("toggle", () => {
+        if (!details.open) return;
+        if (details.dataset.loaded === "1") return;
+        ta.value = String(hsManualUpdatePayload?.content || "");
+        details.dataset.loaded = "1";
+      });
+    }
+
+    if (document.documentElement.dataset.hsUpdateModalEscBound !== "1") {
+      document.documentElement.dataset.hsUpdateModalEscBound = "1";
+      document.addEventListener(
+        "keydown",
+        (ev) => {
+          if (ev.key !== "Escape") return;
+          closeManualUpdateModal();
+        },
+        true
+      );
+    }
+    return modal;
+  }
+  /**
+   * Objetivo: Preenche e exibe modal de atualizacao manual.
+   *
+   * Contexto: mostra opcoes praticas para atualizar sem depender de prompt/alert.
+   * Parametros:
+   * - source: objeto do userscript remoto.
+   * - copied: informa se copia automatica inicial funcionou.
+   * Retorno: void.
+   */
+  function showManualUpdateModal(source, copied = false) {
+    const modal = ensureManualUpdateModal();
+    if (!(modal instanceof HTMLElement)) return;
+    hsManualUpdatePayload = {
+      url: String(source?.url || MANUAL_UPDATE_SOURCE_URL).trim(),
+      content: String(source?.content || ""),
+      version: String(source?.version || "").trim(),
+    };
+
+    const statusEl = modal.querySelector(".hs-update-modal-status");
+    const urlInput = modal.querySelector(".hs-update-modal-url");
+    const details = modal.querySelector(".hs-update-modal-code-details");
+    const ta = modal.querySelector(".hs-update-modal-code-text");
+    const v = String(hsManualUpdatePayload.version || "").trim();
+    const statusLines = [
+      v ? `Versao remota detectada: v${v}` : "Versao remota carregada.",
+      copied
+        ? "Codigo ja foi copiado para a area de transferencia."
+        : "Use os botoes abaixo para copiar o codigo/link ou baixar o arquivo.",
+      "Se instalar direto falhar, use: Baixar .user.js ou Mostrar codigo.",
+    ];
+    if (statusEl instanceof HTMLElement) statusEl.textContent = statusLines.join(" ");
+    if (urlInput instanceof HTMLInputElement) urlInput.value = hsManualUpdatePayload.url || MANUAL_UPDATE_SOURCE_URL;
+    if (details instanceof HTMLDetailsElement) {
+      details.open = false;
+      details.dataset.loaded = "0";
+    }
+    if (ta instanceof HTMLTextAreaElement) ta.value = "";
+
+    modal.classList.add("open");
+  }
+  /**
+   * Objetivo: Facilita atualizacao manual (modal com copiar/baixar/abrir).
    *
    * Contexto: Fluxo alternativo quando o install automatico do Tampermonkey falha.
    * Parametros: nenhum.
    * Retorno: Promise<void>.
-   * Efeitos colaterais: chamadas de rede, clipboard e abertura de nova aba.
+   * Efeitos colaterais: chamadas de rede, clipboard, download e abertura de nova aba.
    */
   async function openManualUpdateGuide() {
     const source = await fetchLatestUserscriptSource();
-    let copied = false;
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(String(source.content || ""));
-        copied = true;
-      }
-    } catch {}
-
-    const previewVersion = String(source.version || "").trim();
-    const lines = [
-      previewVersion ? `Codigo remoto v${previewVersion} carregado.` : "Codigo remoto carregado.",
-      copied ? "Codigo copiado para a area de transferencia." : "Nao foi possivel copiar automatico neste navegador.",
-      "",
-      "Passo a passo manual:",
-      "1) Abra o editor do script no Tampermonkey.",
-      "2) Selecione tudo e cole o codigo novo.",
-      "3) Salve (Ctrl+S).",
-      "",
-      `Fonte: ${source.url}`,
-    ];
-    window.alert(lines.join("\n"));
-    window.open(buildNoCacheUserscriptUrl(source.url), "_blank", "noopener");
+    const copied = await copyTextToClipboard(String(source.content || ""));
+    showManualUpdateModal(source, copied);
   }
   /**
    * Objetivo: Le ultima versao remota ja notificada em popup.
@@ -8099,6 +8465,8 @@ Atenciosamente.`;
   /* ------------------ SECTION: TOAST, POPUP E REDE LEGADA ------------------- */
   let toastWrap = null;
   let reqPopup = null;
+  let hsManualUpdateModal = null;
+  let hsManualUpdatePayload = null;
   let reqPopupEscBound = false;
   let hsReqClicksBound = false;
   let hsAjaxRefreshBusy = false;
