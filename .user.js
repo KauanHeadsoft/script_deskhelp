@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.35
+// @version      2.15.36
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -44,7 +44,7 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.35";
+  const SCRIPT_VERSION = "2.15.36";
   const UPDATE_LOG_HISTORY_LS_KEY = "hs2025-updates-history";
   const UPDATE_LOG_RULES = Object.freeze([
     "Regra 1: nunca remover entradas antigas do campo de atualizacoes.",
@@ -103,6 +103,13 @@ Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const T_ENVIAR_ORCAMENTO = "Orcamento enviado ao solicitante.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.36",
+      notes: [
+        "Desativado header sticky da grade no dashboard para evitar sobreposicao e efeito de aparecer/desaparecer no scroll.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.35",
@@ -3068,9 +3075,9 @@ Atenciosamente.`;
     font-size:13px!important;
     font-weight:800!important;
     padding:9px 10px!important;
-    position:sticky!important;
-    top:0!important;
-    z-index:3!important;
+    position:static!important;
+    top:auto!important;
+    z-index:auto!important;
   }
   body.hs-dashboard-page table.sortable tbody td{
     font-size:13px!important;
