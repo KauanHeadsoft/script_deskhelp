@@ -1,6 +1,15 @@
 ﻿[
     {
         "date":  "2026-03-06",
+        "version":  "2.15.45",
+        "notes":  [
+                      "Cabecalho original do site recebeu prioridade de camada para ficar acima da grade durante o scroll.",
+                      "Badge de versao do header foi redesenhado com visual premium.",
+                      "Badge agora mostra ultimo commit da branch main (SHA curto e data) com cache local para performance."
+                  ]
+    },
+    {
+        "date":  "2026-03-06",
         "version":  "2.15.44",
         "notes":  [
                       "Correcao do header sticky da grade: topo restaurado para 0 para evitar cabecalho no meio da tabela.",

@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.44
+// @version      2.15.45
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -48,7 +48,7 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION_FALLBACK = "2.15.44";
+  const SCRIPT_VERSION_FALLBACK = "2.15.45";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -82,6 +82,9 @@
   const VERSION_CATALOG_CACHE_AT_LS_KEY = "hs2025-version-catalog-at";
   const VERSION_CATALOG_CACHE_MS = 6 * 60 * 60 * 1000;
   const VERSION_CATALOG_MAX_ITEMS = 12;
+  const LATEST_COMMIT_META_CACHE_JSON_LS_KEY = "hs2025-latest-commit-meta-json";
+  const LATEST_COMMIT_META_CACHE_AT_LS_KEY = "hs2025-latest-commit-meta-at";
+  const LATEST_COMMIT_META_CACHE_MS = 20 * 60 * 1000;
   const LATEST_MAIN_COMMIT_API_URL = "https://api.github.com/repos/KauanHeadsoft/script_deskhelp/commits/main";
   const VERSION_CATALOG_COMMITS_API_URL =
     "https://api.github.com/repos/KauanHeadsoft/script_deskhelp/commits?path=.user.js&per_page=35";
@@ -115,6 +118,15 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.45",
+      notes: [
+        "Cabecalho original (#cabecalho) recebeu prioridade de camada para permanecer acima da grade no scroll.",
+        "Badge da versao no header foi redesenhado com visual premium e passou a exibir ultimo commit (SHA curto e data).",
+        "Dados do ultimo commit agora usam cache local e atualizacao assicrona para manter fluidez da tela.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.44",
@@ -328,6 +340,8 @@ Atenciosamente.`;
   let hsScriptUpdateLastResult = null;
   let hsUpdateHistoryValidated = false;
   let hsUpdateHistoryValidatedList = [];
+  let hsLatestCommitMeta = null;
+  let hsLatestCommitMetaPromise = null;
 
   /*
    * ============================================================================
@@ -2783,6 +2797,8 @@ Atenciosamente.`;
   /* Cabecalho unificado (todas as paginas internas) */
   body:not(.hs-login-page) #cabecalho{
     background:linear-gradient(180deg, #3f5f86 0%, #21365a 100%)!important;
+    z-index:1000010!important;
+    isolation:isolate!important;
   }
   body:not(.hs-login-page) #cabecalho :is(table,tr,td,th,div,span,font,b,strong,a){
     background:transparent!important;
@@ -2794,26 +2810,59 @@ Atenciosamente.`;
   }
   body:not(.hs-login-page) #cabecalho_logo{
     background:transparent!important;
+    position:relative!important;
+    z-index:1000011!important;
   }
   body:not(.hs-login-page) #cabecalho_logo .hs-logo-version{
     display:inline-flex!important;
     align-items:center!important;
-    justify-content:center!important;
-    margin-left:8px!important;
-    padding:2px 8px!important;
+    gap:8px!important;
+    margin-left:10px!important;
+    padding:4px 10px!important;
     border-radius:999px!important;
-    font-size:10px!important;
-    line-height:1!important;
-    font-weight:800!important;
-    border:1px solid rgba(184,211,243,.45)!important;
-    background:rgba(10,28,51,.52)!important;
+    border:1px solid rgba(185,215,248,.44)!important;
+    background:linear-gradient(180deg, rgba(15,34,57,.96), rgba(10,25,44,.94))!important;
     color:#eaf2ff!important;
+    box-shadow:0 6px 16px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.18)!important;
     vertical-align:middle!important;
     white-space:nowrap!important;
+    user-select:none!important;
+    cursor:pointer!important;
+    transition:transform .15s ease, box-shadow .2s ease, filter .2s ease!important;
+  }
+  body:not(.hs-login-page) #cabecalho_logo .hs-logo-version:hover{
+    transform:translateY(-1px)!important;
+    filter:brightness(1.04)!important;
+    box-shadow:0 8px 20px rgba(0,0,0,.33), inset 0 1px 0 rgba(255,255,255,.2)!important;
+  }
+  body:not(.hs-login-page) #cabecalho_logo .hs-logo-version .hs-logo-version-main{
+    font-weight:900!important;
+    font-size:11px!important;
+    line-height:1!important;
+    letter-spacing:.02em!important;
+    color:#f3f8ff!important;
+  }
+  body:not(.hs-login-page) #cabecalho_logo .hs-logo-version .hs-logo-version-meta{
+    font-size:10px!important;
+    line-height:1!important;
+    font-weight:700!important;
+    color:#bfd7f7!important;
+    font-family:Consolas, "Courier New", monospace!important;
+    opacity:.98!important;
+  }
+  body:not(.hs-login-page) #cabecalho_logo .hs-logo-version .hs-logo-version-dot{
+    width:5px!important;
+    height:5px!important;
+    border-radius:50%!important;
+    background:#7db1ed!important;
+    box-shadow:0 0 0 2px rgba(125,177,237,.18)!important;
+    flex:0 0 auto!important;
   }
   body:not(.hs-login-page) #cabecalho_menu{
     background:#1f2948!important;
     border-top:1px solid rgba(255,255,255,.08)!important;
+    position:relative!important;
+    z-index:1000011!important;
   }
   body:not(.hs-login-page) #cabecalho_menu,
   body:not(.hs-login-page) #cabecalho_menu *{
@@ -4143,6 +4192,143 @@ Atenciosamente.`;
     return String(match?.[1] || "").trim();
   }
   /**
+   * Objetivo: Formata data/hora curta para exibicao no badge de commit.
+   *
+   * Contexto: usado no cabecalho para mostrar ultimo commit do projeto.
+   * Parametros:
+   * - value: data ISO.
+   * Retorno: string.
+   */
+  function formatShortDateTime(value) {
+    const d = new Date(value);
+    if (!Number.isFinite(d.getTime())) return "";
+    const p = (n) => String(n).padStart(2, "0");
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  /**
+   * Objetivo: Normaliza metadados do ultimo commit para uso no header.
+   *
+   * Contexto: garante payload consistente entre cache local e resposta da API.
+   * Parametros:
+   * - source: objeto parcial.
+   * Retorno: {sha,shaShort,date,dateShort,url,message,fetchedAt}|null.
+   */
+  function normalizeLatestCommitMeta(source) {
+    const sha = String(source?.sha || "").trim();
+    const date = String(source?.date || "").trim();
+    const url = String(source?.url || "").trim();
+    const message = String(source?.message || "").trim();
+    const fetchedAt = Number(source?.fetchedAt || Date.now());
+    if (!sha) return null;
+    const shaShort = sha.slice(0, 7);
+    const dateShort = formatShortDateTime(date);
+    return { sha, shaShort, date, dateShort, url, message, fetchedAt };
+  }
+  /**
+   * Objetivo: Le cache local do ultimo commit do repositorio.
+   *
+   * Contexto: evita bater na API do GitHub a cada mutacao de DOM.
+   * Parametros: nenhum.
+   * Retorno: object|null.
+   */
+  function readCachedLatestCommitMeta() {
+    try {
+      const at = Number(localStorage.getItem(LATEST_COMMIT_META_CACHE_AT_LS_KEY) || "0");
+      if (!Number.isFinite(at) || at <= 0) return null;
+      const raw = String(localStorage.getItem(LATEST_COMMIT_META_CACHE_JSON_LS_KEY) || "").trim();
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const normalized = normalizeLatestCommitMeta({ ...parsed, fetchedAt: at });
+      if (!normalized) return null;
+      return normalized;
+    } catch {
+      return null;
+    }
+  }
+  /**
+   * Objetivo: Persiste metadados do ultimo commit em cache local.
+   *
+   * Contexto: utilizado por fetchLatestMainCommitMeta e fixLogo.
+   * Parametros:
+   * - meta: objeto normalizado.
+   * Retorno: object|null.
+   */
+  function persistLatestCommitMeta(meta) {
+    const normalized = normalizeLatestCommitMeta(meta);
+    if (!normalized) return null;
+    hsLatestCommitMeta = normalized;
+    try {
+      localStorage.setItem(
+        LATEST_COMMIT_META_CACHE_JSON_LS_KEY,
+        JSON.stringify({
+          sha: normalized.sha,
+          date: normalized.date,
+          url: normalized.url,
+          message: normalized.message,
+        })
+      );
+      localStorage.setItem(LATEST_COMMIT_META_CACHE_AT_LS_KEY, String(normalized.fetchedAt));
+    } catch {}
+    return normalized;
+  }
+  /**
+   * Objetivo: Busca o ultimo commit da branch main com cache local.
+   *
+   * Contexto: alimenta o badge profissional de versao no cabecalho.
+   * Parametros:
+   * - force: quando true ignora janela de cache e refaz a consulta.
+   * Retorno: Promise<object|null>.
+   */
+  async function fetchLatestMainCommitMeta(force = false) {
+    const now = Date.now();
+    if (!force && hsLatestCommitMeta?.fetchedAt && now - hsLatestCommitMeta.fetchedAt < LATEST_COMMIT_META_CACHE_MS) {
+      return hsLatestCommitMeta;
+    }
+    if (!force) {
+      const cached = readCachedLatestCommitMeta();
+      if (cached?.fetchedAt && now - cached.fetchedAt < LATEST_COMMIT_META_CACHE_MS) {
+        hsLatestCommitMeta = cached;
+        return cached;
+      }
+    }
+    if (hsLatestCommitMetaPromise) return hsLatestCommitMetaPromise;
+
+    hsLatestCommitMetaPromise = (async () => {
+      try {
+        const resp = await fetch(LATEST_MAIN_COMMIT_API_URL, {
+          method: "GET",
+          cache: "no-store",
+          mode: "cors",
+          credentials: "omit",
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json().catch(() => ({}));
+        const meta = normalizeLatestCommitMeta({
+          sha: String(data?.sha || "").trim(),
+          date: String(data?.commit?.author?.date || data?.commit?.committer?.date || "").trim(),
+          url: String(data?.html_url || "").trim(),
+          message: String(data?.commit?.message || "").trim().split("\n")[0],
+          fetchedAt: Date.now(),
+        });
+        if (!meta) throw new Error("Commit sem SHA valido.");
+        return persistLatestCommitMeta(meta);
+      } catch {
+        const fallback = hsLatestCommitMeta || readCachedLatestCommitMeta();
+        if (fallback) {
+          hsLatestCommitMeta = fallback;
+          return fallback;
+        }
+        return null;
+      }
+    })();
+
+    try {
+      return await hsLatestCommitMetaPromise;
+    } finally {
+      hsLatestCommitMetaPromise = null;
+    }
+  }
+  /**
    * Objetivo: Le ultimo resultado de verificacao de atualizacao em cache local.
    *
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
@@ -5344,6 +5530,52 @@ Atenciosamente.`;
     if (b) b.remove();
   }
   /**
+   * Objetivo: Renderiza badge premium de versao com metadados do ultimo commit.
+   *
+   * Contexto: exibido ao lado da logo do cabecalho.
+   * Parametros:
+   * - badge: elemento alvo.
+   * - commitMeta: dados normalizados do commit mais recente.
+   * Retorno: void.
+   */
+  function renderLogoVersionBadge(badge, commitMeta = null) {
+    if (!(badge instanceof HTMLElement)) return;
+    let main = badge.querySelector(".hs-logo-version-main");
+    if (!(main instanceof HTMLElement)) {
+      main = document.createElement("span");
+      main.className = "hs-logo-version-main";
+      badge.appendChild(main);
+    }
+
+    let dot = badge.querySelector(".hs-logo-version-dot");
+    if (!(dot instanceof HTMLElement)) {
+      dot = document.createElement("span");
+      dot.className = "hs-logo-version-dot";
+      badge.appendChild(dot);
+    }
+
+    let meta = badge.querySelector(".hs-logo-version-meta");
+    if (!(meta instanceof HTMLElement)) {
+      meta = document.createElement("span");
+      meta.className = "hs-logo-version-meta";
+      badge.appendChild(meta);
+    }
+
+    main.textContent = `v${SCRIPT_VERSION}`;
+    if (commitMeta?.shaShort) {
+      const datePart = commitMeta.dateShort ? ` ${commitMeta.dateShort}` : "";
+      meta.textContent = `#${commitMeta.shaShort}${datePart}`;
+      badge.dataset.hsCommitUrl = String(commitMeta.url || "").trim();
+      badge.title = commitMeta.message
+        ? `Versao ${SCRIPT_VERSION}\nCommit ${commitMeta.shaShort} (${commitMeta.dateShort || "sem data"})\n${commitMeta.message}`
+        : `Versao ${SCRIPT_VERSION}\nCommit ${commitMeta.shaShort} (${commitMeta.dateShort || "sem data"})`;
+    } else {
+      meta.textContent = "commit ...";
+      badge.dataset.hsCommitUrl = "";
+      badge.title = `Versao ${SCRIPT_VERSION}\nBuscando ultimo commit...`;
+    }
+  }
+  /**
    * Objetivo: Substitui a logo do cabecalho pela URL padrao do projeto.
    *
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
@@ -5365,8 +5597,26 @@ Atenciosamente.`;
       badge = document.createElement("span");
       badge.className = "hs-logo-version";
     }
-    badge.textContent = `v${SCRIPT_VERSION}`;
+    renderLogoVersionBadge(badge, hsLatestCommitMeta || readCachedLatestCommitMeta());
+    if (badge.dataset.hsCommitBind !== "1") {
+      badge.dataset.hsCommitBind = "1";
+      badge.addEventListener("click", (ev) => {
+        const commitUrl = String(badge?.dataset?.hsCommitUrl || "").trim();
+        if (!commitUrl) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.stopImmediatePropagation();
+        window.open(commitUrl, "_blank", "noopener");
+      });
+    }
     if (!badge.isConnected || badge.parentElement !== wrap) wrap.appendChild(badge);
+    if (badge.dataset.hsCommitLoadStarted !== "1") {
+      badge.dataset.hsCommitLoadStarted = "1";
+      fetchLatestMainCommitMeta(false).then((meta) => {
+        if (!meta) return;
+        renderLogoVersionBadge(badge, meta);
+      });
+    }
   }
   /**
    * Objetivo: Configura navegaÃ§Ã£o da logo conforme contexto da pÃ¡gina.
@@ -5398,6 +5648,8 @@ Atenciosamente.`;
       "click",
       (ev) => {
         if (ev.button !== 0) return;
+        const target = ev.target instanceof Element ? ev.target : null;
+        if (target?.closest(".hs-logo-version")) return;
         const href = getTargetHref();
         if (!href) return;
 
