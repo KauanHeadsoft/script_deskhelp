@@ -1,6 +1,15 @@
 ﻿[
     {
         "date":  "2026-03-06",
+        "version":  "2.15.41",
+        "notes":  [
+                      "Modal de atualizacao manual agora revalida o fallback direto no GitHub ao abrir o bloco de codigo.",
+                      "Texto de status da atualizacao manual permanece fixo e troca somente o numero da versao remota.",
+                      "Versao local passou a usar GM_info.script.version automaticamente (com fallback)."
+                  ]
+    },
+    {
+        "date":  "2026-03-06",
         "version":  "2.15.40",
         "notes":  [
                       "Rollback dos ajustes de menu/sticky do dashboard para restaurar o comportamento anterior ao rolar.",

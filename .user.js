@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.40
+// @version      2.15.41
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -44,7 +44,11 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.40";
+  const SCRIPT_VERSION_FALLBACK = "2.15.41";
+  const SCRIPT_VERSION =
+    String(
+      (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
+    ).trim() || SCRIPT_VERSION_FALLBACK;
   const UPDATES_LOG_REMOTE_URL =
     "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/updates-log.json";
   const UPDATES_LOG_CACHE_JSON_LS_KEY = "hs2025-updates-log-json";
@@ -107,6 +111,15 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.41",
+      notes: [
+        "Modal de atualizacao manual agora revalida o fallback direto no GitHub ao abrir o bloco de codigo.",
+        "Texto de status da atualizacao manual permanece fixo e troca somente o numero da versao remota.",
+        "Versao local passou a usar GM_info.script.version automaticamente (com fallback).",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.40",
@@ -4278,13 +4291,12 @@ Atenciosamente.`;
    * Efeitos colaterais: chamadas de rede.
    */
   async function fetchLatestUserscriptSource() {
-    const candidates = [];
+    const candidates = [MANUAL_UPDATE_SOURCE_URL];
     try {
       const check = await checkScriptUpdateAvailability(true);
       const checkedUrl = String(check?.remoteUrl || "").trim();
       if (checkedUrl) candidates.push(checkedUrl);
     } catch {}
-    candidates.push(MANUAL_UPDATE_SOURCE_URL);
     UPDATE_SCRIPT_CANDIDATE_URLS.forEach((u) => {
       const item = String(u || "").trim();
       if (item) candidates.push(item);
@@ -4390,6 +4402,34 @@ Atenciosamente.`;
     }
   }
   /**
+   * Objetivo: Normaliza payload remoto do userscript para o modal manual.
+   *
+   * Contexto: garante URL, conteudo e versao sincronizados com o codigo remoto.
+   * Parametros:
+   * - source: payload parcial.
+   * Retorno: {url:string, content:string, version:string}.
+   */
+  function normalizeManualUpdateSource(source) {
+    const url = String(source?.url || MANUAL_UPDATE_SOURCE_URL).trim() || MANUAL_UPDATE_SOURCE_URL;
+    const content = String(source?.content || "");
+    const versionRaw = String(source?.version || "").trim();
+    const version = versionRaw || extractScriptVersionFromText(content);
+    return { url, content, version: String(version || "").trim() };
+  }
+  /**
+   * Objetivo: Monta texto de status do modal manual com versao dinamica.
+   *
+   * Contexto: evita escrita manual de versao em toda release.
+   * Parametros:
+   * - version: versao remota detectada.
+   * Retorno: string.
+   */
+  function buildManualUpdateStatusText(version) {
+    const v = String(version || "").trim().replace(/^v/i, "");
+    const resolvedVersion = v ? `v${v}` : "v?";
+    return `Versao remota detectada: ${resolvedVersion} Codigo ja foi copiado para a area de transferencia. Se instalar direto falhar, use: Baixar .user.js ou Mostrar codigo.`;
+  }
+  /**
    * Objetivo: Fecha modal de atualizacao manual.
    *
    * Contexto: reutilizado por backdrop, botao fechar e tecla ESC.
@@ -4478,6 +4518,15 @@ Atenciosamente.`;
       }
       if (action === "copy-code") {
         const ok = await copyTextToClipboard(String(payload.content || ""));
+        if (ok) {
+          hsManualUpdatePayload = { ...payload, copied: true };
+          const statusEl = modal.querySelector(".hs-update-modal-status");
+          if (statusEl instanceof HTMLElement) {
+            statusEl.textContent = buildManualUpdateStatusText(
+              String(hsManualUpdatePayload.version || "")
+            );
+          }
+        }
         toast(ok ? "Codigo copiado." : "Falha ao copiar codigo.", ok ? "ok" : "err", 2600);
         return;
       }
@@ -4512,11 +4561,37 @@ Atenciosamente.`;
     const details = modal.querySelector(".hs-update-modal-code-details");
     const ta = modal.querySelector(".hs-update-modal-code-text");
     if (details instanceof HTMLDetailsElement && ta instanceof HTMLTextAreaElement) {
-      details.addEventListener("toggle", () => {
+      details.addEventListener("toggle", async () => {
         if (!details.open) return;
+        if (details.dataset.loading === "1") return;
         if (details.dataset.loaded === "1") return;
-        ta.value = String(hsManualUpdatePayload?.content || "");
-        details.dataset.loaded = "1";
+        details.dataset.loading = "1";
+        ta.value = String(hsManualUpdatePayload?.content || "").trim() || "Carregando codigo remoto do GitHub...";
+        try {
+          const fresh = normalizeManualUpdateSource(await fetchLatestUserscriptSource());
+          if (fresh.content) {
+            hsManualUpdatePayload = {
+              ...(hsManualUpdatePayload || {}),
+              ...fresh,
+            };
+            ta.value = String(fresh.content || "");
+            const urlInput = modal.querySelector(".hs-update-modal-url");
+            if (urlInput instanceof HTMLInputElement) {
+              urlInput.value = String(fresh.url || MANUAL_UPDATE_SOURCE_URL).trim() || MANUAL_UPDATE_SOURCE_URL;
+            }
+            const statusEl = modal.querySelector(".hs-update-modal-status");
+            if (statusEl instanceof HTMLElement) {
+              statusEl.textContent = buildManualUpdateStatusText(
+                String(hsManualUpdatePayload.version || "")
+              );
+            }
+          }
+        } catch {
+          ta.value = String(hsManualUpdatePayload?.content || "");
+        } finally {
+          details.dataset.loaded = "1";
+          delete details.dataset.loading;
+        }
       });
       ta.addEventListener(
         "keydown",
@@ -4558,29 +4633,28 @@ Atenciosamente.`;
   function showManualUpdateModal(source, copied = false) {
     const modal = ensureManualUpdateModal();
     if (!(modal instanceof HTMLElement)) return;
+    const normalized = normalizeManualUpdateSource(source);
     hsManualUpdatePayload = {
-      url: String(source?.url || MANUAL_UPDATE_SOURCE_URL).trim(),
-      content: String(source?.content || ""),
-      version: String(source?.version || "").trim(),
+      ...normalized,
+      copied: !!copied,
     };
 
     const statusEl = modal.querySelector(".hs-update-modal-status");
     const urlInput = modal.querySelector(".hs-update-modal-url");
     const details = modal.querySelector(".hs-update-modal-code-details");
     const ta = modal.querySelector(".hs-update-modal-code-text");
-    const v = String(hsManualUpdatePayload.version || "").trim();
-    const statusLines = [
-      v ? `Versao remota detectada: v${v}` : "Versao remota carregada.",
-      copied
-        ? "Codigo ja foi copiado para a area de transferencia."
-        : "Use os botoes abaixo para copiar o codigo/link ou baixar o arquivo.",
-      "Se instalar direto falhar, use: Baixar .user.js ou Mostrar codigo.",
-    ];
-    if (statusEl instanceof HTMLElement) statusEl.textContent = statusLines.join(" ");
-    if (urlInput instanceof HTMLInputElement) urlInput.value = hsManualUpdatePayload.url || MANUAL_UPDATE_SOURCE_URL;
+    if (statusEl instanceof HTMLElement) {
+      statusEl.textContent = buildManualUpdateStatusText(
+        String(hsManualUpdatePayload.version || "")
+      );
+    }
+    if (urlInput instanceof HTMLInputElement) {
+      urlInput.value = String(hsManualUpdatePayload.url || MANUAL_UPDATE_SOURCE_URL).trim() || MANUAL_UPDATE_SOURCE_URL;
+    }
     if (details instanceof HTMLDetailsElement) {
       details.open = false;
       details.dataset.loaded = "0";
+      delete details.dataset.loading;
     }
     if (ta instanceof HTMLTextAreaElement) ta.value = "";
 
