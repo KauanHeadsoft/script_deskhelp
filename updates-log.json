@@ -1,6 +1,15 @@
 ﻿[
     {
         "date":  "2026-03-06",
+        "version":  "2.15.40",
+        "notes":  [
+                      "Rollback dos ajustes de menu/sticky do dashboard para restaurar o comportamento anterior ao rolar.",
+                      "Mantido preview de anexos em miniaturas quadradas clicaveis.",
+                      "Mantida exibicao da versao ao lado da logo no cabecalho."
+                  ]
+    },
+    {
+        "date":  "2026-03-06",
         "version":  "2.15.39",
         "notes":  [
                       "Preview de anexos ajustado para miniaturas quadradas clicaveis.",

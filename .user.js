@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.39
+// @version      2.15.40
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -44,7 +44,7 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.39";
+  const SCRIPT_VERSION = "2.15.40";
   const UPDATES_LOG_REMOTE_URL =
     "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/updates-log.json";
   const UPDATES_LOG_CACHE_JSON_LS_KEY = "hs2025-updates-log-json";
@@ -107,6 +107,15 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.40",
+      notes: [
+        "Rollback dos ajustes de menu/sticky do dashboard para restaurar o comportamento anterior ao rolar.",
+        "Mantido preview de anexos em miniaturas quadradas clicaveis.",
+        "Mantida exibicao da versao ao lado da logo no cabecalho.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.39",
@@ -601,7 +610,6 @@ Atenciosamente.`;
     --row1:#121b29; --row2:#172334;
     --accent:#3a6fae;
     --link:#8db8ee; --link-hover:#b8d3f3;
-    --hs-dashboard-sticky-head-top:64px;
   }
   html[data-hs-theme="light"]{
     --bg:#ffffff; --fg:#0f172a;
@@ -3282,8 +3290,8 @@ Atenciosamente.`;
     font-weight:800!important;
     padding:9px 10px!important;
     position:sticky!important;
-    top:var(--hs-dashboard-sticky-head-top, 64px)!important;
-    z-index:2!important;
+    top:0!important;
+    z-index:3!important;
   }
   body.hs-dashboard-page table.sortable tbody td{
     font-size:13px!important;
@@ -5276,31 +5284,6 @@ Atenciosamente.`;
         tr.style.display = "none";
       }
     });
-
-    // Remove linhas residuais vazias para evitar espacamentos "fantasma"
-    // entre menu e bloco de filtros ativos (Responsavel/Cliente).
-    frm.querySelectorAll("tr").forEach((tr) => {
-      if (!(tr instanceof HTMLTableRowElement)) return;
-      if (tr.style.display === "none") return;
-      const cells = Array.from(tr.children).filter((el) => /^(th|td)$/i.test(el.tagName));
-      if (!cells.length) return;
-      const visibleCells = cells.filter((cell) => {
-        if (!(cell instanceof HTMLElement)) return false;
-        const st = window.getComputedStyle(cell);
-        return st.display !== "none" && st.visibility !== "hidden";
-      });
-      if (!visibleCells.length) {
-        tr.style.setProperty("display", "none", "important");
-        return;
-      }
-      const hasControl = visibleCells.some((cell) => !!cell.querySelector("input,select,textarea,button,a,img"));
-      const visibleText = norm(
-        visibleCells
-          .map((cell) => String(cell.textContent || "").replace(/\s+/g, " ").trim())
-          .join(" ")
-      );
-      if (!hasControl && !visibleText) tr.style.setProperty("display", "none", "important");
-    });
   }
   /**
    * Objetivo: Esconde aÃ§Ãµes legadas no topo de visualizar requisiÃ§Ã£o.
@@ -6670,16 +6653,12 @@ Atenciosamente.`;
       if (el.closest("#conteudo")) return false;
       if (el.closest(".hs-req-pop")) return false;
       if (el.closest(".hs-toast-wrap")) return false;
-      if (el.closest(".hs-update-modal")) return false;
-      if (el.closest(".hs-image-viewer")) return false;
       if (el.id === BADGE_ID) return false;
-      if (el.id === "hs-update-modal" || el.id === "hs-updates-log-modal" || el.id === "hs-image-viewer") return false;
 
       const st = window.getComputedStyle(el);
       if (st.display === "none" || st.visibility === "hidden") return false;
       if (st.position !== "fixed" && st.position !== "sticky") return false;
       const rect = el.getBoundingClientRect();
-      if (rect.height > Math.min(window.innerHeight * 0.6, 260)) return false;
       return rect.top <= 2 && rect.height > 20 && rect.width > 200;
     });
     for (const el of fixedAtTop) {
@@ -6688,10 +6667,8 @@ Atenciosamente.`;
     }
 
     const rawOffset = Math.round(maxBottom) + 8;
-    const offset = Math.max(64, Math.min(132, Number.isFinite(rawOffset) ? rawOffset : 64));
-    const stickyTop = Math.max(44, Math.min(120, offset - 10));
+    const offset = Math.max(72, Math.min(180, Number.isFinite(rawOffset) ? rawOffset : 72));
     document.body.style.setProperty("--hs-dashboard-top-offset", `${offset}px`);
-    document.body.style.setProperty("--hs-dashboard-sticky-head-top", `${stickyTop}px`);
   }
   /**
    * Objetivo: Calcula espaÃ§amento superior dinÃ¢mico da tela de requisiÃ§Ã£o.
