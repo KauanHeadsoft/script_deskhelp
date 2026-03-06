@@ -1,7 +1,7 @@
-﻿// ==UserScript==
+﻿﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.26
+// @version      2.15.36
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -44,7 +44,18 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.26";
+  const SCRIPT_VERSION = "2.15.36";
+  const UPDATES_LOG_REMOTE_URL =
+    "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/updates-log.json";
+  const UPDATES_LOG_CACHE_JSON_LS_KEY = "hs2025-updates-log-json";
+  const UPDATES_LOG_CACHE_AT_LS_KEY = "hs2025-updates-log-at";
+  const UPDATES_LOG_CACHE_MS = 3 * 60 * 1000;
+  const UPDATE_LOG_HISTORY_LS_KEY = "hs2025-updates-history";
+  const UPDATE_LOG_RULES = Object.freeze([
+    "Regra 1: nunca remover entradas antigas do campo de atualizacoes.",
+    "Regra 2: toda nova versao deve adicionar uma entrada no RECENT_UPDATES.",
+    "Regra 3: manter notas objetivas do que mudou em cada versao.",
+  ]);
   const THEME_LABEL_WHEN_DARK = "Modo Claro";
   const THEME_LABEL_WHEN_LIGHT = "Modo Escuro";
   const SCRIPT_REPO_URL = "https://github.com/KauanHeadsoft/script_deskhelp";
@@ -54,22 +65,33 @@
   const UPDATE_CHECK_REMOTE_VERSION_LS_KEY = "hs2025-update-remote-version";
   const UPDATE_CHECK_REMOTE_URL_LS_KEY = "hs2025-update-remote-url";
   const UPDATE_CHECK_HAS_UPDATE_LS_KEY = "hs2025-update-has-update";
+  const UPDATE_POPUP_LAST_VERSION_LS_KEY = "hs2025-update-popup-last-version";
+  const UPDATE_INSTALL_BRIDGE_BASE_URL = "https://www.tampermonkey.net/script_installation.php#url=";
+  const MANUAL_UPDATE_SOURCE_URL = "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js";
+  const MANUAL_UPDATE_GITHUB_RAW_URL = "https://github.com/KauanHeadsoft/script_deskhelp/raw/main/.user.js";
+  const MANUAL_UPDATE_GITHUB_FILE_URL = "https://github.com/KauanHeadsoft/script_deskhelp/blob/main/.user.js";
   const VERSION_CATALOG_CACHE_LS_KEY = "hs2025-version-catalog-json";
   const VERSION_CATALOG_CACHE_AT_LS_KEY = "hs2025-version-catalog-at";
   const VERSION_CATALOG_CACHE_MS = 6 * 60 * 60 * 1000;
   const VERSION_CATALOG_MAX_ITEMS = 12;
+  const LATEST_MAIN_COMMIT_API_URL = "https://api.github.com/repos/KauanHeadsoft/script_deskhelp/commits/main";
   const VERSION_CATALOG_COMMITS_API_URL =
     "https://api.github.com/repos/KauanHeadsoft/script_deskhelp/commits?path=.user.js&per_page=35";
   const UPDATE_SCRIPT_CANDIDATE_URLS = Object.freeze([
-    "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js",
-    "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/master/.user.js",
+    MANUAL_UPDATE_SOURCE_URL,
     "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/refs/heads/main/.user.js",
+    "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/master/.user.js",
     "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/refs/heads/master/.user.js",
+    "https://cdn.jsdelivr.net/gh/KauanHeadsoft/script_deskhelp@main/.user.js",
   ]);
   const AJAX_REFRESH_INTERVAL_MS = 18000;
   const AJAX_REFRESH_TOAST_COOLDOWN_MS = 7000;
   const ROW_ALERT_BLINK_MS = 12000;
   const ROW_ALERT_TTL_MS = 45 * 60 * 1000;
+  const ROW_ALERT_PERSIST_LS_KEY = "hs2025-row-alert-persist-v1";
+  const ROW_ALERT_PERSIST_TTL_MS = 15 * 24 * 60 * 60 * 1000;
+  const ROW_ALERT_PERSIST_MAX_ITEMS = 700;
+  const SAFE_RUN_MUTATION_DEBOUNCE_MS = 480;
   const FEATURE_FLAGS = Object.freeze({
     ENABLE_AI_ASSIST: true,
     ENABLE_POPUP_VIEWER: true,
@@ -87,11 +109,101 @@ Equipe de Suporte.`;
   const RECENT_UPDATES = Object.freeze([
     {
       date: "2026-03-06",
+      version: "2.15.36",
+      notes: [
+        "Correcao do update pelo GitHub com cache-buster e URL canonical main.",
+        "Botao de versoes removido do dashboard.",
+        "Texto de orcamento atualizado com saudacao e assinatura do tecnico logado.",
+        "Preview de anexos reforcado para funcionar em mais cenarios.",
+      ],
+    },
+    {
+      date: "2026-03-06",
+      version: "2.15.35",
+      notes: [
+        "Atualizacao manual ganhou modal com botoes de copiar codigo, copiar link, baixar .user.js e abrir GitHub.",
+        "Removido alert longo sem acao pratica; fluxo agora e mais direto para o usuario final.",
+      ],
+    },
+    {
+      date: "2026-03-06",
+      version: "2.15.34",
+      notes: [
+        "Novo fluxo manual: botao para abrir/copiar codigo e colar no editor do Tampermonkey.",
+        "Piscar de chamados agora acontece uma unica vez por chamado e fica salvo no navegador.",
+        "Otimizacao de performance: menos reprocessamento completo apos mutacoes e refresh AJAX.",
+      ],
+    },
+    {
+      date: "2026-03-06",
+      version: "2.15.33",
+      notes: [
+        "Padrao de @updateURL/@downloadURL alterado para raw/refs/heads/main (menos atraso de cache que raw/main).",
+        "Lista de fontes de update prioriza refs/heads/main para melhorar deteccao automatica.",
+      ],
+    },
+    {
+      date: "2026-03-06",
+      version: "2.15.32",
+      notes: [
+        "Fluxo de atualizar agora abre direto o arquivo .user.js para o Tampermonkey capturar sem depender da ponte.",
+        "Mantido fallback para ponte tampermonkey.net apenas quando a URL nao for .user.js.",
+      ],
+    },
+    {
+      date: "2026-03-06",
+      version: "2.15.31",
+      notes: [
+        "Deteccao de update agora compara todas as fontes e escolhe a maior versao remota.",
+        "Retorno do update/download padrao para raw/main para reduzir atraso de CDN no metadata check.",
+      ],
+    },
+    {
+      date: "2026-03-06",
+      version: "2.15.30",
+      notes: [
+        "Troca de update/download para jsDelivr (@main) para evitar cache antigo do raw/main.",
+        "Melhora da confiabilidade na deteccao e instalacao de novas versoes.",
+      ],
+    },
+    {
+      date: "2026-03-06",
+      version: "2.15.29",
+      notes: [
+        "Notificacao global de update em qualquer pagina (nao depende do dashboard).",
+        "Fluxo de aviso reforcado para facilitar atualizacao manual imediata.",
+      ],
+    },
+    {
+      date: "2026-03-06",
+      version: "2.15.28",
+      notes: [
+        "Republicacao da versao mais recente no main para restaurar deteccao de update.",
+        "Mantido popup automatico de update e ponte de instalacao via Tampermonkey.",
+      ],
+    },
+    {
+      date: "2026-03-06",
+      version: "2.15.27",
+      notes: [
+        "Verificacao de update agora consulta commit SHA mais recente da API do GitHub.",
+        "Reduce atraso de alerta causado por cache do raw/main.",
+      ],
+    },
+    {
+      date: "2026-03-06",
       version: "2.15.26",
       notes: [
-        "Correcao do offset do dashboard para evitar espaco vertical excessivo.",
-        "Texto de 'Enviar para orcamento' com saudacao por horario e assinatura do usuario logado.",
-        "Remocao do botao 'Versoes' na barra de filtros do dashboard.",
+        "Popup automatico (uma vez por versao remota) quando houver update disponivel.",
+        "Fluxo de abrir atualizacao com ponte do Tampermonkey para reduzir bloqueio do navegador.",
+      ],
+    },
+    {
+      date: "2026-03-06",
+      version: "2.15.25",
+      notes: [
+        "Regras append-only no historico de atualizacoes.",
+        "Painel de atualizacoes agora usa historico protegido e persistente.",
       ],
     },
     {
@@ -142,6 +254,8 @@ Equipe de Suporte.`;
 Atenciosamente.`;
   let hsScriptUpdateCheckPromise = null;
   let hsScriptUpdateLastResult = null;
+  let hsUpdateHistoryValidated = false;
+  let hsUpdateHistoryValidatedList = [];
 
   /*
    * ============================================================================
@@ -709,6 +823,151 @@ Atenciosamente.`;
   .hs-toast.err .dot{ background:#ef4444; }
   .hs-toast.soft .dot{ background:#38bdf8; }
 
+  .hs-update-modal{
+    position:fixed;
+    inset:0;
+    z-index:1000003;
+    display:none;
+  }
+  .hs-update-modal.open{ display:block; }
+  .hs-update-modal-backdrop{
+    position:absolute;
+    inset:0;
+    background:rgba(2,8,18,.64);
+  }
+  .hs-update-modal-card{
+    position:absolute;
+    width:min(860px, 94vw);
+    max-height:90vh;
+    top:5vh;
+    left:50%;
+    transform:translateX(-50%);
+    display:flex;
+    flex-direction:column;
+    border-radius:14px;
+    overflow:hidden;
+    background:var(--panel);
+    border:1px solid var(--border);
+    box-shadow:0 20px 58px rgba(0,0,0,.45);
+  }
+  .hs-update-modal-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:10px 12px;
+    background:var(--panel2);
+    border-bottom:1px solid var(--border);
+    color:var(--fg);
+    font-weight:800;
+  }
+  .hs-update-modal-head button{
+    min-height:26px!important;
+    height:26px!important;
+    padding:2px 10px!important;
+    border-radius:8px!important;
+    cursor:pointer;
+  }
+  .hs-update-modal-body{
+    padding:12px;
+    overflow:auto;
+    color:var(--fg);
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .hs-update-modal-status{
+    font-size:12px;
+    line-height:1.35;
+    opacity:.95;
+    margin:0;
+  }
+  .hs-update-modal-url-wrap{
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .hs-update-modal-url{
+    flex:1 1 auto;
+    min-width:0;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:rgba(15,23,42,.28);
+    color:var(--fg);
+    padding:8px 10px;
+    font-size:12px;
+    line-height:1.3;
+    white-space:nowrap;
+    overflow:auto;
+  }
+  .hs-update-modal-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .hs-update-modal-actions button{
+    min-height:28px!important;
+    border-radius:8px!important;
+    padding:4px 10px!important;
+    font-size:11px!important;
+    font-weight:700!important;
+    cursor:pointer;
+  }
+  .hs-update-modal-actions button.is-main{
+    background:linear-gradient(180deg, #ffe9a8, #f6d36a)!important;
+    border-color:#e5bf4f!important;
+    color:#1f2b18!important;
+  }
+  .hs-update-modal-code details{
+    border:1px solid var(--border);
+    border-radius:10px;
+    background:rgba(15,23,42,.18);
+    padding:8px;
+  }
+  .hs-update-modal-code summary{
+    cursor:pointer;
+    font-weight:700;
+    font-size:12px;
+  }
+  .hs-update-modal-code-tools{
+    margin-top:8px;
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+  }
+  .hs-update-modal-code-tools button{
+    min-height:24px!important;
+    border-radius:8px!important;
+    padding:2px 9px!important;
+    font-size:10px!important;
+    font-weight:700!important;
+    cursor:pointer;
+  }
+  .hs-update-modal-code textarea{
+    width:100%;
+    min-height:260px;
+    margin-top:8px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:rgba(2,6,14,.62);
+    color:#f8fbff;
+    font-size:11px;
+    line-height:1.35;
+    padding:8px;
+    resize:vertical;
+  }
+  @media (max-width:760px){
+    .hs-update-modal-card{
+      width:min(96vw, 96vw);
+      top:2vh;
+      max-height:95vh;
+    }
+    .hs-update-modal-url-wrap{
+      flex-direction:column;
+      align-items:stretch;
+    }
+  }
+
   @keyframes hsRowAlertBlinkNew{
     0%,100%{ box-shadow: inset 0 0 0 999px rgba(56,189,248,0); }
     50%{ box-shadow: inset 0 0 0 999px rgba(56,189,248,.23); }
@@ -718,10 +977,10 @@ Atenciosamente.`;
     50%{ box-shadow: inset 0 0 0 999px rgba(245,158,11,.20); }
   }
   table.sortable tbody tr.hs-row-blink-new td{
-    animation:hsRowAlertBlinkNew .95s ease-in-out infinite;
+    animation:hsRowAlertBlinkNew .95s ease-in-out 1 both;
   }
   table.sortable tbody tr.hs-row-blink-changed td{
-    animation:hsRowAlertBlinkChanged .95s ease-in-out infinite;
+    animation:hsRowAlertBlinkChanged .95s ease-in-out 1 both;
   }
   table.sortable tbody tr.hs-row-alert td:first-child{
     position:relative!important;
@@ -3115,6 +3374,239 @@ Atenciosamente.`;
     } catch {}
   }
   /**
+   * Objetivo: Normaliza lista de historico de atualizacoes.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - rawList: entrada usada por esta rotina.
+   * Retorno: Array<object>.
+   * Efeitos colaterais: nenhum.
+   */
+  function normalizeUpdatesLogList(rawList) {
+    return (Array.isArray(rawList) ? rawList : [])
+      .map((entry) => normalizeUpdateHistoryEntry(entry))
+      .filter(Boolean);
+  }
+  /**
+   * Objetivo: Le cache local do historico remoto de atualizacoes.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros: nenhum.
+   * Retorno: object.
+   * Efeitos colaterais: leitura de localStorage.
+   */
+  function readUpdatesLogCache() {
+    try {
+      const at = parseInt(localStorage.getItem(UPDATES_LOG_CACHE_AT_LS_KEY) || "0", 10);
+      const raw = String(localStorage.getItem(UPDATES_LOG_CACHE_JSON_LS_KEY) || "").trim();
+      if (!raw) return { at: 0, list: [] };
+      const parsed = JSON.parse(raw);
+      return { at: Number.isFinite(at) ? at : 0, list: normalizeUpdatesLogList(parsed) };
+    } catch {
+      return { at: 0, list: [] };
+    }
+  }
+  /**
+   * Objetivo: Persiste cache local do historico remoto de atualizacoes.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - list: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: escrita em localStorage.
+   */
+  function writeUpdatesLogCache(list) {
+    const normalized = normalizeUpdatesLogList(list);
+    if (!normalized.length) return;
+    try {
+      localStorage.setItem(UPDATES_LOG_CACHE_AT_LS_KEY, String(Date.now()));
+      localStorage.setItem(UPDATES_LOG_CACHE_JSON_LS_KEY, JSON.stringify(normalized));
+    } catch {}
+  }
+  /**
+   * Objetivo: Busca historico remoto de atualizacoes com fallback local/cache.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - forceRefresh: entrada usada por esta rotina.
+   * Retorno: Promise<object>.
+   * Efeitos colaterais: chamadas de rede e cache local.
+   */
+  async function fetchUpdatesLog(forceRefresh = true) {
+    const cached = readUpdatesLogCache();
+    const now = Date.now();
+    if (
+      !forceRefresh &&
+      cached.at > 0 &&
+      now - cached.at < UPDATES_LOG_CACHE_MS &&
+      Array.isArray(cached.list) &&
+      cached.list.length
+    ) {
+      return { list: cached.list, source: "cache" };
+    }
+
+    try {
+      const response = await fetch(UPDATES_LOG_REMOTE_URL, {
+        method: "GET",
+        cache: "no-store",
+        mode: "cors",
+        credentials: "omit",
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const parsed = await response.json();
+      const normalized = normalizeUpdatesLogList(parsed);
+      if (!normalized.length) throw new Error("Arquivo remoto de atualizacoes vazio.");
+      writeUpdatesLogCache(normalized);
+      return { list: normalized, source: "remote" };
+    } catch {
+      if (cached.list.length) return { list: cached.list, source: "cache-fallback" };
+      return { list: normalizeUpdatesLogList(RECENT_UPDATES), source: "local-fallback" };
+    }
+  }
+  /**
+   * Objetivo: Normaliza item do historico de atualizacoes para formato consistente.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - entry: entrada usada por esta rotina.
+   * Retorno: object|null.
+   * Efeitos colaterais: nenhum.
+   */
+  function normalizeUpdateHistoryEntry(entry) {
+    if (!entry || typeof entry !== "object") return null;
+    const version = String(entry.version || "").trim();
+    const date = String(entry.date || "").trim();
+    const notesRaw = Array.isArray(entry.notes) ? entry.notes : [];
+    const notes = Array.from(
+      new Set(
+        notesRaw
+          .map((n) => String(n || "").trim())
+          .filter(Boolean)
+      )
+    );
+    if (!version && !date && !notes.length) return null;
+    return { version, date, notes };
+  }
+  /**
+   * Objetivo: Mescla historicos no modo append-only (nunca remove entradas existentes).
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - oldList: entrada usada por esta rotina.
+   * - newList: entrada usada por esta rotina.
+   * Retorno: Array<object>.
+   * Efeitos colaterais: nenhum.
+   */
+  function mergeUpdateHistoryAppendOnly(oldList = [], newList = []) {
+    const map = new Map();
+    const upsert = (entry) => {
+      const normalized = normalizeUpdateHistoryEntry(entry);
+      if (!normalized) return;
+      const key =
+        normalized.version
+          ? `v:${normalized.version}`
+          : `d:${normalized.date}|n:${normalized.notes.join("||")}`;
+      const current = map.get(key);
+      if (!current) {
+        map.set(key, normalized);
+        return;
+      }
+      const mergedNotes = Array.from(new Set([...(current.notes || []), ...(normalized.notes || [])]));
+      map.set(key, {
+        version: current.version || normalized.version,
+        date: current.date || normalized.date,
+        notes: mergedNotes,
+      });
+    };
+
+    (Array.isArray(oldList) ? oldList : []).forEach(upsert);
+    (Array.isArray(newList) ? newList : []).forEach(upsert);
+
+    return Array.from(map.values()).sort((a, b) => {
+      const byVersion = compareVersionTexts(String(b.version || ""), String(a.version || ""));
+      if (byVersion !== 0) return byVersion;
+      return String(b.date || "").localeCompare(String(a.date || ""));
+    });
+  }
+  /**
+   * Objetivo: Le historico append-only de atualizacoes do storage local.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros: nenhum.
+   * Retorno: Array<object>.
+   * Efeitos colaterais: leitura de localStorage.
+   */
+  function readUpdateHistoryFromStorage() {
+    try {
+      const raw = String(localStorage.getItem(UPDATE_LOG_HISTORY_LS_KEY) || "").trim();
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map((x) => normalizeUpdateHistoryEntry(x)).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+  /**
+   * Objetivo: Persiste historico append-only de atualizacoes.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - list: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: escrita em localStorage.
+   */
+  function writeUpdateHistoryToStorage(list) {
+    try {
+      localStorage.setItem(UPDATE_LOG_HISTORY_LS_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+    } catch {}
+  }
+  /**
+   * Objetivo: Sincroniza RECENT_UPDATES com historico persistido sem apagar entradas antigas.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros: nenhum.
+   * Retorno: Array<object>.
+   * Efeitos colaterais: leitura/escrita em localStorage.
+   */
+  function getAppendOnlyUpdateHistory() {
+    const persisted = readUpdateHistoryFromStorage();
+    const merged = mergeUpdateHistoryAppendOnly(persisted, RECENT_UPDATES);
+
+    // Garante que a versao atual sempre apareca no painel de atualizacoes.
+    if (!merged.some((entry) => String(entry.version || "").trim() === SCRIPT_VERSION)) {
+      merged.unshift({
+        version: SCRIPT_VERSION,
+        date: new Date().toISOString().slice(0, 10),
+        notes: ["Atualizacao registrada automaticamente nesta versao."],
+      });
+    }
+
+    writeUpdateHistoryToStorage(merged);
+    return merged;
+  }
+  /**
+   * Objetivo: Valida e reforca regras do campo de atualizacoes no runtime.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros: nenhum.
+   * Retorno: Array<object>.
+   * Efeitos colaterais: warnings no console quando regras nao forem atendidas.
+   */
+  function enforceUpdateHistoryRules(forceRefresh = false) {
+    if (!forceRefresh && hsUpdateHistoryValidated && Array.isArray(hsUpdateHistoryValidatedList)) {
+      return hsUpdateHistoryValidatedList;
+    }
+    const list = getAppendOnlyUpdateHistory();
+    const current = list.find((entry) => String(entry.version || "").trim() === SCRIPT_VERSION);
+    if (!current || !Array.isArray(current.notes) || current.notes.length === 0) {
+      console.warn("[HeadsoftHelper][updates] Regra violada: adicione notas para a versao atual no RECENT_UPDATES.");
+    }
+    hsUpdateHistoryValidated = true;
+    hsUpdateHistoryValidatedList = Array.isArray(list) ? list : [];
+    return list;
+  }
+  /**
    * Objetivo: Exibe resumo das ultimas atualizacoes do userscript.
    *
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
@@ -3122,16 +3614,28 @@ Atenciosamente.`;
    * Retorno: void.
    * Efeitos colaterais: abre dialogo nativo com historico recente.
    */
-  function showRecentUpdatesDialog() {
+  async function showRecentUpdatesDialog() {
+    const localUpdates = enforceUpdateHistoryRules(true);
+    const remotePayload = await fetchUpdatesLog(true);
+    const remoteUpdates = normalizeUpdatesLogList(remotePayload?.list || []);
+    const updates = mergeUpdateHistoryAppendOnly(localUpdates, remoteUpdates);
+    writeUpdateHistoryToStorage(updates);
     const lines = [
       `Headsoft Suporte Modern UI v${SCRIPT_VERSION}`,
       "",
+      "Regras do campo de atualizacoes:",
+      ...UPDATE_LOG_RULES.map((r) => `- ${r}`),
+      "",
       "Ultimas atualizacoes:",
     ];
-    RECENT_UPDATES.forEach((item) => {
+    updates.forEach((item) => {
       lines.push(`- ${item.date} (v${item.version})`);
       (item.notes || []).forEach((note) => lines.push(`  * ${String(note || "").trim()}`));
     });
+    if (remotePayload?.source !== "remote") {
+      lines.push("");
+      lines.push("Obs.: exibindo historico local de fallback.");
+    }
     window.alert(lines.join("\n"));
   }
   /**
@@ -3236,9 +3740,36 @@ Atenciosamente.`;
 
     hsScriptUpdateCheckPromise = (async () => {
       let lastError = "";
-      for (const url of UPDATE_SCRIPT_CANDIDATE_URLS) {
+      const urlsToTry = [];
+      try {
+        const latestCommitResponse = await fetch(LATEST_MAIN_COMMIT_API_URL, {
+          method: "GET",
+          cache: "no-store",
+          mode: "cors",
+          credentials: "omit",
+        });
+        if (latestCommitResponse.ok) {
+          const latestCommit = await latestCommitResponse.json().catch(() => ({}));
+          const sha = String(latestCommit?.sha || "").trim();
+          if (sha) {
+            urlsToTry.push(`https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/${sha}/.user.js`);
+          }
+        }
+      } catch (err) {
+        lastError = String(err?.message || err || "");
+      }
+      UPDATE_SCRIPT_CANDIDATE_URLS.forEach((url) => {
+        const u = String(url || "").trim();
+        if (!u) return;
+        if (!urlsToTry.includes(u)) urlsToTry.push(u);
+      });
+      if (!urlsToTry.includes(MANUAL_UPDATE_SOURCE_URL)) urlsToTry.push(MANUAL_UPDATE_SOURCE_URL);
+
+      let bestRemote = null;
+      for (const url of urlsToTry) {
         try {
-          const response = await fetch(url, {
+          const fetchUrl = buildNoCacheUserscriptUrl(url);
+          const response = await fetch(fetchUrl || url, {
             method: "GET",
             cache: "no-store",
             mode: "cors",
@@ -3254,17 +3785,23 @@ Atenciosamente.`;
             lastError = `Versao nao encontrada em ${url}`;
             continue;
           }
-          const hasUpdate = compareVersionTexts(remoteVersion, SCRIPT_VERSION) > 0;
-          return persistUpdateCheckResult({
-            ok: true,
-            checkedAt: Date.now(),
-            remoteVersion,
-            remoteUrl: url,
-            hasUpdate,
-          });
+          if (!bestRemote || compareVersionTexts(remoteVersion, bestRemote.remoteVersion) > 0) {
+            bestRemote = { remoteVersion, remoteUrl: MANUAL_UPDATE_SOURCE_URL };
+          }
         } catch (err) {
           lastError = String(err?.message || err || "");
         }
+      }
+
+      if (bestRemote) {
+        const hasUpdate = compareVersionTexts(bestRemote.remoteVersion, SCRIPT_VERSION) > 0;
+        return persistUpdateCheckResult({
+          ok: true,
+          checkedAt: Date.now(),
+          remoteVersion: bestRemote.remoteVersion,
+          remoteUrl: bestRemote.remoteUrl,
+          hasUpdate,
+        });
       }
 
       if (cached?.remoteVersion) {
@@ -3306,9 +3843,437 @@ Atenciosamente.`;
     const target =
       String(preferredUrl || "").trim() ||
       String(cached?.remoteUrl || "").trim() ||
-      String(UPDATE_SCRIPT_CANDIDATE_URLS[0] || "").trim() ||
+      String(MANUAL_UPDATE_SOURCE_URL || "").trim() ||
       SCRIPT_REPO_URL;
-    window.open(target, "_blank", "noopener");
+    const safeTarget = String(target || "").trim();
+    const isUserscript = /\.user\.js(?:[?#].*)?$/i.test(safeTarget);
+    if (isUserscript) {
+      const directUrl = buildNoCacheUserscriptUrl(safeTarget);
+      window.open(directUrl, "_blank", "noopener");
+      return;
+    }
+    const bridged = safeTarget ? `${UPDATE_INSTALL_BRIDGE_BASE_URL}${encodeURIComponent(safeTarget)}` : "";
+    window.open(bridged || safeTarget || SCRIPT_REPO_URL, "_blank", "noopener");
+  }
+  /**
+   * Objetivo: Adiciona cache-buster na URL do userscript para evitar leitura antiga.
+   *
+   * Contexto: Utilizado nos fluxos de atualizar/abrir codigo manual.
+   * Parametros:
+   * - url: URL base do userscript.
+   * Retorno: string.
+   * Efeitos colaterais: nenhum.
+   */
+  function buildNoCacheUserscriptUrl(url) {
+    const raw = String(url || "").trim();
+    if (!raw) return "";
+    try {
+      const u = new URL(raw, location.href);
+      u.searchParams.set("hs_update", String(Date.now()));
+      return u.toString();
+    } catch {
+      return raw;
+    }
+  }
+  /**
+   * Objetivo: Busca o codigo mais recente do userscript para atualizacao manual.
+   *
+   * Contexto: Base do botao de copiar codigo para colar no Tampermonkey.
+   * Parametros: nenhum.
+   * Retorno: Promise<{url:string, content:string, version:string}>.
+   * Efeitos colaterais: chamadas de rede.
+   */
+  async function fetchLatestUserscriptSource() {
+    const candidates = [];
+    try {
+      const check = await checkScriptUpdateAvailability(true);
+      const checkedUrl = String(check?.remoteUrl || "").trim();
+      if (checkedUrl) candidates.push(checkedUrl);
+    } catch {}
+    candidates.push(MANUAL_UPDATE_SOURCE_URL);
+    UPDATE_SCRIPT_CANDIDATE_URLS.forEach((u) => {
+      const item = String(u || "").trim();
+      if (item) candidates.push(item);
+    });
+
+    const tried = new Set();
+    for (const baseUrl of candidates) {
+      const clean = String(baseUrl || "").trim();
+      if (!clean || tried.has(clean)) continue;
+      tried.add(clean);
+
+      const fetchUrl = buildNoCacheUserscriptUrl(clean);
+      try {
+        const resp = await fetch(fetchUrl, {
+          method: "GET",
+          cache: "no-store",
+          mode: "cors",
+          credentials: "omit",
+        });
+        if (!resp.ok) continue;
+        const content = await resp.text();
+        if (!/==UserScript==/i.test(content)) continue;
+        const version = extractScriptVersionFromText(content);
+        return { url: clean, content, version };
+      } catch {}
+    }
+    throw new Error("Nao foi possivel carregar o codigo remoto do script.");
+  }
+  /**
+   * Objetivo: Copia texto para clipboard com fallback para execCommand.
+   *
+   * Contexto: Utilizado no modal de atualizacao manual.
+   * Parametros:
+   * - text: conteudo a copiar.
+   * Retorno: Promise<boolean>.
+   * Efeitos colaterais: acesso ao clipboard.
+   */
+  async function copyTextToClipboard(text) {
+    const raw = String(text || "");
+    if (!raw) return false;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(raw);
+        return true;
+      }
+    } catch {}
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = raw;
+      ta.setAttribute("readonly", "readonly");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      ta.style.top = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      const ok = !!document.execCommand("copy");
+      ta.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+  /**
+   * Objetivo: Gera nome de arquivo seguro para download local do userscript.
+   *
+   * Contexto: usado no botao "Baixar .user.js".
+   * Parametros:
+   * - version: versao remota detectada.
+   * Retorno: string.
+   */
+  function buildUserscriptDownloadFileName(version) {
+    const v = String(version || "latest").trim().replace(/[^\w.-]+/g, "_");
+    return `headsoft-suporte-modern-ui-v${v}.user.js`;
+  }
+  /**
+   * Objetivo: Baixa o userscript remoto como arquivo local.
+   *
+   * Contexto: fallback simples quando instalacao direta falhar.
+   * Parametros:
+   * - source: objeto retornado por fetchLatestUserscriptSource.
+   * Retorno: boolean.
+   * Efeitos colaterais: dispara download no navegador.
+   */
+  function downloadUserscriptSource(source) {
+    const content = String(source?.content || "");
+    if (!content) return false;
+    try {
+      const blob = new Blob([content], { type: "application/javascript;charset=utf-8" });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = buildUserscriptDownloadFileName(source?.version);
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  /**
+   * Objetivo: Fecha modal de atualizacao manual.
+   *
+   * Contexto: reutilizado por backdrop, botao fechar e tecla ESC.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function closeManualUpdateModal() {
+    if (!hsManualUpdateModal) hsManualUpdateModal = document.getElementById("hs-update-modal");
+    if (!(hsManualUpdateModal instanceof HTMLElement)) return;
+    hsManualUpdateModal.classList.remove("open");
+  }
+  /**
+   * Objetivo: Cria modal de atualizacao manual com acoes de copiar/baixar/abrir.
+   *
+   * Contexto: evita alert longo e melhora UX do fluxo manual.
+   * Parametros: nenhum.
+   * Retorno: HTMLElement|null.
+   * Efeitos colaterais: injeta DOM e binds de evento idempotentes.
+   */
+  function ensureManualUpdateModal() {
+    if (hsManualUpdateModal && hsManualUpdateModal.isConnected) return hsManualUpdateModal;
+    let modal = document.getElementById("hs-update-modal");
+    if (!(modal instanceof HTMLElement)) {
+      modal = document.createElement("div");
+      modal.id = "hs-update-modal";
+      modal.className = "hs-update-modal";
+      modal.innerHTML = `
+        <div class="hs-update-modal-backdrop"></div>
+        <section class="hs-update-modal-card" role="dialog" aria-modal="true" aria-label="Atualizacao manual do script">
+          <header class="hs-update-modal-head">
+            <span>Atualizacao Manual do Script</span>
+            <button type="button" data-action="close">Fechar</button>
+          </header>
+          <div class="hs-update-modal-body">
+            <p class="hs-update-modal-status"></p>
+            <div class="hs-update-modal-url-wrap">
+              <input type="text" class="hs-update-modal-url" readonly />
+              <button type="button" data-action="copy-link">Copiar link</button>
+            </div>
+            <div class="hs-update-modal-actions">
+              <button type="button" class="is-main" data-action="copy-code">Copiar codigo</button>
+              <button type="button" data-action="download">Baixar .user.js</button>
+              <button type="button" data-action="install">Instalar direto</button>
+              <button type="button" data-action="open-raw">Abrir raw</button>
+              <button type="button" data-action="open-github">Abrir GitHub</button>
+            </div>
+            <div class="hs-update-modal-code">
+              <details class="hs-update-modal-code-details">
+                <summary>Mostrar codigo (fallback manual)</summary>
+                <div class="hs-update-modal-code-tools">
+                  <button type="button" data-action="select-all-code">Selecionar tudo (Ctrl+A)</button>
+                </div>
+                <textarea class="hs-update-modal-code-text" readonly></textarea>
+              </details>
+            </div>
+          </div>
+        </section>
+      `;
+      document.body.appendChild(modal);
+    }
+    hsManualUpdateModal = modal;
+    if (modal.dataset.hsBound === "1") return modal;
+    modal.dataset.hsBound = "1";
+
+    modal.querySelector(".hs-update-modal-backdrop")?.addEventListener("click", closeManualUpdateModal);
+    modal.querySelector('[data-action="close"]')?.addEventListener("click", closeManualUpdateModal);
+    modal.addEventListener("click", async (ev) => {
+      const btn = ev.target instanceof HTMLElement ? ev.target.closest("button[data-action]") : null;
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const action = String(btn.dataset.action || "").trim();
+      const payload = hsManualUpdatePayload || {};
+      const scriptUrl = String(payload.url || MANUAL_UPDATE_SOURCE_URL).trim();
+      const noCacheUrl = buildNoCacheUserscriptUrl(scriptUrl || MANUAL_UPDATE_SOURCE_URL);
+
+      if (action === "select-all-code") {
+        const detailsEl = modal.querySelector(".hs-update-modal-code-details");
+        const codeTa = modal.querySelector(".hs-update-modal-code-text");
+        if (detailsEl instanceof HTMLDetailsElement) detailsEl.open = true;
+        if (codeTa instanceof HTMLTextAreaElement) {
+          if (!codeTa.value) codeTa.value = String(payload.content || "");
+          codeTa.focus();
+          codeTa.select();
+          codeTa.setSelectionRange(0, codeTa.value.length);
+        }
+        return;
+      }
+      if (action === "copy-code") {
+        const ok = await copyTextToClipboard(String(payload.content || ""));
+        toast(ok ? "Codigo copiado." : "Falha ao copiar codigo.", ok ? "ok" : "err", 2600);
+        return;
+      }
+      if (action === "copy-link") {
+        const link = String(scriptUrl || MANUAL_UPDATE_SOURCE_URL).trim();
+        const ok = await copyTextToClipboard(link);
+        toast(ok ? "Link copiado." : "Falha ao copiar link.", ok ? "ok" : "err", 2400);
+        return;
+      }
+      if (action === "download") {
+        const ok = downloadUserscriptSource(payload);
+        if (ok) toast("Download iniciado.", "ok", 2200);
+        else {
+          toast("Nao foi possivel baixar agora; abrindo raw.", "info", 2600);
+          window.open(noCacheUrl || MANUAL_UPDATE_GITHUB_RAW_URL, "_blank", "noopener");
+        }
+        return;
+      }
+      if (action === "install") {
+        openScriptUpdatePage(scriptUrl || MANUAL_UPDATE_SOURCE_URL);
+        return;
+      }
+      if (action === "open-raw") {
+        window.open(noCacheUrl || MANUAL_UPDATE_GITHUB_RAW_URL, "_blank", "noopener");
+        return;
+      }
+      if (action === "open-github") {
+        window.open(MANUAL_UPDATE_GITHUB_FILE_URL, "_blank", "noopener");
+      }
+    });
+
+    const details = modal.querySelector(".hs-update-modal-code-details");
+    const ta = modal.querySelector(".hs-update-modal-code-text");
+    if (details instanceof HTMLDetailsElement && ta instanceof HTMLTextAreaElement) {
+      details.addEventListener("toggle", () => {
+        if (!details.open) return;
+        if (details.dataset.loaded === "1") return;
+        ta.value = String(hsManualUpdatePayload?.content || "");
+        details.dataset.loaded = "1";
+      });
+      ta.addEventListener(
+        "keydown",
+        (ev) => {
+          if ((ev.ctrlKey || ev.metaKey) && String(ev.key || "").toLowerCase() === "a") {
+            ev.preventDefault();
+            ta.select();
+            ta.setSelectionRange(0, ta.value.length);
+          }
+        },
+        true
+      );
+    }
+
+    if (document.documentElement.dataset.hsUpdateModalEscBound !== "1") {
+      document.documentElement.dataset.hsUpdateModalEscBound = "1";
+      document.addEventListener(
+        "keydown",
+        (ev) => {
+          if (ev.key !== "Escape") return;
+          closeManualUpdateModal();
+        },
+        true
+      );
+    }
+    return modal;
+  }
+  /**
+   * Objetivo: Preenche e exibe modal de atualizacao manual.
+   *
+   * Contexto: mostra opcoes praticas para atualizar sem depender de prompt/alert.
+   * Parametros:
+   * - source: objeto do userscript remoto.
+   * - copied: informa se copia automatica inicial funcionou.
+   * Retorno: void.
+   */
+  function showManualUpdateModal(source, copied = false) {
+    const modal = ensureManualUpdateModal();
+    if (!(modal instanceof HTMLElement)) return;
+    hsManualUpdatePayload = {
+      url: String(source?.url || MANUAL_UPDATE_SOURCE_URL).trim(),
+      content: String(source?.content || ""),
+      version: String(source?.version || "").trim(),
+    };
+
+    const statusEl = modal.querySelector(".hs-update-modal-status");
+    const urlInput = modal.querySelector(".hs-update-modal-url");
+    const details = modal.querySelector(".hs-update-modal-code-details");
+    const ta = modal.querySelector(".hs-update-modal-code-text");
+    const v = String(hsManualUpdatePayload.version || "").trim();
+    const statusLines = [
+      v ? `Versao remota detectada: v${v}` : "Versao remota carregada.",
+      copied
+        ? "Codigo ja foi copiado para a area de transferencia."
+        : "Use os botoes abaixo para copiar o codigo/link ou baixar o arquivo.",
+      "Se instalar direto falhar, use: Baixar .user.js ou Mostrar codigo.",
+    ];
+    if (statusEl instanceof HTMLElement) statusEl.textContent = statusLines.join(" ");
+    if (urlInput instanceof HTMLInputElement) urlInput.value = hsManualUpdatePayload.url || MANUAL_UPDATE_SOURCE_URL;
+    if (details instanceof HTMLDetailsElement) {
+      details.open = false;
+      details.dataset.loaded = "0";
+    }
+    if (ta instanceof HTMLTextAreaElement) ta.value = "";
+
+    modal.classList.add("open");
+  }
+  /**
+   * Objetivo: Facilita atualizacao manual (modal com copiar/baixar/abrir).
+   *
+   * Contexto: Fluxo alternativo quando o install automatico do Tampermonkey falha.
+   * Parametros: nenhum.
+   * Retorno: Promise<void>.
+   * Efeitos colaterais: chamadas de rede, clipboard, download e abertura de nova aba.
+   */
+  async function openManualUpdateGuide() {
+    const source = await fetchLatestUserscriptSource();
+    const copied = await copyTextToClipboard(String(source.content || ""));
+    showManualUpdateModal(source, copied);
+  }
+  /**
+   * Objetivo: Le ultima versao remota ja notificada em popup.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros: nenhum.
+   * Retorno: string.
+   * Efeitos colaterais: leitura de localStorage.
+   */
+  function getLastUpdatePopupVersion() {
+    try {
+      return String(localStorage.getItem(UPDATE_POPUP_LAST_VERSION_LS_KEY) || "").trim();
+    } catch {
+      return "";
+    }
+  }
+  /**
+   * Objetivo: Persiste ultima versao remota notificada em popup.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - version: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: escrita em localStorage.
+   */
+  function setLastUpdatePopupVersion(version) {
+    try {
+      localStorage.setItem(UPDATE_POPUP_LAST_VERSION_LS_KEY, String(version || "").trim());
+    } catch {}
+  }
+  /**
+   * Objetivo: Exibe popup de update apenas uma vez por versao remota detectada.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - result: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: prompt/confirmacao visual e persistencia de versao notificada.
+   */
+  function showUpdatePopupOnce(result) {
+    const hasUpdate = !!result?.hasUpdate && !!String(result?.remoteVersion || "").trim();
+    if (!hasUpdate) return;
+    const remoteVersion = String(result.remoteVersion || "").trim();
+    if (!remoteVersion) return;
+
+    const lastPopup = getLastUpdatePopupVersion();
+    if (lastPopup === remoteVersion) return;
+    setLastUpdatePopupVersion(remoteVersion);
+
+    setTimeout(() => {
+      const msg = `Nova versao ${remoteVersion} disponivel.\n\nClique em OK para abrir a atualizacao agora.`;
+      const openNow = window.confirm(msg);
+      if (openNow) openScriptUpdatePage(result?.remoteUrl || "");
+    }, 120);
+  }
+  /**
+   * Objetivo: Dispara verificacao/notificacao de update de forma global na pagina.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros: nenhum.
+   * Retorno: void.
+   * Efeitos colaterais: consulta remota e popup de update quando houver nova versao.
+   */
+  function ensureGlobalUpdateNotification() {
+    const root = document.documentElement;
+    if (!(root instanceof HTMLElement)) return;
+    if (root.dataset.hsGlobalUpdateCheckStarted === "1") return;
+    root.dataset.hsGlobalUpdateCheckStarted = "1";
+
+    checkScriptUpdateAvailability(false)
+      .then((result) => showUpdatePopupOnce(result))
+      .catch(() => {});
   }
   /**
    * Objetivo: Le cache local do catalogo de versoes.
@@ -3384,7 +4349,7 @@ Atenciosamente.`;
     addEntry({
       version: SCRIPT_VERSION,
       date: new Date().toISOString(),
-      url: String(UPDATE_SCRIPT_CANDIDATE_URLS[0] || "").trim(),
+      url: String(MANUAL_UPDATE_SOURCE_URL || "").trim(),
       source: "current",
     });
 
@@ -3437,7 +4402,7 @@ Atenciosamente.`;
         {
           version: SCRIPT_VERSION,
           date: "",
-          url: String(UPDATE_SCRIPT_CANDIDATE_URLS[0] || "").trim(),
+          url: String(MANUAL_UPDATE_SOURCE_URL || "").trim(),
           commitUrl: "",
           source: "fallback",
         },
@@ -3746,9 +4711,11 @@ Atenciosamente.`;
    */
   function applyTheme(t) {
     const mode = t === "light" ? "light" : "dark";
-    document.documentElement.setAttribute("data-hs-theme", mode);
+    if (document.documentElement.getAttribute("data-hs-theme") !== mode) {
+      document.documentElement.setAttribute("data-hs-theme", mode);
+    }
     try {
-      localStorage.setItem(LS_KEY, mode);
+      if (localStorage.getItem(LS_KEY) !== mode) localStorage.setItem(LS_KEY, mode);
     } catch {}
     const btn = document.getElementById(BTN_ID);
     if (btn) btn.textContent = mode === "dark" ? THEME_LABEL_WHEN_DARK : THEME_LABEL_WHEN_LIGHT;
@@ -4459,6 +5426,14 @@ Atenciosamente.`;
       checkBtn.className = "hs-preview-mode-btn";
       host.appendChild(checkBtn);
     }
+    let manualBtn = host.querySelector("#hs-update-manual-btn");
+    if (!(manualBtn instanceof HTMLInputElement)) {
+      manualBtn = document.createElement("input");
+      manualBtn.type = "button";
+      manualBtn.id = "hs-update-manual-btn";
+      manualBtn.className = "hs-preview-mode-btn";
+      host.appendChild(manualBtn);
+    }
     let alertBtn = host.querySelector("#hs-update-available-btn");
     if (!(alertBtn instanceof HTMLInputElement)) {
       alertBtn = document.createElement("input");
@@ -4487,6 +5462,7 @@ Atenciosamente.`;
       alertBtn.title = `Existe atualizacao disponivel (${remoteVersion}). Clique para abrir.`;
       alertBtn.dataset.hsRemoteUrl = String(result?.remoteUrl || "").trim();
       alertBtn.style.setProperty("display", "inline-flex", "important");
+      showUpdatePopupOnce(result);
     };
 
     btn.onclick = (ev) => {
@@ -4499,10 +5475,14 @@ Atenciosamente.`;
     };
     updatesBtn.value = "Atualizacoes";
     updatesBtn.title = "Ver ultimas atualizacoes do script";
-    updatesBtn.onclick = (ev) => {
+    updatesBtn.onclick = async (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      showRecentUpdatesDialog();
+      try {
+        await showRecentUpdatesDialog();
+      } catch {
+        toast("Nao foi possivel abrir o historico de atualizacoes agora.", "err", 3000);
+      }
     };
     checkBtn.value = "Verificar update";
     checkBtn.title = "Verifica no GitHub se existe nova versao do script";
@@ -4528,6 +5508,26 @@ Atenciosamente.`;
         checkBtn.disabled = false;
         checkBtn.value = oldLabel;
         delete checkBtn.dataset.hsBusy;
+      }
+    };
+    manualBtn.value = "Codigo update";
+    manualBtn.title = "Abrir e copiar codigo para colar manualmente no Tampermonkey";
+    manualBtn.onclick = async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (manualBtn.dataset.hsBusy === "1") return;
+      manualBtn.dataset.hsBusy = "1";
+      const oldLabel = manualBtn.value;
+      manualBtn.value = "Preparando...";
+      manualBtn.disabled = true;
+      try {
+        await openManualUpdateGuide();
+      } catch (err) {
+        toast("Nao foi possivel abrir o codigo remoto agora.", "err", 3200);
+      } finally {
+        manualBtn.disabled = false;
+        manualBtn.value = oldLabel;
+        delete manualBtn.dataset.hsBusy;
       }
     };
     alertBtn.onclick = (ev) => {
@@ -5237,7 +6237,6 @@ Atenciosamente.`;
       const st = window.getComputedStyle(el);
       if (st.display === "none" || st.visibility === "hidden") return false;
       if (st.position !== "fixed" && st.position !== "sticky") return false;
-
       const rect = el.getBoundingClientRect();
       return rect.top <= 2 && rect.height > 20 && rect.width > 200;
     });
@@ -6021,7 +7020,6 @@ Atenciosamente.`;
         const thumbs = images.slice(0, 8);
         for (const file of thumbs) {
           if (seq !== renderSeq) return;
-
           const src = await readFileAsDataUrl(file);
           if (seq !== renderSeq) return;
 
@@ -7710,6 +8708,8 @@ Atenciosamente.`;
   /* ------------------ SECTION: TOAST, POPUP E REDE LEGADA ------------------- */
   let toastWrap = null;
   let reqPopup = null;
+  let hsManualUpdateModal = null;
+  let hsManualUpdatePayload = null;
   let reqPopupEscBound = false;
   let hsReqClicksBound = false;
   let hsAjaxRefreshBusy = false;
@@ -7717,6 +8717,9 @@ Atenciosamente.`;
   let hsAjaxLastSignature = "";
   let hsAjaxLastToastAt = 0;
   const hsRowAlertState = new Map();
+  let hsRowAlertPersist = new Map();
+  let hsRowAlertPersistLoaded = false;
+  let hsRowAlertPersistSaveTimer = null;
   const HS_REQ_CLICK_MARK = "__hsReqClickHandled";
   /**
    * Objetivo: Fecha popup modal de requisiÃ§Ã£o.
@@ -7902,6 +8905,164 @@ Atenciosamente.`;
     };
   }
   /**
+   * Objetivo: Carrega estado persistido dos alertas de chamados (blink/ack).
+   *
+   * Contexto: Evita piscar repetido entre reloads e mantém ack no navegador.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function ensureRowAlertPersistLoaded() {
+    if (hsRowAlertPersistLoaded) return;
+    hsRowAlertPersistLoaded = true;
+    hsRowAlertPersist = new Map();
+    try {
+      const raw = String(localStorage.getItem(ROW_ALERT_PERSIST_LS_KEY) || "").trim();
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return;
+      const now = Date.now();
+      Object.entries(parsed).forEach(([numero, meta]) => {
+        if (!/^\d{3,}$/.test(String(numero || "").trim())) return;
+        if (!meta || typeof meta !== "object") return;
+        const blinkedAt = Number(meta.blinkedAt || 0);
+        const ackedAt = Number(meta.ackedAt || 0);
+        const updatedAt = Number(meta.updatedAt || Math.max(blinkedAt, ackedAt, 0));
+        if (!Number.isFinite(updatedAt) || updatedAt <= 0) return;
+        if (now - updatedAt > ROW_ALERT_PERSIST_TTL_MS) return;
+        hsRowAlertPersist.set(String(numero), {
+          blinkedAt: Number.isFinite(blinkedAt) ? blinkedAt : 0,
+          ackedAt: Number.isFinite(ackedAt) ? ackedAt : 0,
+          updatedAt,
+        });
+      });
+    } catch {}
+  }
+  /**
+   * Objetivo: Limpa e limita estado persistido dos alertas para evitar crescimento infinito.
+   *
+   * Contexto: Protege performance e tamanho de localStorage.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function pruneRowAlertPersist() {
+    ensureRowAlertPersistLoaded();
+    const now = Date.now();
+    hsRowAlertPersist.forEach((meta, numero) => {
+      const updatedAt = Number(meta?.updatedAt || 0);
+      if (!Number.isFinite(updatedAt) || updatedAt <= 0 || now - updatedAt > ROW_ALERT_PERSIST_TTL_MS) {
+        hsRowAlertPersist.delete(numero);
+      }
+    });
+    if (hsRowAlertPersist.size <= ROW_ALERT_PERSIST_MAX_ITEMS) return;
+    const entries = Array.from(hsRowAlertPersist.entries()).sort(
+      (a, b) => Number(b?.[1]?.updatedAt || 0) - Number(a?.[1]?.updatedAt || 0)
+    );
+    hsRowAlertPersist = new Map(entries.slice(0, ROW_ALERT_PERSIST_MAX_ITEMS));
+  }
+  /**
+   * Objetivo: Agenda persistencia de estado de alertas em lote curto.
+   *
+   * Contexto: Reduz escrita excessiva em localStorage.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function scheduleRowAlertPersistSave() {
+    if (hsRowAlertPersistSaveTimer) clearTimeout(hsRowAlertPersistSaveTimer);
+    hsRowAlertPersistSaveTimer = setTimeout(() => {
+      hsRowAlertPersistSaveTimer = null;
+      try {
+        pruneRowAlertPersist();
+        const payload = {};
+        hsRowAlertPersist.forEach((meta, numero) => {
+          payload[numero] = {
+            blinkedAt: Number(meta?.blinkedAt || 0) || 0,
+            ackedAt: Number(meta?.ackedAt || 0) || 0,
+            updatedAt: Number(meta?.updatedAt || 0) || 0,
+          };
+        });
+        localStorage.setItem(ROW_ALERT_PERSIST_LS_KEY, JSON.stringify(payload));
+      } catch {}
+    }, 140);
+  }
+  /**
+   * Objetivo: Recupera metadados persistidos de um chamado.
+   *
+   * Contexto: Utilizado para decidir se pode piscar novamente.
+   * Parametros:
+   * - numero: identificador do chamado.
+   * Retorno: object|null.
+   */
+  function getPersistedRowAlertMeta(numero) {
+    const reqNum = String(numero || "").trim();
+    if (!/^\d{3,}$/.test(reqNum)) return null;
+    ensureRowAlertPersistLoaded();
+    return hsRowAlertPersist.get(reqNum) || null;
+  }
+  /**
+   * Objetivo: Marca que o chamado ja recebeu animacao de blink.
+   *
+   * Contexto: Evita piscar repetido entre refresh e recarga da pagina.
+   * Parametros:
+   * - numero: identificador do chamado.
+   * Retorno: void.
+   */
+  function markRowAlertBlinked(numero) {
+    const reqNum = String(numero || "").trim();
+    if (!/^\d{3,}$/.test(reqNum)) return;
+    const now = Date.now();
+    const prev = getPersistedRowAlertMeta(reqNum) || {};
+    hsRowAlertPersist.set(reqNum, {
+      blinkedAt: now,
+      ackedAt: Number(prev.ackedAt || 0) || 0,
+      updatedAt: now,
+    });
+    scheduleRowAlertPersistSave();
+  }
+  /**
+   * Objetivo: Marca chamado como reconhecido (nao reaplicar alerta "new" automaticamente).
+   *
+   * Contexto: Chamado quando usuario abre/interage com o ticket.
+   * Parametros:
+   * - numero: identificador do chamado.
+   * Retorno: void.
+   */
+  function markRowAlertAcknowledged(numero) {
+    const reqNum = String(numero || "").trim();
+    if (!/^\d{3,}$/.test(reqNum)) return;
+    const now = Date.now();
+    const prev = getPersistedRowAlertMeta(reqNum) || {};
+    hsRowAlertPersist.set(reqNum, {
+      blinkedAt: Number(prev.blinkedAt || 0) || now,
+      ackedAt: now,
+      updatedAt: now,
+    });
+    scheduleRowAlertPersistSave();
+  }
+  /**
+   * Objetivo: Informa se chamado ja foi reconhecido pelo usuario nesta janela persistida.
+   *
+   * Contexto: Usado para evitar re-alertar "Nova" continuamente.
+   * Parametros:
+   * - numero: identificador do chamado.
+   * Retorno: boolean.
+   */
+  function isRowAlertAcknowledged(numero) {
+    const meta = getPersistedRowAlertMeta(numero);
+    return !!(meta && Number(meta.ackedAt || 0) > 0);
+  }
+  /**
+   * Objetivo: Informa se chamado ja executou blink alguma vez no navegador.
+   *
+   * Contexto: Controle do "piscar uma vez".
+   * Parametros:
+   * - numero: identificador do chamado.
+   * Retorno: boolean.
+   */
+  function hasRowAlertBlinked(numero) {
+    const meta = getPersistedRowAlertMeta(numero);
+    return !!(meta && Number(meta.blinkedAt || 0) > 0);
+  }
+  /**
    * Objetivo: Limpa alertas expirados e retorna timestamp atual.
    *
    * Contexto: Evita crescimento de estado em sessao longa.
@@ -7929,16 +9090,20 @@ Atenciosamente.`;
   function registerRowAlerts(nums, kind, blink = true) {
     if (!Array.isArray(nums) || !nums.length) return;
     if (kind !== "new" && kind !== "changed") return;
+    ensureRowAlertPersistLoaded();
     const now = cleanupRowAlertState();
     nums.forEach((nRaw) => {
       const numero = String(nRaw || "").trim();
       if (!/^\d{3,}$/.test(numero)) return;
+      if (kind === "new" && isRowAlertAcknowledged(numero)) return;
 
       const prev = hsRowAlertState.get(numero) || null;
       const type = kind === "new" || !prev ? kind : prev.type;
+      const shouldBlinkNow = !!blink && !hasRowAlertBlinked(numero);
+      if (shouldBlinkNow) markRowAlertBlinked(numero);
       hsRowAlertState.set(numero, {
         type,
-        blinkUntil: blink ? now + ROW_ALERT_BLINK_MS : Math.max(prev?.blinkUntil || 0, now),
+        blinkUntil: shouldBlinkNow ? now + ROW_ALERT_BLINK_MS : Math.max(prev?.blinkUntil || 0, now),
         expiresAt: now + ROW_ALERT_TTL_MS,
       });
     });
@@ -7958,19 +9123,29 @@ Atenciosamente.`;
       const firstCell = tr.cells?.[0];
       const dot = firstCell?.querySelector(".hs-row-state-dot");
 
-      tr.classList.remove("hs-row-alert", "hs-row-flag-new", "hs-row-flag-changed", "hs-row-blink-new", "hs-row-blink-changed");
-      if (dot) dot.remove();
-      if (!meta || !(firstCell instanceof HTMLTableCellElement)) return;
-
-      tr.classList.add("hs-row-alert", meta.type === "new" ? "hs-row-flag-new" : "hs-row-flag-changed");
-      if (meta.blinkUntil > now) {
-        tr.classList.add(meta.type === "new" ? "hs-row-blink-new" : "hs-row-blink-changed");
+      if (!meta || !(firstCell instanceof HTMLTableCellElement)) {
+        tr.classList.remove("hs-row-alert", "hs-row-flag-new", "hs-row-flag-changed", "hs-row-blink-new", "hs-row-blink-changed");
+        if (dot) dot.remove();
+        return;
       }
 
-      const stateDot = document.createElement("span");
-      stateDot.className = `hs-row-state-dot ${meta.type === "new" ? "is-new" : "is-changed"}`;
-      stateDot.title = meta.type === "new" ? "Chamado novo" : "Chamado com alteracao";
-      firstCell.appendChild(stateDot);
+      const isNew = meta.type === "new";
+      const shouldBlink = meta.blinkUntil > now;
+      tr.classList.add("hs-row-alert");
+      tr.classList.toggle("hs-row-flag-new", isNew);
+      tr.classList.toggle("hs-row-flag-changed", !isNew);
+      tr.classList.toggle("hs-row-blink-new", isNew && shouldBlink);
+      tr.classList.toggle("hs-row-blink-changed", !isNew && shouldBlink);
+
+      let stateDot = dot;
+      if (!(stateDot instanceof HTMLElement)) {
+        stateDot = document.createElement("span");
+        stateDot.className = "hs-row-state-dot";
+        firstCell.appendChild(stateDot);
+      }
+      stateDot.classList.toggle("is-new", isNew);
+      stateDot.classList.toggle("is-changed", !isNew);
+      stateDot.title = isNew ? "Chamado novo" : "Chamado com alteracao";
     });
   }
   /**
@@ -7997,6 +9172,7 @@ Atenciosamente.`;
         const numero = String(extractNumero(tr) || "").trim();
         if (!/^\d{3,}$/.test(numero)) return;
         if (hsRowAlertState.has(numero)) return;
+        if (isRowAlertAcknowledged(numero)) return;
         novas.push(numero);
       });
     });
@@ -8013,9 +9189,28 @@ Atenciosamente.`;
   function acknowledgeRowAlert(numero) {
     const reqNum = String(numero || "").trim();
     if (!/^\d{3,}$/.test(reqNum)) return;
+    markRowAlertAcknowledged(reqNum);
     if (!hsRowAlertState.has(reqNum)) return;
     hsRowAlertState.delete(reqNum);
     renderRowAlerts();
+  }
+  /**
+   * Objetivo: Reaplica apenas os ajustes essenciais da grade apos refresh AJAX.
+   *
+   * Contexto: Substitui safeRun completo para reduzir custo e evitar lentidao.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function runPostAjaxGridRefreshLightPass() {
+    markServiceRows();
+    tagDashboardGridColumns();
+    signalExternalReturnSlaRules();
+    registerCurrentNovaRows();
+    renderRowAlerts();
+    ensureCountBadges();
+    ensureConsultaPrimeiroAtendimentoButtons();
+    bindRowAndLogoClicks();
+    normalizeDashboardTableWidths();
   }
   /**
    * Objetivo: Atualiza a grade de chamados via fetch remoto sem F5.
@@ -8077,7 +9272,7 @@ Atenciosamente.`;
         }
       }
 
-      safeRun();
+      runPostAjaxGridRefreshLightPass();
     } catch (err) {
       console.warn("[HeadsoftHelper] Falha no refresh AJAX discreto:", err);
     } finally {
@@ -8741,6 +9936,8 @@ Atenciosamente.`;
     runStep(ensureReqOpenDebugTools, "ensureReqOpenDebugTools");
     runStep(ensureWindowOpenDedupGuard, "ensureWindowOpenDedupGuard");
     runStep(injectStyle, "injectStyle");
+    runStep(enforceUpdateHistoryRules, "enforceUpdateHistoryRules");
+    runStep(ensureGlobalUpdateNotification, "ensureGlobalUpdateNotification");
     runStep(ensureThemeBtn, "ensureThemeBtn");
     runStep(() => applyTheme(getTheme()), "applyTheme");
     runStep(ensureBadge, "ensureBadge");
@@ -8806,18 +10003,53 @@ Atenciosamente.`;
   const target = document.getElementById("conteudo") || document.body;
   let timer = null;
   let running = false;
+  const isIgnoredMutationNode = (node) => {
+    if (!(node instanceof HTMLElement)) return false;
+    if (node.closest("#hs-req-pop, .hs-toast-wrap")) return true;
+    const id = String(node.id || "").trim();
+    if (id.startsWith("hs-")) return true;
+    const className = typeof node.className === "string" ? node.className : "";
+    return /\bhs-[\w-]+/.test(className);
+  };
+  const shouldProcessMutations = (mutations) => {
+    for (const m of mutations || []) {
+      if (m.type !== "childList") return true;
+      const nodes = [...Array.from(m.addedNodes || []), ...Array.from(m.removedNodes || [])];
+      if (!nodes.length) {
+        if (m.target instanceof HTMLElement && !isIgnoredMutationNode(m.target)) return true;
+        continue;
+      }
+      for (const node of nodes) {
+        if (node instanceof HTMLElement) {
+          if (isIgnoredMutationNode(node)) continue;
+          return true;
+        }
+        if (node instanceof Text) {
+          const p = node.parentElement;
+          if (p && isIgnoredMutationNode(p)) continue;
+          return true;
+        }
+        return true;
+      }
+    }
+    return false;
+  };
   const schedule = () => {
     if (running) return;
     clearTimeout(timer);
     timer = setTimeout(() => {
+      if (document.hidden) return;
       running = true;
       try {
         safeRun();
       } finally {
         running = false;
       }
-    }, 220);
+    }, SAFE_RUN_MUTATION_DEBOUNCE_MS);
   };
-  const mo = new MutationObserver(() => schedule());
+  const mo = new MutationObserver((mutations) => {
+    if (!shouldProcessMutations(mutations)) return;
+    schedule();
+  });
   mo.observe(target, { childList: true, subtree: true });
 })();

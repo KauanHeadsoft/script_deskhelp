@@ -1,0 +1,133 @@
+﻿[
+  {
+    "date": "2026-03-06",
+    "version": "2.15.36",
+    "notes": [
+      "Correcao do update pelo GitHub com cache-buster e URL canonical main.",
+      "Botao de versoes removido do dashboard.",
+      "Texto de orcamento atualizado com saudacao e assinatura do tecnico logado.",
+      "Preview de anexos reforcado para funcionar em mais cenarios."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.35",
+    "notes": [
+      "Atualizacao manual ganhou modal com botoes de copiar codigo, copiar link, baixar .user.js e abrir GitHub.",
+      "Removido alert longo sem acao pratica; fluxo agora e mais direto para o usuario final."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.34",
+    "notes": [
+      "Novo fluxo manual: botao para abrir/copiar codigo e colar no editor do Tampermonkey.",
+      "Piscar de chamados agora acontece uma unica vez por chamado e fica salvo no navegador.",
+      "Otimizacao de performance: menos reprocessamento completo apos mutacoes e refresh AJAX."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.33",
+    "notes": [
+      "Aprimoramentos gerais de estabilidade no fluxo de atualizacao."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.32",
+    "notes": [
+      "Ajustes de interface e refinamentos na experiencia do dashboard."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.31",
+    "notes": [
+      "Melhorias de robustez em interacoes de atalhos e formularios."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.30",
+    "notes": [
+      "Ajustes incrementais de compatibilidade em paginas legadas."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.29",
+    "notes": [
+      "Refino de comportamentos visuais e estabilidade operacional."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.28",
+    "notes": [
+      "Correcoes menores de fluxo e consistencia de UI."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.27",
+    "notes": [
+      "Historico de versoes movido para arquivo dedicado e leitura no botao Atualizacoes."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.26",
+    "notes": [
+      "Correcao do offset do dashboard para evitar espaco vertical excessivo.",
+      "Texto de Enviar para orcamento com saudacao por horario e assinatura do usuario logado.",
+      "Remocao do botao Versoes na barra de filtros do dashboard."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.25",
+    "notes": [
+      "Correcao de exibicao de anexos com preview de imagens no acompanhamento.",
+      "Ajustes de compatibilidade para selecao de multiplas imagens."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.24",
+    "notes": [
+      "Correcao do botao de tema (Modo Claro/Modo Escuro) sem caracteres quebrados.",
+      "Checagem de atualizacao em todo carregamento da pagina."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.23",
+    "notes": [
+      "Verificacao de atualizacao via GitHub (automatica e manual).",
+      "Botao de alerta discreto/chamativo quando houver nova versao."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.22",
+    "notes": [
+      "Novo botao Atualizacoes ao lado do preview para mostrar historico recente."
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "version": "2.15.21",
+    "notes": [
+      "Novo botao Enviar para orcamento com validacao dos campos de minutos consumo.",
+      "Novo toggle de Preview ON/OFF ao lado dos filtros."
+    ]
+  },
+  {
+    "date": "2026-03-03",
+    "version": "2.15.20",
+    "notes": [
+      "Ajustes gerais de estabilidade e visual."
+    ]
+  }
+]
