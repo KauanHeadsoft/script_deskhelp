@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.33
+// @version      2.15.34
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -44,7 +44,7 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.33";
+  const SCRIPT_VERSION = "2.15.34";
   const UPDATE_LOG_HISTORY_LS_KEY = "hs2025-updates-history";
   const UPDATE_LOG_RULES = Object.freeze([
     "Regra 1: nunca remover entradas antigas do campo de atualizacoes.",
@@ -62,6 +62,7 @@
   const UPDATE_CHECK_HAS_UPDATE_LS_KEY = "hs2025-update-has-update";
   const UPDATE_POPUP_LAST_VERSION_LS_KEY = "hs2025-update-popup-last-version";
   const UPDATE_INSTALL_BRIDGE_BASE_URL = "https://www.tampermonkey.net/script_installation.php#url=";
+  const MANUAL_UPDATE_SOURCE_URL = "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/HEAD/.user.js";
   const VERSION_CATALOG_CACHE_LS_KEY = "hs2025-version-catalog-json";
   const VERSION_CATALOG_CACHE_AT_LS_KEY = "hs2025-version-catalog-at";
   const VERSION_CATALOG_CACHE_MS = 6 * 60 * 60 * 1000;
@@ -80,6 +81,10 @@
   const AJAX_REFRESH_TOAST_COOLDOWN_MS = 7000;
   const ROW_ALERT_BLINK_MS = 12000;
   const ROW_ALERT_TTL_MS = 45 * 60 * 1000;
+  const ROW_ALERT_PERSIST_LS_KEY = "hs2025-row-alert-persist-v1";
+  const ROW_ALERT_PERSIST_TTL_MS = 15 * 24 * 60 * 60 * 1000;
+  const ROW_ALERT_PERSIST_MAX_ITEMS = 700;
+  const SAFE_RUN_MUTATION_DEBOUNCE_MS = 480;
   const FEATURE_FLAGS = Object.freeze({
     ENABLE_AI_ASSIST: true,
     ENABLE_POPUP_VIEWER: true,
@@ -96,6 +101,15 @@ Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const T_ENVIAR_ORCAMENTO = "Orcamento enviado ao solicitante.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.34",
+      notes: [
+        "Novo fluxo manual: botao para abrir/copiar codigo e colar no editor do Tampermonkey.",
+        "Piscar de chamados agora acontece uma unica vez por chamado e fica salvo no navegador.",
+        "Otimizacao de performance: menos reprocessamento completo apos mutacoes e refresh AJAX.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.33",
@@ -216,6 +230,8 @@ Equipe de Suporte.`;
 Atenciosamente.`;
   let hsScriptUpdateCheckPromise = null;
   let hsScriptUpdateLastResult = null;
+  let hsUpdateHistoryValidated = false;
+  let hsUpdateHistoryValidatedList = [];
 
   /*
    * ============================================================================
@@ -792,10 +808,10 @@ Atenciosamente.`;
     50%{ box-shadow: inset 0 0 0 999px rgba(245,158,11,.20); }
   }
   table.sortable tbody tr.hs-row-blink-new td{
-    animation:hsRowAlertBlinkNew .95s ease-in-out infinite;
+    animation:hsRowAlertBlinkNew .95s ease-in-out 1 both;
   }
   table.sortable tbody tr.hs-row-blink-changed td{
-    animation:hsRowAlertBlinkChanged .95s ease-in-out infinite;
+    animation:hsRowAlertBlinkChanged .95s ease-in-out 1 both;
   }
   table.sortable tbody tr.hs-row-alert td:first-child{
     position:relative!important;
@@ -3318,12 +3334,17 @@ Atenciosamente.`;
    * Retorno: Array<object>.
    * Efeitos colaterais: warnings no console quando regras nao forem atendidas.
    */
-  function enforceUpdateHistoryRules() {
+  function enforceUpdateHistoryRules(forceRefresh = false) {
+    if (!forceRefresh && hsUpdateHistoryValidated && Array.isArray(hsUpdateHistoryValidatedList)) {
+      return hsUpdateHistoryValidatedList;
+    }
     const list = getAppendOnlyUpdateHistory();
     const current = list.find((entry) => String(entry.version || "").trim() === SCRIPT_VERSION);
     if (!current || !Array.isArray(current.notes) || current.notes.length === 0) {
       console.warn("[HeadsoftHelper][updates] Regra violada: adicione notas para a versao atual no RECENT_UPDATES.");
     }
+    hsUpdateHistoryValidated = true;
+    hsUpdateHistoryValidatedList = Array.isArray(list) ? list : [];
     return list;
   }
   /**
@@ -3335,7 +3356,7 @@ Atenciosamente.`;
    * Efeitos colaterais: abre dialogo nativo com historico recente.
    */
   function showRecentUpdatesDialog() {
-    const updates = enforceUpdateHistoryRules();
+    const updates = enforceUpdateHistoryRules(true);
     const lines = [
       `Headsoft Suporte Modern UI v${SCRIPT_VERSION}`,
       "",
@@ -3558,17 +3579,109 @@ Atenciosamente.`;
     const safeTarget = String(target || "").trim();
     const isUserscript = /\.user\.js(?:[?#].*)?$/i.test(safeTarget);
     if (isUserscript) {
-      let directUrl = safeTarget;
-      try {
-        const u = new URL(safeTarget, location.href);
-        u.searchParams.set("hs_update", String(Date.now()));
-        directUrl = u.toString();
-      } catch {}
+      const directUrl = buildNoCacheUserscriptUrl(safeTarget);
       window.open(directUrl, "_blank", "noopener");
       return;
     }
     const bridged = safeTarget ? `${UPDATE_INSTALL_BRIDGE_BASE_URL}${encodeURIComponent(safeTarget)}` : "";
     window.open(bridged || safeTarget || SCRIPT_REPO_URL, "_blank", "noopener");
+  }
+  /**
+   * Objetivo: Adiciona cache-buster na URL do userscript para evitar leitura antiga.
+   *
+   * Contexto: Utilizado nos fluxos de atualizar/abrir codigo manual.
+   * Parametros:
+   * - url: URL base do userscript.
+   * Retorno: string.
+   * Efeitos colaterais: nenhum.
+   */
+  function buildNoCacheUserscriptUrl(url) {
+    const raw = String(url || "").trim();
+    if (!raw) return "";
+    try {
+      const u = new URL(raw, location.href);
+      u.searchParams.set("hs_update", String(Date.now()));
+      return u.toString();
+    } catch {
+      return raw;
+    }
+  }
+  /**
+   * Objetivo: Busca o codigo mais recente do userscript para atualizacao manual.
+   *
+   * Contexto: Base do botao de copiar codigo para colar no Tampermonkey.
+   * Parametros: nenhum.
+   * Retorno: Promise<{url:string, content:string, version:string}>.
+   * Efeitos colaterais: chamadas de rede.
+   */
+  async function fetchLatestUserscriptSource() {
+    const candidates = [];
+    try {
+      const check = await checkScriptUpdateAvailability(true);
+      const checkedUrl = String(check?.remoteUrl || "").trim();
+      if (checkedUrl) candidates.push(checkedUrl);
+    } catch {}
+    candidates.push(MANUAL_UPDATE_SOURCE_URL);
+    UPDATE_SCRIPT_CANDIDATE_URLS.forEach((u) => {
+      const item = String(u || "").trim();
+      if (item) candidates.push(item);
+    });
+
+    const tried = new Set();
+    for (const baseUrl of candidates) {
+      const clean = String(baseUrl || "").trim();
+      if (!clean || tried.has(clean)) continue;
+      tried.add(clean);
+
+      const fetchUrl = buildNoCacheUserscriptUrl(clean);
+      try {
+        const resp = await fetch(fetchUrl, {
+          method: "GET",
+          cache: "no-store",
+          mode: "cors",
+          credentials: "omit",
+        });
+        if (!resp.ok) continue;
+        const content = await resp.text();
+        if (!/==UserScript==/i.test(content)) continue;
+        const version = extractScriptVersionFromText(content);
+        return { url: clean, content, version };
+      } catch {}
+    }
+    throw new Error("Nao foi possivel carregar o codigo remoto do script.");
+  }
+  /**
+   * Objetivo: Facilita atualizacao manual (abrir codigo e tentar copiar).
+   *
+   * Contexto: Fluxo alternativo quando o install automatico do Tampermonkey falha.
+   * Parametros: nenhum.
+   * Retorno: Promise<void>.
+   * Efeitos colaterais: chamadas de rede, clipboard e abertura de nova aba.
+   */
+  async function openManualUpdateGuide() {
+    const source = await fetchLatestUserscriptSource();
+    let copied = false;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(String(source.content || ""));
+        copied = true;
+      }
+    } catch {}
+
+    const previewVersion = String(source.version || "").trim();
+    const lines = [
+      previewVersion ? `Codigo remoto v${previewVersion} carregado.` : "Codigo remoto carregado.",
+      copied ? "Codigo copiado para a area de transferencia." : "Nao foi possivel copiar automatico neste navegador.",
+      "",
+      "Passo a passo manual:",
+      "1) Abra o editor do script no Tampermonkey.",
+      "2) Selecione tudo e cole o codigo novo.",
+      "3) Salve (Ctrl+S).",
+      "",
+      `Fonte: ${source.url}`,
+    ];
+    window.alert(lines.join("\n"));
+    window.open(buildNoCacheUserscriptUrl(source.url), "_blank", "noopener");
   }
   /**
    * Objetivo: Le ultima versao remota ja notificada em popup.
@@ -4078,9 +4191,11 @@ Atenciosamente.`;
    */
   function applyTheme(t) {
     const mode = t === "light" ? "light" : "dark";
-    document.documentElement.setAttribute("data-hs-theme", mode);
+    if (document.documentElement.getAttribute("data-hs-theme") !== mode) {
+      document.documentElement.setAttribute("data-hs-theme", mode);
+    }
     try {
-      localStorage.setItem(LS_KEY, mode);
+      if (localStorage.getItem(LS_KEY) !== mode) localStorage.setItem(LS_KEY, mode);
     } catch {}
     const btn = document.getElementById(BTN_ID);
     if (btn) btn.textContent = mode === "dark" ? THEME_LABEL_WHEN_DARK : THEME_LABEL_WHEN_LIGHT;
@@ -4798,6 +4913,14 @@ Atenciosamente.`;
       checkBtn.className = "hs-preview-mode-btn";
       host.appendChild(checkBtn);
     }
+    let manualBtn = host.querySelector("#hs-update-manual-btn");
+    if (!(manualBtn instanceof HTMLInputElement)) {
+      manualBtn = document.createElement("input");
+      manualBtn.type = "button";
+      manualBtn.id = "hs-update-manual-btn";
+      manualBtn.className = "hs-preview-mode-btn";
+      host.appendChild(manualBtn);
+    }
     let alertBtn = host.querySelector("#hs-update-available-btn");
     if (!(alertBtn instanceof HTMLInputElement)) {
       alertBtn = document.createElement("input");
@@ -4886,6 +5009,26 @@ Atenciosamente.`;
         checkBtn.disabled = false;
         checkBtn.value = oldLabel;
         delete checkBtn.dataset.hsBusy;
+      }
+    };
+    manualBtn.value = "Codigo update";
+    manualBtn.title = "Abrir e copiar codigo para colar manualmente no Tampermonkey";
+    manualBtn.onclick = async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (manualBtn.dataset.hsBusy === "1") return;
+      manualBtn.dataset.hsBusy = "1";
+      const oldLabel = manualBtn.value;
+      manualBtn.value = "Preparando...";
+      manualBtn.disabled = true;
+      try {
+        await openManualUpdateGuide();
+      } catch (err) {
+        toast("Nao foi possivel abrir o codigo remoto agora.", "err", 3200);
+      } finally {
+        manualBtn.disabled = false;
+        manualBtn.value = oldLabel;
+        delete manualBtn.dataset.hsBusy;
       }
     };
     alertBtn.onclick = (ev) => {
@@ -7963,6 +8106,9 @@ Atenciosamente.`;
   let hsAjaxLastSignature = "";
   let hsAjaxLastToastAt = 0;
   const hsRowAlertState = new Map();
+  let hsRowAlertPersist = new Map();
+  let hsRowAlertPersistLoaded = false;
+  let hsRowAlertPersistSaveTimer = null;
   const HS_REQ_CLICK_MARK = "__hsReqClickHandled";
   /**
    * Objetivo: Fecha popup modal de requisiÃ§Ã£o.
@@ -8148,6 +8294,164 @@ Atenciosamente.`;
     };
   }
   /**
+   * Objetivo: Carrega estado persistido dos alertas de chamados (blink/ack).
+   *
+   * Contexto: Evita piscar repetido entre reloads e mantém ack no navegador.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function ensureRowAlertPersistLoaded() {
+    if (hsRowAlertPersistLoaded) return;
+    hsRowAlertPersistLoaded = true;
+    hsRowAlertPersist = new Map();
+    try {
+      const raw = String(localStorage.getItem(ROW_ALERT_PERSIST_LS_KEY) || "").trim();
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return;
+      const now = Date.now();
+      Object.entries(parsed).forEach(([numero, meta]) => {
+        if (!/^\d{3,}$/.test(String(numero || "").trim())) return;
+        if (!meta || typeof meta !== "object") return;
+        const blinkedAt = Number(meta.blinkedAt || 0);
+        const ackedAt = Number(meta.ackedAt || 0);
+        const updatedAt = Number(meta.updatedAt || Math.max(blinkedAt, ackedAt, 0));
+        if (!Number.isFinite(updatedAt) || updatedAt <= 0) return;
+        if (now - updatedAt > ROW_ALERT_PERSIST_TTL_MS) return;
+        hsRowAlertPersist.set(String(numero), {
+          blinkedAt: Number.isFinite(blinkedAt) ? blinkedAt : 0,
+          ackedAt: Number.isFinite(ackedAt) ? ackedAt : 0,
+          updatedAt,
+        });
+      });
+    } catch {}
+  }
+  /**
+   * Objetivo: Limpa e limita estado persistido dos alertas para evitar crescimento infinito.
+   *
+   * Contexto: Protege performance e tamanho de localStorage.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function pruneRowAlertPersist() {
+    ensureRowAlertPersistLoaded();
+    const now = Date.now();
+    hsRowAlertPersist.forEach((meta, numero) => {
+      const updatedAt = Number(meta?.updatedAt || 0);
+      if (!Number.isFinite(updatedAt) || updatedAt <= 0 || now - updatedAt > ROW_ALERT_PERSIST_TTL_MS) {
+        hsRowAlertPersist.delete(numero);
+      }
+    });
+    if (hsRowAlertPersist.size <= ROW_ALERT_PERSIST_MAX_ITEMS) return;
+    const entries = Array.from(hsRowAlertPersist.entries()).sort(
+      (a, b) => Number(b?.[1]?.updatedAt || 0) - Number(a?.[1]?.updatedAt || 0)
+    );
+    hsRowAlertPersist = new Map(entries.slice(0, ROW_ALERT_PERSIST_MAX_ITEMS));
+  }
+  /**
+   * Objetivo: Agenda persistencia de estado de alertas em lote curto.
+   *
+   * Contexto: Reduz escrita excessiva em localStorage.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function scheduleRowAlertPersistSave() {
+    if (hsRowAlertPersistSaveTimer) clearTimeout(hsRowAlertPersistSaveTimer);
+    hsRowAlertPersistSaveTimer = setTimeout(() => {
+      hsRowAlertPersistSaveTimer = null;
+      try {
+        pruneRowAlertPersist();
+        const payload = {};
+        hsRowAlertPersist.forEach((meta, numero) => {
+          payload[numero] = {
+            blinkedAt: Number(meta?.blinkedAt || 0) || 0,
+            ackedAt: Number(meta?.ackedAt || 0) || 0,
+            updatedAt: Number(meta?.updatedAt || 0) || 0,
+          };
+        });
+        localStorage.setItem(ROW_ALERT_PERSIST_LS_KEY, JSON.stringify(payload));
+      } catch {}
+    }, 140);
+  }
+  /**
+   * Objetivo: Recupera metadados persistidos de um chamado.
+   *
+   * Contexto: Utilizado para decidir se pode piscar novamente.
+   * Parametros:
+   * - numero: identificador do chamado.
+   * Retorno: object|null.
+   */
+  function getPersistedRowAlertMeta(numero) {
+    const reqNum = String(numero || "").trim();
+    if (!/^\d{3,}$/.test(reqNum)) return null;
+    ensureRowAlertPersistLoaded();
+    return hsRowAlertPersist.get(reqNum) || null;
+  }
+  /**
+   * Objetivo: Marca que o chamado ja recebeu animacao de blink.
+   *
+   * Contexto: Evita piscar repetido entre refresh e recarga da pagina.
+   * Parametros:
+   * - numero: identificador do chamado.
+   * Retorno: void.
+   */
+  function markRowAlertBlinked(numero) {
+    const reqNum = String(numero || "").trim();
+    if (!/^\d{3,}$/.test(reqNum)) return;
+    const now = Date.now();
+    const prev = getPersistedRowAlertMeta(reqNum) || {};
+    hsRowAlertPersist.set(reqNum, {
+      blinkedAt: now,
+      ackedAt: Number(prev.ackedAt || 0) || 0,
+      updatedAt: now,
+    });
+    scheduleRowAlertPersistSave();
+  }
+  /**
+   * Objetivo: Marca chamado como reconhecido (nao reaplicar alerta "new" automaticamente).
+   *
+   * Contexto: Chamado quando usuario abre/interage com o ticket.
+   * Parametros:
+   * - numero: identificador do chamado.
+   * Retorno: void.
+   */
+  function markRowAlertAcknowledged(numero) {
+    const reqNum = String(numero || "").trim();
+    if (!/^\d{3,}$/.test(reqNum)) return;
+    const now = Date.now();
+    const prev = getPersistedRowAlertMeta(reqNum) || {};
+    hsRowAlertPersist.set(reqNum, {
+      blinkedAt: Number(prev.blinkedAt || 0) || now,
+      ackedAt: now,
+      updatedAt: now,
+    });
+    scheduleRowAlertPersistSave();
+  }
+  /**
+   * Objetivo: Informa se chamado ja foi reconhecido pelo usuario nesta janela persistida.
+   *
+   * Contexto: Usado para evitar re-alertar "Nova" continuamente.
+   * Parametros:
+   * - numero: identificador do chamado.
+   * Retorno: boolean.
+   */
+  function isRowAlertAcknowledged(numero) {
+    const meta = getPersistedRowAlertMeta(numero);
+    return !!(meta && Number(meta.ackedAt || 0) > 0);
+  }
+  /**
+   * Objetivo: Informa se chamado ja executou blink alguma vez no navegador.
+   *
+   * Contexto: Controle do "piscar uma vez".
+   * Parametros:
+   * - numero: identificador do chamado.
+   * Retorno: boolean.
+   */
+  function hasRowAlertBlinked(numero) {
+    const meta = getPersistedRowAlertMeta(numero);
+    return !!(meta && Number(meta.blinkedAt || 0) > 0);
+  }
+  /**
    * Objetivo: Limpa alertas expirados e retorna timestamp atual.
    *
    * Contexto: Evita crescimento de estado em sessao longa.
@@ -8175,16 +8479,20 @@ Atenciosamente.`;
   function registerRowAlerts(nums, kind, blink = true) {
     if (!Array.isArray(nums) || !nums.length) return;
     if (kind !== "new" && kind !== "changed") return;
+    ensureRowAlertPersistLoaded();
     const now = cleanupRowAlertState();
     nums.forEach((nRaw) => {
       const numero = String(nRaw || "").trim();
       if (!/^\d{3,}$/.test(numero)) return;
+      if (kind === "new" && isRowAlertAcknowledged(numero)) return;
 
       const prev = hsRowAlertState.get(numero) || null;
       const type = kind === "new" || !prev ? kind : prev.type;
+      const shouldBlinkNow = !!blink && !hasRowAlertBlinked(numero);
+      if (shouldBlinkNow) markRowAlertBlinked(numero);
       hsRowAlertState.set(numero, {
         type,
-        blinkUntil: blink ? now + ROW_ALERT_BLINK_MS : Math.max(prev?.blinkUntil || 0, now),
+        blinkUntil: shouldBlinkNow ? now + ROW_ALERT_BLINK_MS : Math.max(prev?.blinkUntil || 0, now),
         expiresAt: now + ROW_ALERT_TTL_MS,
       });
     });
@@ -8204,19 +8512,29 @@ Atenciosamente.`;
       const firstCell = tr.cells?.[0];
       const dot = firstCell?.querySelector(".hs-row-state-dot");
 
-      tr.classList.remove("hs-row-alert", "hs-row-flag-new", "hs-row-flag-changed", "hs-row-blink-new", "hs-row-blink-changed");
-      if (dot) dot.remove();
-      if (!meta || !(firstCell instanceof HTMLTableCellElement)) return;
-
-      tr.classList.add("hs-row-alert", meta.type === "new" ? "hs-row-flag-new" : "hs-row-flag-changed");
-      if (meta.blinkUntil > now) {
-        tr.classList.add(meta.type === "new" ? "hs-row-blink-new" : "hs-row-blink-changed");
+      if (!meta || !(firstCell instanceof HTMLTableCellElement)) {
+        tr.classList.remove("hs-row-alert", "hs-row-flag-new", "hs-row-flag-changed", "hs-row-blink-new", "hs-row-blink-changed");
+        if (dot) dot.remove();
+        return;
       }
 
-      const stateDot = document.createElement("span");
-      stateDot.className = `hs-row-state-dot ${meta.type === "new" ? "is-new" : "is-changed"}`;
-      stateDot.title = meta.type === "new" ? "Chamado novo" : "Chamado com alteracao";
-      firstCell.appendChild(stateDot);
+      const isNew = meta.type === "new";
+      const shouldBlink = meta.blinkUntil > now;
+      tr.classList.add("hs-row-alert");
+      tr.classList.toggle("hs-row-flag-new", isNew);
+      tr.classList.toggle("hs-row-flag-changed", !isNew);
+      tr.classList.toggle("hs-row-blink-new", isNew && shouldBlink);
+      tr.classList.toggle("hs-row-blink-changed", !isNew && shouldBlink);
+
+      let stateDot = dot;
+      if (!(stateDot instanceof HTMLElement)) {
+        stateDot = document.createElement("span");
+        stateDot.className = "hs-row-state-dot";
+        firstCell.appendChild(stateDot);
+      }
+      stateDot.classList.toggle("is-new", isNew);
+      stateDot.classList.toggle("is-changed", !isNew);
+      stateDot.title = isNew ? "Chamado novo" : "Chamado com alteracao";
     });
   }
   /**
@@ -8243,6 +8561,7 @@ Atenciosamente.`;
         const numero = String(extractNumero(tr) || "").trim();
         if (!/^\d{3,}$/.test(numero)) return;
         if (hsRowAlertState.has(numero)) return;
+        if (isRowAlertAcknowledged(numero)) return;
         novas.push(numero);
       });
     });
@@ -8259,9 +8578,28 @@ Atenciosamente.`;
   function acknowledgeRowAlert(numero) {
     const reqNum = String(numero || "").trim();
     if (!/^\d{3,}$/.test(reqNum)) return;
+    markRowAlertAcknowledged(reqNum);
     if (!hsRowAlertState.has(reqNum)) return;
     hsRowAlertState.delete(reqNum);
     renderRowAlerts();
+  }
+  /**
+   * Objetivo: Reaplica apenas os ajustes essenciais da grade apos refresh AJAX.
+   *
+   * Contexto: Substitui safeRun completo para reduzir custo e evitar lentidao.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function runPostAjaxGridRefreshLightPass() {
+    markServiceRows();
+    tagDashboardGridColumns();
+    signalExternalReturnSlaRules();
+    registerCurrentNovaRows();
+    renderRowAlerts();
+    ensureCountBadges();
+    ensureConsultaPrimeiroAtendimentoButtons();
+    bindRowAndLogoClicks();
+    normalizeDashboardTableWidths();
   }
   /**
    * Objetivo: Atualiza a grade de chamados via fetch remoto sem F5.
@@ -8323,7 +8661,7 @@ Atenciosamente.`;
         }
       }
 
-      safeRun();
+      runPostAjaxGridRefreshLightPass();
     } catch (err) {
       console.warn("[HeadsoftHelper] Falha no refresh AJAX discreto:", err);
     } finally {
@@ -9054,18 +9392,53 @@ Atenciosamente.`;
   const target = document.getElementById("conteudo") || document.body;
   let timer = null;
   let running = false;
+  const isIgnoredMutationNode = (node) => {
+    if (!(node instanceof HTMLElement)) return false;
+    if (node.closest("#hs-req-pop, .hs-toast-wrap")) return true;
+    const id = String(node.id || "").trim();
+    if (id.startsWith("hs-")) return true;
+    const className = typeof node.className === "string" ? node.className : "";
+    return /\bhs-[\w-]+/.test(className);
+  };
+  const shouldProcessMutations = (mutations) => {
+    for (const m of mutations || []) {
+      if (m.type !== "childList") return true;
+      const nodes = [...Array.from(m.addedNodes || []), ...Array.from(m.removedNodes || [])];
+      if (!nodes.length) {
+        if (m.target instanceof HTMLElement && !isIgnoredMutationNode(m.target)) return true;
+        continue;
+      }
+      for (const node of nodes) {
+        if (node instanceof HTMLElement) {
+          if (isIgnoredMutationNode(node)) continue;
+          return true;
+        }
+        if (node instanceof Text) {
+          const p = node.parentElement;
+          if (p && isIgnoredMutationNode(p)) continue;
+          return true;
+        }
+        return true;
+      }
+    }
+    return false;
+  };
   const schedule = () => {
     if (running) return;
     clearTimeout(timer);
     timer = setTimeout(() => {
+      if (document.hidden) return;
       running = true;
       try {
         safeRun();
       } finally {
         running = false;
       }
-    }, 220);
+    }, SAFE_RUN_MUTATION_DEBOUNCE_MS);
   };
-  const mo = new MutationObserver(() => schedule());
+  const mo = new MutationObserver((mutations) => {
+    if (!shouldProcessMutations(mutations)) return;
+    schedule();
+  });
   mo.observe(target, { childList: true, subtree: true });
 })();
