@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.26
+// @version      2.15.27
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -44,7 +44,7 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.26";
+  const SCRIPT_VERSION = "2.15.27";
   const UPDATE_LOG_HISTORY_LS_KEY = "hs2025-updates-history";
   const UPDATE_LOG_RULES = Object.freeze([
     "Regra 1: nunca remover entradas antigas do campo de atualizacoes.",
@@ -66,6 +66,7 @@
   const VERSION_CATALOG_CACHE_AT_LS_KEY = "hs2025-version-catalog-at";
   const VERSION_CATALOG_CACHE_MS = 6 * 60 * 60 * 1000;
   const VERSION_CATALOG_MAX_ITEMS = 12;
+  const LATEST_MAIN_COMMIT_API_URL = "https://api.github.com/repos/KauanHeadsoft/script_deskhelp/commits/main";
   const VERSION_CATALOG_COMMITS_API_URL =
     "https://api.github.com/repos/KauanHeadsoft/script_deskhelp/commits?path=.user.js&per_page=35";
   const UPDATE_SCRIPT_CANDIDATE_URLS = Object.freeze([
@@ -94,6 +95,14 @@ Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const T_ENVIAR_ORCAMENTO = "Orcamento enviado ao solicitante.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.27",
+      notes: [
+        "Verificacao de update agora consulta commit SHA mais recente da API do GitHub.",
+        "Reduce atraso de alerta causado por cache do raw/main.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.26",
@@ -3394,7 +3403,31 @@ Atenciosamente.`;
 
     hsScriptUpdateCheckPromise = (async () => {
       let lastError = "";
-      for (const url of UPDATE_SCRIPT_CANDIDATE_URLS) {
+      const urlsToTry = [];
+      try {
+        const latestCommitResponse = await fetch(LATEST_MAIN_COMMIT_API_URL, {
+          method: "GET",
+          cache: "no-store",
+          mode: "cors",
+          credentials: "omit",
+        });
+        if (latestCommitResponse.ok) {
+          const latestCommit = await latestCommitResponse.json().catch(() => ({}));
+          const sha = String(latestCommit?.sha || "").trim();
+          if (sha) {
+            urlsToTry.push(`https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/${sha}/.user.js`);
+          }
+        }
+      } catch (err) {
+        lastError = String(err?.message || err || "");
+      }
+      UPDATE_SCRIPT_CANDIDATE_URLS.forEach((url) => {
+        const u = String(url || "").trim();
+        if (!u) return;
+        if (!urlsToTry.includes(u)) urlsToTry.push(u);
+      });
+
+      for (const url of urlsToTry) {
         try {
           const response = await fetch(url, {
             method: "GET",
