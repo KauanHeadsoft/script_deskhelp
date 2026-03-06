@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.25
+// @version      2.15.26
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -44,7 +44,7 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.25";
+  const SCRIPT_VERSION = "2.15.26";
   const UPDATE_LOG_HISTORY_LS_KEY = "hs2025-updates-history";
   const UPDATE_LOG_RULES = Object.freeze([
     "Regra 1: nunca remover entradas antigas do campo de atualizacoes.",
@@ -60,6 +60,8 @@
   const UPDATE_CHECK_REMOTE_VERSION_LS_KEY = "hs2025-update-remote-version";
   const UPDATE_CHECK_REMOTE_URL_LS_KEY = "hs2025-update-remote-url";
   const UPDATE_CHECK_HAS_UPDATE_LS_KEY = "hs2025-update-has-update";
+  const UPDATE_POPUP_LAST_VERSION_LS_KEY = "hs2025-update-popup-last-version";
+  const UPDATE_INSTALL_BRIDGE_BASE_URL = "https://www.tampermonkey.net/script_installation.php#url=";
   const VERSION_CATALOG_CACHE_LS_KEY = "hs2025-version-catalog-json";
   const VERSION_CATALOG_CACHE_AT_LS_KEY = "hs2025-version-catalog-at";
   const VERSION_CATALOG_CACHE_MS = 6 * 60 * 60 * 1000;
@@ -92,6 +94,14 @@ Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const T_ENVIAR_ORCAMENTO = "Orcamento enviado ao solicitante.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.26",
+      notes: [
+        "Popup automatico (uma vez por versao remota) quando houver update disponivel.",
+        "Fluxo de abrir atualizacao com ponte do Tampermonkey para reduzir bloqueio do navegador.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.25",
@@ -3456,7 +3466,65 @@ Atenciosamente.`;
       String(cached?.remoteUrl || "").trim() ||
       String(UPDATE_SCRIPT_CANDIDATE_URLS[0] || "").trim() ||
       SCRIPT_REPO_URL;
-    window.open(target, "_blank", "noopener");
+    const bridged = String(target || "").trim()
+      ? `${UPDATE_INSTALL_BRIDGE_BASE_URL}${encodeURIComponent(String(target || "").trim())}`
+      : "";
+    const finalUrl = bridged || target;
+    window.open(finalUrl, "_blank", "noopener");
+  }
+  /**
+   * Objetivo: Le ultima versao remota ja notificada em popup.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros: nenhum.
+   * Retorno: string.
+   * Efeitos colaterais: leitura de localStorage.
+   */
+  function getLastUpdatePopupVersion() {
+    try {
+      return String(localStorage.getItem(UPDATE_POPUP_LAST_VERSION_LS_KEY) || "").trim();
+    } catch {
+      return "";
+    }
+  }
+  /**
+   * Objetivo: Persiste ultima versao remota notificada em popup.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - version: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: escrita em localStorage.
+   */
+  function setLastUpdatePopupVersion(version) {
+    try {
+      localStorage.setItem(UPDATE_POPUP_LAST_VERSION_LS_KEY, String(version || "").trim());
+    } catch {}
+  }
+  /**
+   * Objetivo: Exibe popup de update apenas uma vez por versao remota detectada.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - result: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: prompt/confirmacao visual e persistencia de versao notificada.
+   */
+  function showUpdatePopupOnce(result) {
+    const hasUpdate = !!result?.hasUpdate && !!String(result?.remoteVersion || "").trim();
+    if (!hasUpdate) return;
+    const remoteVersion = String(result.remoteVersion || "").trim();
+    if (!remoteVersion) return;
+
+    const lastPopup = getLastUpdatePopupVersion();
+    if (lastPopup === remoteVersion) return;
+    setLastUpdatePopupVersion(remoteVersion);
+
+    setTimeout(() => {
+      const msg = `Nova versao ${remoteVersion} disponivel.\n\nClique em OK para abrir a atualizacao agora.`;
+      const openNow = window.confirm(msg);
+      if (openNow) openScriptUpdatePage(result?.remoteUrl || "");
+    }, 120);
   }
   /**
    * Objetivo: Le cache local do catalogo de versoes.
@@ -4642,6 +4710,7 @@ Atenciosamente.`;
       alertBtn.title = `Existe atualizacao disponivel (${remoteVersion}). Clique para abrir.`;
       alertBtn.dataset.hsRemoteUrl = String(result?.remoteUrl || "").trim();
       alertBtn.style.setProperty("display", "inline-flex", "important");
+      showUpdatePopupOnce(result);
     };
 
     btn.onclick = (ev) => {
