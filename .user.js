@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.42
+// @version      2.15.43
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -15,6 +15,10 @@
 
 // HeadSoft UI â€” tema, logo, filtros, cores, zebrado, contadores,
 // abrir em nova guia (clique do meio) e 1o atendimento no clique da logo
+// Regras de manutencao do projeto:
+// - Arquivos oficiais: .user.js e updates-log.json.
+// - Sempre que atualizar o .user.js, atualizar o updates-log.json com as informacoes da mudanca.
+// - Toda atualizacao/alteracao deve incrementar @version para todos receberem o update.
 
 (() => {
   const BTN_ID = "hs2025-theme-btn";
@@ -44,7 +48,7 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION_FALLBACK = "2.15.41";
+  const SCRIPT_VERSION_FALLBACK = "2.15.43";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -111,6 +115,24 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.43",
+      notes: [
+        "Atualizacao manual agora escolhe a maior versao encontrada entre todas as fontes remotas, evitando retornar codigo antigo.",
+        "Verificacao de update passou a salvar a URL real da fonte que trouxe a versao detectada.",
+        "Fluxo de buscar codigo remoto foi reforcado com candidato por SHA do commit mais recente da branch main.",
+      ],
+    },
+    {
+      date: "2026-03-06",
+      version: "2.15.42",
+      notes: [
+        "Regras de manutencao adicionadas no cabecalho: .user.js e updates-log.json como arquivos oficiais do projeto.",
+        "Padrao documentado: toda mudanca no .user.js deve atualizar o updates-log.json.",
+        "Padrao documentado: toda alteracao deve incrementar a versao para liberar update aos usuarios.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.41",
@@ -4228,7 +4250,7 @@ Atenciosamente.`;
             continue;
           }
           if (!bestRemote || compareVersionTexts(remoteVersion, bestRemote.remoteVersion) > 0) {
-            bestRemote = { remoteVersion, remoteUrl: MANUAL_UPDATE_SOURCE_URL };
+            bestRemote = { remoteVersion, remoteUrl: String(url || "").trim() || MANUAL_UPDATE_SOURCE_URL };
           }
         } catch (err) {
           lastError = String(err?.message || err || "");
@@ -4326,18 +4348,39 @@ Atenciosamente.`;
    * Efeitos colaterais: chamadas de rede.
    */
   async function fetchLatestUserscriptSource() {
-    const candidates = [MANUAL_UPDATE_SOURCE_URL];
+    const candidates = [];
+    const pushCandidate = (value) => {
+      const next = String(value || "").trim();
+      if (!next) return;
+      if (!candidates.includes(next)) candidates.push(next);
+    };
+    pushCandidate(MANUAL_UPDATE_SOURCE_URL);
+    try {
+      const latestCommitResponse = await fetch(LATEST_MAIN_COMMIT_API_URL, {
+        method: "GET",
+        cache: "no-store",
+        mode: "cors",
+        credentials: "omit",
+      });
+      if (latestCommitResponse.ok) {
+        const latestCommit = await latestCommitResponse.json().catch(() => ({}));
+        const sha = String(latestCommit?.sha || "").trim();
+        if (sha) pushCandidate(`https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/${sha}/.user.js`);
+      }
+    } catch {}
     try {
       const check = await checkScriptUpdateAvailability(true);
       const checkedUrl = String(check?.remoteUrl || "").trim();
-      if (checkedUrl) candidates.push(checkedUrl);
+      if (checkedUrl) pushCandidate(checkedUrl);
     } catch {}
     UPDATE_SCRIPT_CANDIDATE_URLS.forEach((u) => {
       const item = String(u || "").trim();
-      if (item) candidates.push(item);
+      if (item) pushCandidate(item);
     });
 
     const tried = new Set();
+    let firstValid = null;
+    let bestByVersion = null;
     for (const baseUrl of candidates) {
       const clean = String(baseUrl || "").trim();
       if (!clean || tried.has(clean)) continue;
@@ -4354,10 +4397,17 @@ Atenciosamente.`;
         if (!resp.ok) continue;
         const content = await resp.text();
         if (!/==UserScript==/i.test(content)) continue;
-        const version = extractScriptVersionFromText(content);
-        return { url: clean, content, version };
+        const version = String(extractScriptVersionFromText(content) || "").trim();
+        const payload = { url: clean, content, version };
+        if (!firstValid) firstValid = payload;
+        if (!version) continue;
+        if (!bestByVersion || !bestByVersion.version || compareVersionTexts(version, bestByVersion.version) > 0) {
+          bestByVersion = payload;
+        }
       } catch {}
     }
+    if (bestByVersion) return bestByVersion;
+    if (firstValid) return firstValid;
     throw new Error("Nao foi possivel carregar o codigo remoto do script.");
   }
   /**

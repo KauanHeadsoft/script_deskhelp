@@ -1,6 +1,24 @@
 ﻿[
     {
         "date":  "2026-03-06",
+        "version":  "2.15.43",
+        "notes":  [
+                      "Atualizacao manual agora escolhe a maior versao entre todas as fontes remotas.",
+                      "URL remota salva na verificacao passou a ser a origem real que trouxe a versao detectada.",
+                      "Busca de codigo remoto reforcada com candidato baseado no SHA do commit mais recente da branch main."
+                  ]
+    },
+    {
+        "date":  "2026-03-06",
+        "version":  "2.15.42",
+        "notes":  [
+                      "Regras de manutencao adicionadas no cabecalho do .user.js.",
+                      "Arquivos oficiais documentados: .user.js e updates-log.json.",
+                      "Padrao documentado: toda alteracao no .user.js deve atualizar o updates-log.json e incrementar a versao."
+                  ]
+    },
+    {
+        "date":  "2026-03-06",
         "version":  "2.15.41",
         "notes":  [
                       "Modal de atualizacao manual agora revalida o fallback direto no GitHub ao abrir o bloco de codigo.",
