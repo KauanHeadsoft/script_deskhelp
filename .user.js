@@ -1,11 +1,14 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.22
+// @version      2.15.23
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
 // @match        http://suporte.headsoft.com.br/*
+// @homepageURL  https://github.com/KauanHeadsoft/script_deskhelp
+// @updateURL    https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js
+// @downloadURL  https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js
 // @run-at       document-idle
 // @grant        none
 // ==/UserScript==
@@ -41,7 +44,19 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.22";
+  const SCRIPT_VERSION = "2.15.23";
+  const SCRIPT_REPO_URL = "https://github.com/KauanHeadsoft/script_deskhelp";
+  const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+  const UPDATE_CHECK_LAST_AT_LS_KEY = "hs2025-update-last-check-at";
+  const UPDATE_CHECK_REMOTE_VERSION_LS_KEY = "hs2025-update-remote-version";
+  const UPDATE_CHECK_REMOTE_URL_LS_KEY = "hs2025-update-remote-url";
+  const UPDATE_CHECK_HAS_UPDATE_LS_KEY = "hs2025-update-has-update";
+  const UPDATE_SCRIPT_CANDIDATE_URLS = Object.freeze([
+    "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js",
+    "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/master/.user.js",
+    "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/refs/heads/main/.user.js",
+    "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/refs/heads/master/.user.js",
+  ]);
   const AJAX_REFRESH_INTERVAL_MS = 18000;
   const AJAX_REFRESH_TOAST_COOLDOWN_MS = 7000;
   const ROW_ALERT_BLINK_MS = 12000;
@@ -62,6 +77,14 @@ Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const T_ENVIAR_ORCAMENTO = "Orcamento enviado ao solicitante.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.23",
+      notes: [
+        "Verificacao de atualizacao via GitHub (automatica e manual).",
+        "Botao de alerta discreto/chamativo quando houver nova versao.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.22",
@@ -91,6 +114,8 @@ Equipe de Suporte.`;
     "Chamado com aprovacao interna devido a falta de retorno do usuario a mais de 5 dias. Caso seja necessario, devera ser aberto um novo chamado e informado como referencia esse chamado em questao.";
   const T_CONCLUIR_CHAMADO = `Chamado finalizado.
 Atenciosamente.`;
+  let hsScriptUpdateCheckPromise = null;
+  let hsScriptUpdateLastResult = null;
 
   /*
    * ============================================================================
@@ -2723,6 +2748,18 @@ Atenciosamente.`;
     line-height:1!important;
     cursor:pointer!important;
   }
+  body.hs-dashboard-page form[name="filtros"] .hs-update-available-btn{
+    color:#1f2b18!important;
+    border-color:#e5bf4f!important;
+    background:linear-gradient(180deg, #ffe9a8, #f6d36a)!important;
+    box-shadow:0 0 0 1px rgba(166,118,0,.24), 0 2px 8px rgba(166,118,0,.2)!important;
+    animation:hs-update-pulse 1.9s ease-in-out infinite!important;
+  }
+  @keyframes hs-update-pulse{
+    0%{ box-shadow:0 0 0 1px rgba(166,118,0,.24), 0 2px 8px rgba(166,118,0,.2); }
+    50%{ box-shadow:0 0 0 1px rgba(166,118,0,.42), 0 4px 12px rgba(166,118,0,.34); }
+    100%{ box-shadow:0 0 0 1px rgba(166,118,0,.24), 0 2px 8px rgba(166,118,0,.2); }
+  }
   @media (max-width:1200px){
     body.hs-dashboard-page form[name="filtros"] td:nth-child(2),
     body.hs-dashboard-page form[name="filtros"] td:nth-child(4){
@@ -3070,6 +3107,182 @@ Atenciosamente.`;
       (item.notes || []).forEach((note) => lines.push(`  * ${String(note || "").trim()}`));
     });
     window.alert(lines.join("\n"));
+  }
+  /**
+   * Objetivo: Compara versoes no formato numerico separado por ponto.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - a: entrada usada por esta rotina.
+   * - b: entrada usada por esta rotina.
+   * Retorno: number (1 quando a>b, -1 quando a<b, 0 quando iguais).
+   * Efeitos colaterais: nenhum.
+   */
+  function compareVersionTexts(a, b) {
+    const pa = String(a || "").match(/\d+/g) || [];
+    const pb = String(b || "").match(/\d+/g) || [];
+    const len = Math.max(pa.length, pb.length);
+    for (let i = 0; i < len; i += 1) {
+      const na = parseInt(pa[i] || "0", 10) || 0;
+      const nb = parseInt(pb[i] || "0", 10) || 0;
+      if (na > nb) return 1;
+      if (na < nb) return -1;
+    }
+    return 0;
+  }
+  /**
+   * Objetivo: Extrai versao de texto de userscript.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - content: entrada usada por esta rotina.
+   * Retorno: string.
+   * Efeitos colaterais: nenhum.
+   */
+  function extractScriptVersionFromText(content) {
+    const match = String(content || "").match(/^[ \t]*\/\/\s*@version\s+([^\s]+)\s*$/im);
+    return String(match?.[1] || "").trim();
+  }
+  /**
+   * Objetivo: Le ultimo resultado de verificacao de atualizacao em cache local.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros: nenhum.
+   * Retorno: object|null.
+   * Efeitos colaterais: leitura de localStorage.
+   */
+  function readCachedUpdateCheckResult() {
+    try {
+      const checkedAt = parseInt(localStorage.getItem(UPDATE_CHECK_LAST_AT_LS_KEY) || "0", 10);
+      if (!Number.isFinite(checkedAt) || checkedAt <= 0) return null;
+      const remoteVersion = String(localStorage.getItem(UPDATE_CHECK_REMOTE_VERSION_LS_KEY) || "").trim();
+      const remoteUrl = String(localStorage.getItem(UPDATE_CHECK_REMOTE_URL_LS_KEY) || "").trim();
+      const hasUpdate = localStorage.getItem(UPDATE_CHECK_HAS_UPDATE_LS_KEY) === "1";
+      return { ok: true, checkedAt, remoteVersion, remoteUrl, hasUpdate };
+    } catch {
+      return null;
+    }
+  }
+  /**
+   * Objetivo: Persiste resultado da verificacao de atualizacao no cache local.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - result: entrada usada por esta rotina.
+   * Retorno: object.
+   * Efeitos colaterais: escrita em localStorage.
+   */
+  function persistUpdateCheckResult(result) {
+    const next = {
+      ok: !!result?.ok,
+      checkedAt: Number(result?.checkedAt || Date.now()),
+      remoteVersion: String(result?.remoteVersion || "").trim(),
+      remoteUrl: String(result?.remoteUrl || "").trim(),
+      hasUpdate: !!result?.hasUpdate,
+      error: String(result?.error || "").trim(),
+    };
+    hsScriptUpdateLastResult = next;
+    try {
+      localStorage.setItem(UPDATE_CHECK_LAST_AT_LS_KEY, String(next.checkedAt));
+      localStorage.setItem(UPDATE_CHECK_REMOTE_VERSION_LS_KEY, next.remoteVersion);
+      localStorage.setItem(UPDATE_CHECK_REMOTE_URL_LS_KEY, next.remoteUrl);
+      localStorage.setItem(UPDATE_CHECK_HAS_UPDATE_LS_KEY, next.hasUpdate ? "1" : "0");
+    } catch {}
+    return next;
+  }
+  /**
+   * Objetivo: Verifica no GitHub se existe versao mais recente do userscript.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - force: entrada usada por esta rotina.
+   * Retorno: Promise<object>.
+   * Efeitos colaterais: leitura/escrita de cache local e chamadas de rede.
+   */
+  async function checkScriptUpdateAvailability(force = false) {
+    const now = Date.now();
+    const cached = hsScriptUpdateLastResult || readCachedUpdateCheckResult();
+    if (!force && cached?.checkedAt && now - cached.checkedAt < UPDATE_CHECK_INTERVAL_MS) {
+      hsScriptUpdateLastResult = cached;
+      return cached;
+    }
+    if (hsScriptUpdateCheckPromise) return hsScriptUpdateCheckPromise;
+
+    hsScriptUpdateCheckPromise = (async () => {
+      let lastError = "";
+      for (const url of UPDATE_SCRIPT_CANDIDATE_URLS) {
+        try {
+          const response = await fetch(url, {
+            method: "GET",
+            cache: "no-store",
+            mode: "cors",
+            credentials: "omit",
+          });
+          if (!response.ok) {
+            lastError = `HTTP ${response.status} em ${url}`;
+            continue;
+          }
+          const content = await response.text();
+          const remoteVersion = extractScriptVersionFromText(content);
+          if (!remoteVersion) {
+            lastError = `Versao nao encontrada em ${url}`;
+            continue;
+          }
+          const hasUpdate = compareVersionTexts(remoteVersion, SCRIPT_VERSION) > 0;
+          return persistUpdateCheckResult({
+            ok: true,
+            checkedAt: Date.now(),
+            remoteVersion,
+            remoteUrl: url,
+            hasUpdate,
+          });
+        } catch (err) {
+          lastError = String(err?.message || err || "");
+        }
+      }
+
+      if (cached?.remoteVersion) {
+        return persistUpdateCheckResult({
+          ...cached,
+          ok: false,
+          checkedAt: Date.now(),
+          error: lastError || "Nao foi possivel verificar atualizacoes agora.",
+        });
+      }
+
+      return persistUpdateCheckResult({
+        ok: false,
+        checkedAt: Date.now(),
+        remoteVersion: "",
+        remoteUrl: SCRIPT_REPO_URL,
+        hasUpdate: false,
+        error: lastError || "Nao foi possivel verificar atualizacoes agora.",
+      });
+    })();
+
+    try {
+      return await hsScriptUpdateCheckPromise;
+    } finally {
+      hsScriptUpdateCheckPromise = null;
+    }
+  }
+  /**
+   * Objetivo: Abre pagina de atualizacao do script.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - preferredUrl: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: abre nova aba no navegador.
+   */
+  function openScriptUpdatePage(preferredUrl = "") {
+    const cached = hsScriptUpdateLastResult || readCachedUpdateCheckResult();
+    const target =
+      String(preferredUrl || "").trim() ||
+      String(cached?.remoteUrl || "").trim() ||
+      String(UPDATE_SCRIPT_CANDIDATE_URLS[0] || "").trim() ||
+      SCRIPT_REPO_URL;
+    window.open(target, "_blank", "noopener");
   }
   /**
    * Objetivo: Garante helpers globais de diagnostico para abertura de requisicoes.
@@ -4029,6 +4242,22 @@ Atenciosamente.`;
       updatesBtn.className = "hs-preview-mode-btn";
       host.appendChild(updatesBtn);
     }
+    let checkBtn = host.querySelector("#hs-update-check-btn");
+    if (!(checkBtn instanceof HTMLInputElement)) {
+      checkBtn = document.createElement("input");
+      checkBtn.type = "button";
+      checkBtn.id = "hs-update-check-btn";
+      checkBtn.className = "hs-preview-mode-btn";
+      host.appendChild(checkBtn);
+    }
+    let alertBtn = host.querySelector("#hs-update-available-btn");
+    if (!(alertBtn instanceof HTMLInputElement)) {
+      alertBtn = document.createElement("input");
+      alertBtn.type = "button";
+      alertBtn.id = "hs-update-available-btn";
+      alertBtn.className = "hs-preview-mode-btn hs-update-available-btn";
+      host.appendChild(alertBtn);
+    }
 
     const syncLabel = () => {
       const enabled = isPreviewOnlyModeEnabled();
@@ -4036,6 +4265,19 @@ Atenciosamente.`;
       btn.title = enabled
         ? "Modo preview ativo: clique abre em popup."
         : "Modo preview desativado: clique abre em nova guia.";
+    };
+    const applyUpdateState = (result) => {
+      const hasUpdate = !!result?.hasUpdate && !!String(result?.remoteVersion || "").trim();
+      if (!hasUpdate) {
+        alertBtn.style.setProperty("display", "none", "important");
+        delete alertBtn.dataset.hsRemoteUrl;
+        return;
+      }
+      const remoteVersion = String(result.remoteVersion || "").trim();
+      alertBtn.value = `Nova versao ${remoteVersion}`;
+      alertBtn.title = `Existe atualizacao disponivel (${remoteVersion}). Clique para abrir.`;
+      alertBtn.dataset.hsRemoteUrl = String(result?.remoteUrl || "").trim();
+      alertBtn.style.setProperty("display", "inline-flex", "important");
     };
 
     btn.onclick = (ev) => {
@@ -4053,6 +4295,47 @@ Atenciosamente.`;
       ev.stopPropagation();
       showRecentUpdatesDialog();
     };
+    checkBtn.value = "Verificar update";
+    checkBtn.title = "Verifica no GitHub se existe nova versao do script";
+    checkBtn.onclick = async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (checkBtn.dataset.hsBusy === "1") return;
+      checkBtn.dataset.hsBusy = "1";
+      const oldLabel = checkBtn.value;
+      checkBtn.value = "Verificando...";
+      checkBtn.disabled = true;
+      try {
+        const result = await checkScriptUpdateAvailability(true);
+        applyUpdateState(result);
+        if (result?.hasUpdate) {
+          toast(`Nova versao ${result.remoteVersion} disponivel.`, "info", 3000);
+        } else if (result?.ok) {
+          toast("Voce ja esta na versao mais recente.", "ok", 2500);
+        } else {
+          toast("Nao foi possivel verificar atualizacao agora.", "err", 3200);
+        }
+      } finally {
+        checkBtn.disabled = false;
+        checkBtn.value = oldLabel;
+        delete checkBtn.dataset.hsBusy;
+      }
+    };
+    alertBtn.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      openScriptUpdatePage(alertBtn.dataset.hsRemoteUrl || "");
+    };
+    const cached = hsScriptUpdateLastResult || readCachedUpdateCheckResult();
+    applyUpdateState(cached);
+
+    const root = document.documentElement;
+    if (root?.dataset?.hsUpdateAutoCheckStarted !== "1") {
+      if (root?.dataset) root.dataset.hsUpdateAutoCheckStarted = "1";
+      checkScriptUpdateAvailability(false)
+        .then((result) => applyUpdateState(result))
+        .catch(() => {});
+    }
 
     syncLabel();
   }
