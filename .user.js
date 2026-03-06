@@ -1699,7 +1699,8 @@ Atenciosamente.`;
     overflow:hidden!important;
     pointer-events:none!important;
   }
-  body.hs-request-page #interno .hs-attach-btn{
+  body.hs-request-page #interno .hs-attach-btn,
+  body.hs-request-page #interno .hs-attach-clear-btn{
     min-height:24px!important;
     border-radius:8px!important;
     padding:3px 10px!important;
@@ -1711,8 +1712,16 @@ Atenciosamente.`;
     color:var(--fg)!important;
     cursor:pointer!important;
   }
-  body.hs-request-page #interno .hs-attach-btn:hover{
+  body.hs-request-page #interno .hs-attach-btn:hover,
+  body.hs-request-page #interno .hs-attach-clear-btn:hover{
     filter:brightness(1.06)!important;
+  }
+  body.hs-request-page #interno .hs-attach-clear-btn{
+    opacity:.9!important;
+  }
+  body.hs-request-page #interno .hs-attach-clear-btn[disabled]{
+    opacity:.55!important;
+    cursor:not-allowed!important;
   }
   body.hs-request-page #interno .hs-attach-status{
     font-size:11px!important;
@@ -1752,6 +1761,32 @@ Atenciosamente.`;
   }
   body.hs-request-page #interno .hs-attach-thumb figcaption{
     display:none!important;
+  }
+  body.hs-request-page #interno .hs-attach-thumb .hs-attach-thumb-remove{
+    position:absolute!important;
+    top:4px!important;
+    right:4px!important;
+    width:18px!important;
+    min-width:18px!important;
+    max-width:18px!important;
+    min-height:18px!important;
+    height:18px!important;
+    padding:0!important;
+    border-radius:999px!important;
+    border:1px solid rgba(255,255,255,.65)!important;
+    background:rgba(0,0,0,.52)!important;
+    color:#fff!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    font-size:12px!important;
+    font-weight:800!important;
+    line-height:1!important;
+    cursor:pointer!important;
+    z-index:2!important;
+  }
+  body.hs-request-page #interno .hs-attach-thumb .hs-attach-thumb-remove:hover{
+    background:rgba(0,0,0,.68)!important;
   }
   body.hs-request-page #interno input[type="button"],
   body.hs-request-page #interno input[type="submit"],
@@ -3303,7 +3338,7 @@ Atenciosamente.`;
     font-weight:800!important;
     padding:9px 10px!important;
     position:sticky!important;
-    top:0!important;
+    top:var(--hs-dashboard-top-offset, 72px)!important;
     z-index:3!important;
   }
   body.hs-dashboard-page table.sortable tbody td{
@@ -7523,6 +7558,7 @@ Atenciosamente.`;
       target.addEventListener(
         "click",
         (ev) => {
+          if (ev.target instanceof Element && ev.target.closest(".hs-attach-thumb-remove")) return;
           if (ev.defaultPrevented) return;
           if ("button" in ev && ev.button !== 0) return;
           if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return;
@@ -7565,6 +7601,12 @@ Atenciosamente.`;
       btn.className = "hs-attach-btn";
       btn.textContent = "Selecionar imagens";
 
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "hs-attach-clear-btn";
+      clearBtn.textContent = "Limpar";
+      clearBtn.disabled = true;
+
       const status = document.createElement("span");
       status.className = "hs-attach-status";
       status.textContent = "Nenhuma imagem selecionada";
@@ -7573,6 +7615,7 @@ Atenciosamente.`;
       preview.className = "hs-attach-preview";
 
       picker.insertBefore(btn, input);
+      picker.insertBefore(clearBtn, input);
       picker.appendChild(status);
       picker.appendChild(preview);
 
@@ -7607,17 +7650,57 @@ Atenciosamente.`;
           }
         });
 
+      const assignSelectedFiles = (nextFiles) => {
+        const list = Array.from(nextFiles || []).filter((file) => file instanceof File);
+        if (!list.length) {
+          input.value = "";
+          return true;
+        }
+        try {
+          if (typeof DataTransfer === "function") {
+            const dt = new DataTransfer();
+            list.forEach((file) => dt.items.add(file));
+            input.files = dt.files;
+            return true;
+          }
+        } catch (_err) {}
+        return false;
+      };
+      const clearSelectedImages = () => {
+        input.value = "";
+        renderPreview();
+      };
+      const removeSelectedImageByIndex = (index) => {
+        const currentFiles = Array.from(input.files || []);
+        if (!Number.isInteger(index) || index < 0 || index >= currentFiles.length) return;
+        currentFiles.splice(index, 1);
+        if (currentFiles.length) {
+          if (!assignSelectedFiles(currentFiles)) {
+            input.value = "";
+            status.textContent = "Nao foi possivel remover somente uma imagem. Selecione novamente.";
+          }
+        } else {
+          input.value = "";
+        }
+        renderPreview();
+      };
+
       const renderPreview = async () => {
         const seq = ++renderSeq;
         preview.innerHTML = "";
         const files = Array.from(input.files || []);
-        const images = files.filter((f) => isImageLike(f));
+        clearBtn.disabled = files.length === 0;
+        const images = files
+          .map((file, fileIndex) => ({ file, fileIndex }))
+          .filter((item) => isImageLike(item.file));
         status.textContent = images.length
           ? `${images.length} ${images.length > 1 ? "imagens" : "imagem"} selecionada${images.length > 1 ? "s" : ""}`
           : "Nenhuma imagem selecionada";
 
         const thumbs = images.slice(0, 8);
-        for (const file of thumbs) {
+        for (const item of thumbs) {
+          const file = item.file;
+          const fileIndex = item.fileIndex;
           if (seq !== renderSeq) return;
           const src = await readFileAsDataUrl(file);
           if (seq !== renderSeq) return;
@@ -7638,10 +7721,24 @@ Atenciosamente.`;
           const caption = document.createElement("figcaption");
           caption.textContent = String(file.name || "imagem");
 
+          const removeBtn = document.createElement("button");
+          removeBtn.type = "button";
+          removeBtn.className = "hs-attach-thumb-remove";
+          removeBtn.textContent = "x";
+          removeBtn.title = "Remover imagem";
+          removeBtn.setAttribute("aria-label", `Remover ${String(file.name || "imagem")}`);
+
           fig.appendChild(img);
+          fig.appendChild(removeBtn);
           fig.appendChild(caption);
           preview.appendChild(fig);
           if (src) bindClickableImagePreview(fig, src, String(file.name || "imagem"));
+          removeBtn.addEventListener("click", (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            ev.stopImmediatePropagation();
+            removeSelectedImageByIndex(fileIndex);
+          });
           fig.addEventListener("keydown", (ev) => {
             const key = String(ev.key || "").toLowerCase();
             if (key !== "enter" && key !== " ") return;
@@ -7652,6 +7749,11 @@ Atenciosamente.`;
       };
 
       btn.addEventListener("click", () => input.click());
+      clearBtn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        clearSelectedImages();
+      });
       input.addEventListener("change", renderPreview);
       renderPreview();
     };
