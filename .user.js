@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.23
+// @version      2.15.24
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -44,13 +44,22 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.23";
+  const SCRIPT_VERSION = "2.15.24";
+  const THEME_LABEL_WHEN_DARK = "Modo Claro";
+  const THEME_LABEL_WHEN_LIGHT = "Modo Escuro";
   const SCRIPT_REPO_URL = "https://github.com/KauanHeadsoft/script_deskhelp";
-  const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+  // Sempre revalida no carregamento da pagina para avisar atualizacoes rapidamente.
+  const UPDATE_CHECK_INTERVAL_MS = 0;
   const UPDATE_CHECK_LAST_AT_LS_KEY = "hs2025-update-last-check-at";
   const UPDATE_CHECK_REMOTE_VERSION_LS_KEY = "hs2025-update-remote-version";
   const UPDATE_CHECK_REMOTE_URL_LS_KEY = "hs2025-update-remote-url";
   const UPDATE_CHECK_HAS_UPDATE_LS_KEY = "hs2025-update-has-update";
+  const VERSION_CATALOG_CACHE_LS_KEY = "hs2025-version-catalog-json";
+  const VERSION_CATALOG_CACHE_AT_LS_KEY = "hs2025-version-catalog-at";
+  const VERSION_CATALOG_CACHE_MS = 6 * 60 * 60 * 1000;
+  const VERSION_CATALOG_MAX_ITEMS = 12;
+  const VERSION_CATALOG_COMMITS_API_URL =
+    "https://api.github.com/repos/KauanHeadsoft/script_deskhelp/commits?path=.user.js&per_page=35";
   const UPDATE_SCRIPT_CANDIDATE_URLS = Object.freeze([
     "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js",
     "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/master/.user.js",
@@ -77,6 +86,15 @@ Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const T_ENVIAR_ORCAMENTO = "Orcamento enviado ao solicitante.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.24",
+      notes: [
+        "Correcao do botao de tema (Modo Claro/Modo Escuro) sem caracteres quebrados.",
+        "Botao 'Versoes' para escolher e abrir versoes antigas/novas do script.",
+        "Checagem de atualizacao em todo carregamento da pagina.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.23",
@@ -3285,6 +3303,188 @@ Atenciosamente.`;
     window.open(target, "_blank", "noopener");
   }
   /**
+   * Objetivo: Le cache local do catalogo de versoes.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros: nenhum.
+   * Retorno: object.
+   * Efeitos colaterais: leitura de localStorage.
+   */
+  function readVersionCatalogCache() {
+    try {
+      const at = parseInt(localStorage.getItem(VERSION_CATALOG_CACHE_AT_LS_KEY) || "0", 10);
+      const raw = String(localStorage.getItem(VERSION_CATALOG_CACHE_LS_KEY) || "").trim();
+      const list = JSON.parse(raw);
+      if (!Array.isArray(list)) return { at: 0, list: [] };
+      return { at: Number.isFinite(at) ? at : 0, list };
+    } catch {
+      return { at: 0, list: [] };
+    }
+  }
+  /**
+   * Objetivo: Persiste cache local do catalogo de versoes.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - list: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: escrita em localStorage.
+   */
+  function persistVersionCatalogCache(list) {
+    try {
+      localStorage.setItem(VERSION_CATALOG_CACHE_AT_LS_KEY, String(Date.now()));
+      localStorage.setItem(VERSION_CATALOG_CACHE_LS_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+    } catch {}
+  }
+  /**
+   * Objetivo: Busca catalogo de versoes do script a partir do historico no GitHub.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - forceRefresh: entrada usada por esta rotina.
+   * Retorno: Promise<Array>.
+   * Efeitos colaterais: chamadas de rede e cache local.
+   */
+  async function fetchScriptVersionCatalog(forceRefresh = false) {
+    const cached = readVersionCatalogCache();
+    const now = Date.now();
+    if (
+      !forceRefresh &&
+      cached.at > 0 &&
+      now - cached.at < VERSION_CATALOG_CACHE_MS &&
+      Array.isArray(cached.list) &&
+      cached.list.length
+    ) {
+      return cached.list;
+    }
+
+    const found = [];
+    const seenVersions = new Set();
+    const addEntry = (entry) => {
+      const version = String(entry?.version || "").trim();
+      if (!version || seenVersions.has(version)) return;
+      seenVersions.add(version);
+      found.push({
+        version,
+        date: String(entry?.date || "").trim(),
+        url: String(entry?.url || "").trim(),
+        commitUrl: String(entry?.commitUrl || "").trim(),
+        source: String(entry?.source || "unknown").trim(),
+      });
+    };
+
+    addEntry({
+      version: SCRIPT_VERSION,
+      date: new Date().toISOString(),
+      url: String(UPDATE_SCRIPT_CANDIDATE_URLS[0] || "").trim(),
+      source: "current",
+    });
+
+    try {
+      const commitsResponse = await fetch(VERSION_CATALOG_COMMITS_API_URL, {
+        method: "GET",
+        cache: "no-store",
+        mode: "cors",
+        credentials: "omit",
+      });
+      if (!commitsResponse.ok) throw new Error(`HTTP ${commitsResponse.status}`);
+
+      const commits = await commitsResponse.json();
+      if (!Array.isArray(commits)) throw new Error("Resposta invalida do catalogo de commits.");
+
+      for (const item of commits) {
+        if (found.length >= VERSION_CATALOG_MAX_ITEMS) break;
+        const sha = String(item?.sha || "").trim();
+        if (!sha) continue;
+        const rawUrl = `https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/${sha}/.user.js`;
+        try {
+          const fileResponse = await fetch(rawUrl, {
+            method: "GET",
+            cache: "no-store",
+            mode: "cors",
+            credentials: "omit",
+          });
+          if (!fileResponse.ok) continue;
+          const text = await fileResponse.text();
+          const version = extractScriptVersionFromText(text);
+          if (!version) continue;
+          addEntry({
+            version,
+            date: item?.commit?.author?.date || item?.commit?.committer?.date || "",
+            url: rawUrl,
+            commitUrl: String(item?.html_url || "").trim(),
+            source: "commit",
+          });
+        } catch {}
+      }
+    } catch {}
+
+    const sorted = found
+      .filter((x) => x && x.version)
+      .sort((a, b) => compareVersionTexts(String(b.version || ""), String(a.version || "")));
+
+    if (!sorted.length) {
+      if (Array.isArray(cached.list) && cached.list.length) return cached.list;
+      return [
+        {
+          version: SCRIPT_VERSION,
+          date: "",
+          url: String(UPDATE_SCRIPT_CANDIDATE_URLS[0] || "").trim(),
+          commitUrl: "",
+          source: "fallback",
+        },
+      ];
+    }
+
+    persistVersionCatalogCache(sorted);
+    return sorted;
+  }
+  /**
+   * Objetivo: Exibe seletor simples para abrir uma versao especifica do script.
+   *
+   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Parametros:
+   * - forceRefresh: entrada usada por esta rotina.
+   * Retorno: Promise<void>.
+   * Efeitos colaterais: prompt/alert no navegador e abertura de nova aba.
+   */
+  async function showScriptVersionsPicker(forceRefresh = false) {
+    const list = await fetchScriptVersionCatalog(forceRefresh);
+    if (!Array.isArray(list) || !list.length) {
+      window.alert("Nao foi possivel carregar o catalogo de versoes agora.");
+      return;
+    }
+
+    const lines = [
+      `Versoes disponiveis (atual: v${SCRIPT_VERSION})`,
+      "",
+    ];
+    list.forEach((item, idx) => {
+      const version = String(item?.version || "").trim() || "?";
+      const date = String(item?.date || "").trim().slice(0, 10);
+      const mark = version === SCRIPT_VERSION ? " (atual)" : "";
+      const dateLabel = date ? ` - ${date}` : "";
+      lines.push(`${idx + 1}) v${version}${mark}${dateLabel}`);
+    });
+    lines.push("");
+    lines.push("Digite o numero da versao para abrir/instalar.");
+
+    const picked = window.prompt(lines.join("\n"), "1");
+    if (picked === null) return;
+    const n = parseInt(String(picked || "").trim(), 10);
+    if (!Number.isFinite(n) || n < 1 || n > list.length) {
+      toast("Numero de versao invalido.", "err", 2800);
+      return;
+    }
+    const selected = list[n - 1];
+    const targetUrl = String(selected?.url || "").trim();
+    if (!targetUrl) {
+      toast("URL da versao selecionada indisponivel.", "err", 3200);
+      return;
+    }
+    openScriptUpdatePage(targetUrl);
+  }
+  /**
    * Objetivo: Garante helpers globais de diagnostico para abertura de requisicoes.
    *
    * Contexto: Disponibiliza API de log/dump/toggle no console para investigacao.
@@ -3543,7 +3743,7 @@ Atenciosamente.`;
       localStorage.setItem(LS_KEY, mode);
     } catch {}
     const btn = document.getElementById(BTN_ID);
-    if (btn) btn.textContent = mode === "dark" ? "â˜€ Claro" : "ðŸŒ™ Escuro";
+    if (btn) btn.textContent = mode === "dark" ? THEME_LABEL_WHEN_DARK : THEME_LABEL_WHEN_LIGHT;
   }
   /**
    * Objetivo: Garante o botao de tema no local correto (cabecalho/login).
@@ -3585,7 +3785,7 @@ Atenciosamente.`;
       );
     }
 
-    if (btn) btn.textContent = getTheme() === "dark" ? "â˜€ Claro" : "ðŸŒ™ Escuro";
+    if (btn) btn.textContent = getTheme() === "dark" ? THEME_LABEL_WHEN_DARK : THEME_LABEL_WHEN_LIGHT;
   }
   /**
    * Objetivo: Remove badge legado para evitar ruido visual.
@@ -4242,6 +4442,14 @@ Atenciosamente.`;
       updatesBtn.className = "hs-preview-mode-btn";
       host.appendChild(updatesBtn);
     }
+    let versionsBtn = host.querySelector("#hs-versions-btn");
+    if (!(versionsBtn instanceof HTMLInputElement)) {
+      versionsBtn = document.createElement("input");
+      versionsBtn.type = "button";
+      versionsBtn.id = "hs-versions-btn";
+      versionsBtn.className = "hs-preview-mode-btn";
+      host.appendChild(versionsBtn);
+    }
     let checkBtn = host.querySelector("#hs-update-check-btn");
     if (!(checkBtn instanceof HTMLInputElement)) {
       checkBtn = document.createElement("input");
@@ -4294,6 +4502,24 @@ Atenciosamente.`;
       ev.preventDefault();
       ev.stopPropagation();
       showRecentUpdatesDialog();
+    };
+    versionsBtn.value = "Versoes";
+    versionsBtn.title = "Escolher versao do script para abrir/instalar";
+    versionsBtn.onclick = async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (versionsBtn.dataset.hsBusy === "1") return;
+      versionsBtn.dataset.hsBusy = "1";
+      versionsBtn.disabled = true;
+      const oldLabel = versionsBtn.value;
+      versionsBtn.value = "Carregando...";
+      try {
+        await showScriptVersionsPicker(true);
+      } finally {
+        versionsBtn.disabled = false;
+        versionsBtn.value = oldLabel;
+        delete versionsBtn.dataset.hsBusy;
+      }
     };
     checkBtn.value = "Verificar update";
     checkBtn.title = "Verifica no GitHub se existe nova versao do script";
