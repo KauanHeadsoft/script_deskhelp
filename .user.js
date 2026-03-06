@@ -1,14 +1,14 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.30
+// @version      2.15.32
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
 // @match        http://suporte.headsoft.com.br/*
 // @homepageURL  https://github.com/KauanHeadsoft/script_deskhelp
-// @updateURL    https://cdn.jsdelivr.net/gh/KauanHeadsoft/script_deskhelp@main/.user.js
-// @downloadURL  https://cdn.jsdelivr.net/gh/KauanHeadsoft/script_deskhelp@main/.user.js
+// @updateURL    https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js
+// @downloadURL  https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js
 // @run-at       document-idle
 // @grant        none
 // ==/UserScript==
@@ -44,7 +44,7 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION = "2.15.30";
+  const SCRIPT_VERSION = "2.15.32";
   const UPDATE_LOG_HISTORY_LS_KEY = "hs2025-updates-history";
   const UPDATE_LOG_RULES = Object.freeze([
     "Regra 1: nunca remover entradas antigas do campo de atualizacoes.",
@@ -70,8 +70,8 @@
   const VERSION_CATALOG_COMMITS_API_URL =
     "https://api.github.com/repos/KauanHeadsoft/script_deskhelp/commits?path=.user.js&per_page=35";
   const UPDATE_SCRIPT_CANDIDATE_URLS = Object.freeze([
-    "https://cdn.jsdelivr.net/gh/KauanHeadsoft/script_deskhelp@main/.user.js",
     "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js",
+    "https://cdn.jsdelivr.net/gh/KauanHeadsoft/script_deskhelp@main/.user.js",
     "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/master/.user.js",
     "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/refs/heads/main/.user.js",
     "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/refs/heads/master/.user.js",
@@ -96,6 +96,22 @@ Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const T_ENVIAR_ORCAMENTO = "Orcamento enviado ao solicitante.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-06",
+      version: "2.15.32",
+      notes: [
+        "Fluxo de atualizar agora abre direto o arquivo .user.js para o Tampermonkey capturar sem depender da ponte.",
+        "Mantido fallback para ponte tampermonkey.net apenas quando a URL nao for .user.js.",
+      ],
+    },
+    {
+      date: "2026-03-06",
+      version: "2.15.31",
+      notes: [
+        "Deteccao de update agora compara todas as fontes e escolhe a maior versao remota.",
+        "Retorno do update/download padrao para raw/main para reduzir atraso de CDN no metadata check.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.30",
@@ -3452,6 +3468,7 @@ Atenciosamente.`;
         if (!urlsToTry.includes(u)) urlsToTry.push(u);
       });
 
+      let bestRemote = null;
       for (const url of urlsToTry) {
         try {
           const response = await fetch(url, {
@@ -3470,17 +3487,23 @@ Atenciosamente.`;
             lastError = `Versao nao encontrada em ${url}`;
             continue;
           }
-          const hasUpdate = compareVersionTexts(remoteVersion, SCRIPT_VERSION) > 0;
-          return persistUpdateCheckResult({
-            ok: true,
-            checkedAt: Date.now(),
-            remoteVersion,
-            remoteUrl: url,
-            hasUpdate,
-          });
+          if (!bestRemote || compareVersionTexts(remoteVersion, bestRemote.remoteVersion) > 0) {
+            bestRemote = { remoteVersion, remoteUrl: url };
+          }
         } catch (err) {
           lastError = String(err?.message || err || "");
         }
+      }
+
+      if (bestRemote) {
+        const hasUpdate = compareVersionTexts(bestRemote.remoteVersion, SCRIPT_VERSION) > 0;
+        return persistUpdateCheckResult({
+          ok: true,
+          checkedAt: Date.now(),
+          remoteVersion: bestRemote.remoteVersion,
+          remoteUrl: bestRemote.remoteUrl,
+          hasUpdate,
+        });
       }
 
       if (cached?.remoteVersion) {
@@ -3524,11 +3547,20 @@ Atenciosamente.`;
       String(cached?.remoteUrl || "").trim() ||
       String(UPDATE_SCRIPT_CANDIDATE_URLS[0] || "").trim() ||
       SCRIPT_REPO_URL;
-    const bridged = String(target || "").trim()
-      ? `${UPDATE_INSTALL_BRIDGE_BASE_URL}${encodeURIComponent(String(target || "").trim())}`
-      : "";
-    const finalUrl = bridged || target;
-    window.open(finalUrl, "_blank", "noopener");
+    const safeTarget = String(target || "").trim();
+    const isUserscript = /\.user\.js(?:[?#].*)?$/i.test(safeTarget);
+    if (isUserscript) {
+      let directUrl = safeTarget;
+      try {
+        const u = new URL(safeTarget, location.href);
+        u.searchParams.set("hs_update", String(Date.now()));
+        directUrl = u.toString();
+      } catch {}
+      window.open(directUrl, "_blank", "noopener");
+      return;
+    }
+    const bridged = safeTarget ? `${UPDATE_INSTALL_BRIDGE_BASE_URL}${encodeURIComponent(safeTarget)}` : "";
+    window.open(bridged || safeTarget || SCRIPT_REPO_URL, "_blank", "noopener");
   }
   /**
    * Objetivo: Le ultima versao remota ja notificada em popup.
