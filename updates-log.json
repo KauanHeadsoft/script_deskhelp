@@ -1,6 +1,16 @@
 ﻿[
     {
         "date":  "2026-03-06",
+        "version":  "2.15.39",
+        "notes":  [
+                      "Preview de anexos ajustado para miniaturas quadradas clicaveis.",
+                      "Cabecalho sticky da grade do dashboard agora respeita offset do menu e evita sobreposicao.",
+                      "Correcao de espaco em branco intermitente entre menu e filtros (Responsavel/Cliente).",
+                      "Versao do script exibida ao lado da logo do cabecalho."
+                  ]
+    },
+    {
+        "date":  "2026-03-06",
         "version":  "2.15.38",
         "notes":  [
                       "Correcao de sincronismo de versao interna para o botao \u0027Nova versao\u0027 sumir apos atualizar.",
