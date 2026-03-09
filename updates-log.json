@@ -1,6 +1,15 @@
 ﻿[
     {
         "date":  "2026-03-09",
+        "version":  "2.15.53",
+        "notes":  [
+                      "Correcao critica no bloco de anexos: selecao voltou a aceitar varios arquivos sem truncar para apenas 1.",
+                      "Fluxo de preview local passou a refletir a quantidade real de arquivos selecionados no campo.",
+                      "Antes do envio, anexos com mesmo nome sao consolidados para garantir que todos os arquivos selecionados sigam no chamado."
+                  ]
+    },
+    {
+        "date":  "2026-03-09",
         "version":  "2.15.52",
         "notes":  [
                       "Menu de Configuracoes agora usa popover em portal no body, sem corte por overflow do cabecalho.",
@@ -269,6 +278,9 @@
                   ]
     }
 ]
+
+
+
 
 
 

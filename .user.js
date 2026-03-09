@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.52
+// @version      2.15.53
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -74,7 +74,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.52";
+  const SCRIPT_VERSION_FALLBACK = "2.15.53";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -144,6 +144,15 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-09",
+      version: "2.15.53",
+      notes: [
+        "Correcao critica no bloco de anexos: selecao voltou a aceitar varios arquivos sem truncar para apenas 1.",
+        "Fluxo de preview local passou a refletir a quantidade real de arquivos selecionados no campo.",
+        "Antes do envio, anexos com mesmo nome sao consolidados para garantir que todos os arquivos selecionados sigam no chamado.",
+      ],
+    },
     {
       date: "2026-03-09",
       version: "2.15.52",
@@ -9350,7 +9359,7 @@ Atenciosamente.`;
     img.src = absoluteSrc;
   }
   /**
-   * Objetivo: Ajusta anexos para selecao unica por campo com preview local.
+   * Objetivo: Ajusta anexos com preview local sem limitar quantidade de arquivos.
    *
    * Contexto: Tela "Visualizar requisicao" no bloco de novo acompanhamento.
    * Parametros: nenhum.
@@ -9382,19 +9391,13 @@ Atenciosamente.`;
       window.open(resolvedUrl, "_blank", "noopener,noreferrer");
     };
 
-    const setInputSingle = (input) => {
+    const setInputMulti = (input) => {
       if (!(input instanceof HTMLInputElement)) return;
       if ((input.type || "").toLowerCase() !== "file") return;
 
-      input.multiple = false;
-      input.removeAttribute("multiple");
-      const acceptNow = String(input.getAttribute("accept") || "").trim();
-      if (!acceptNow) {
-        input.setAttribute("accept", "image/*");
-      } else if (!/(^|,)\s*image\/\*/i.test(acceptNow)) {
-        input.setAttribute("accept", `${acceptNow},image/*`);
-      }
-      input.dataset.hsSingleAnexo = "1";
+      input.multiple = true;
+      input.setAttribute("multiple", "multiple");
+      input.dataset.hsMultiAnexo = "1";
     };
     const decorateInputPreview = (input) => {
       if (!(input instanceof HTMLInputElement)) return;
@@ -9412,7 +9415,7 @@ Atenciosamente.`;
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "hs-attach-btn";
-      btn.textContent = "Selecionar imagem";
+      btn.textContent = "Selecionar arquivos";
 
       const clearBtn = document.createElement("button");
       clearBtn.type = "button";
@@ -9422,7 +9425,7 @@ Atenciosamente.`;
 
       const status = document.createElement("span");
       status.className = "hs-attach-status";
-      status.textContent = "Nenhuma imagem selecionada";
+      status.textContent = "Nenhum arquivo selecionado";
 
       const preview = document.createElement("div");
       preview.className = "hs-attach-preview";
@@ -9490,7 +9493,7 @@ Atenciosamente.`;
         if (currentFiles.length) {
           if (!assignSelectedFiles(currentFiles)) {
             input.value = "";
-            status.textContent = "Nao foi possivel remover somente uma imagem. Selecione novamente.";
+            status.textContent = "Nao foi possivel remover somente um arquivo. Selecione novamente.";
           }
         } else {
           input.value = "";
@@ -9501,12 +9504,19 @@ Atenciosamente.`;
       const renderPreview = async () => {
         const seq = ++renderSeq;
         preview.innerHTML = "";
-        const files = Array.from(input.files || []).slice(0, 1);
+        const files = Array.from(input.files || []);
         clearBtn.disabled = files.length === 0;
         const images = files
           .map((file, fileIndex) => ({ file, fileIndex }))
           .filter((item) => isImageLike(item.file));
-        status.textContent = images.length ? "1 imagem selecionada" : "Nenhuma imagem selecionada";
+        if (!files.length) {
+          status.textContent = "Nenhum arquivo selecionado";
+        } else if (images.length === files.length) {
+          status.textContent = `${files.length} ${files.length === 1 ? "arquivo selecionado" : "arquivos selecionados"}`;
+        } else {
+          const imageLabel = `${images.length} ${images.length === 1 ? "imagem" : "imagens"}`;
+          status.textContent = `${files.length} arquivos selecionados (${imageLabel} com preview)`;
+        }
 
         for (const item of images) {
           const file = item.file;
@@ -9545,8 +9555,8 @@ Atenciosamente.`;
           removeBtn.type = "button";
           removeBtn.className = "hs-attach-thumb-remove";
           removeBtn.textContent = "x";
-          removeBtn.title = "Remover imagem";
-          removeBtn.setAttribute("aria-label", `Remover ${String(file.name || "imagem")}`);
+          removeBtn.title = "Remover arquivo";
+          removeBtn.setAttribute("aria-label", `Remover ${String(file.name || "arquivo")}`);
 
           fig.appendChild(img);
           fig.appendChild(removeBtn);
@@ -9593,26 +9603,108 @@ Atenciosamente.`;
       renderPreview();
     };
 
+    const isAttachmentInput = (input) => {
+      if (!(input instanceof HTMLInputElement)) return false;
+      if ((input.type || "").toLowerCase() !== "file") return false;
+      if (input.closest("#Novo_Acompanhamento, #acompanhamento_form, .hs-attach-picker")) return true;
+      const row = input.closest("tr,td,div,label");
+      const rowText = norm(row?.textContent || "");
+      return /anex/.test(rowText);
+    };
+    const mergeAttachmentInputsByName = (scope) => {
+      if (typeof DataTransfer !== "function") return;
+      const rootScope =
+        scope instanceof HTMLElement || scope instanceof HTMLFormElement || scope instanceof Document
+          ? scope
+          : root;
+      const allInputs = Array.from(rootScope.querySelectorAll("input[type='file']")).filter((input) =>
+        isAttachmentInput(input)
+      );
+      if (!allInputs.length) return;
+
+      const grouped = new Map();
+      allInputs.forEach((input) => {
+        const key = String(input.getAttribute("name") || "__hs_attach_no_name__").trim() || "__hs_attach_no_name__";
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key).push(input);
+      });
+
+      grouped.forEach((inputs) => {
+        if (!Array.isArray(inputs) || inputs.length < 2) return;
+        const mergedFiles = [];
+        inputs.forEach((input) => {
+          Array.from(input.files || []).forEach((file) => {
+            if (file instanceof File) mergedFiles.push(file);
+          });
+        });
+        if (mergedFiles.length <= 1) return;
+
+        const targetInput = inputs.find((input) => (input.files?.length || 0) > 0) || inputs[0];
+        if (!(targetInput instanceof HTMLInputElement)) return;
+        try {
+          const dt = new DataTransfer();
+          mergedFiles.forEach((file) => dt.items.add(file));
+          targetInput.files = dt.files;
+          inputs.forEach((input) => {
+            if (input !== targetInput) input.value = "";
+          });
+          targetInput.dispatchEvent(new Event("change", { bubbles: true }));
+        } catch (_err) {}
+      });
+    };
+
     const fileInputs = Array.from(
       root.querySelectorAll(
         "#Novo_Acompanhamento input[type='file'], #acompanhamento_form input[type='file'], input[type='file']"
       )
     );
     fileInputs.forEach((input) => {
-      const nearForm = input.closest("#Novo_Acompanhamento, #acompanhamento_form");
-      if (nearForm) {
-        setInputSingle(input);
-        decorateInputPreview(input);
-        return;
-      }
-
-      const row = input.closest("tr,td,div,label");
-      const rowText = norm(row?.textContent || "");
-      if (/anex/.test(rowText)) {
-        setInputSingle(input);
-        decorateInputPreview(input);
-      }
+      if (!isAttachmentInput(input)) return;
+      setInputMulti(input);
+      decorateInputPreview(input);
     });
+    if (root.dataset.hsAttachMergeBind !== "1") {
+      root.dataset.hsAttachMergeBind = "1";
+      root.addEventListener(
+        "submit",
+        (ev) => {
+          const form = ev.target instanceof HTMLFormElement ? ev.target : null;
+          mergeAttachmentInputsByName(form || root);
+        },
+        true
+      );
+      root.addEventListener(
+        "click",
+        (ev) => {
+          const target = ev.target instanceof Element ? ev.target : null;
+          if (!target) return;
+          const submitter = target.closest("button, input[type='submit'], input[type='image']");
+          if (!submitter) return;
+          const form =
+            submitter instanceof HTMLInputElement || submitter instanceof HTMLButtonElement
+              ? submitter.form || submitter.closest("form")
+              : submitter.closest("form");
+          mergeAttachmentInputsByName(form || root);
+        },
+        true
+      );
+      root.addEventListener(
+        "keydown",
+        (ev) => {
+          const key = String(ev.key || "").toLowerCase();
+          if (key !== "enter") return;
+          const target = ev.target instanceof HTMLElement ? ev.target : null;
+          if (!target) return;
+          const form = target.closest("form");
+          if (!form) return;
+          mergeAttachmentInputsByName(form);
+        },
+        true
+      );
+    }
+    setTimeout(() => mergeAttachmentInputsByName(root), 0);
+    setTimeout(() => mergeAttachmentInputsByName(root), 140);
+
     const attachmentBlocks = [];
     const detailRows = Array.from(root.querySelectorAll("table:not(.sortable) tr")).filter((tr) => {
       const cells = Array.from(tr.querySelectorAll("th,td"));
