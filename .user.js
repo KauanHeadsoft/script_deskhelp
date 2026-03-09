@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.49
+// @version      2.15.50
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -74,7 +74,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.49";
+  const SCRIPT_VERSION_FALLBACK = "2.15.50";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -144,6 +144,15 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-09",
+      version: "2.15.50",
+      notes: [
+        "Preview PNG/JPG de anexo remoto (anexo.php) agora tenta carregar via fetch autenticado da sessao antes de renderizar no modal.",
+        "Deteccao de imagem foi ampliada para URLs com nome do arquivo em querystring (ex.: ?name=arquivo.png).",
+        "Menu de Configuracoes recebeu refinamento visual com abertura mais nativa, painel opaco e transicao suave.",
+      ],
+    },
     {
       date: "2026-03-09",
       version: "2.15.49",
@@ -1249,12 +1258,22 @@ Atenciosamente.`;
   }
   .hs-image-viewer-body{
     display:flex;
+    flex-direction:column;
     justify-content:center;
     align-items:center;
     padding:10px;
     overflow:auto;
     min-height:180px;
     max-height:calc(92vh - 42px);
+    gap:10px;
+  }
+  .hs-image-viewer-state{
+    margin:0;
+    font-size:12px;
+    line-height:1.35;
+    color:var(--fg);
+    opacity:.88;
+    display:none;
   }
   .hs-image-viewer-body img{
     max-width:100%;
@@ -3437,8 +3456,8 @@ Atenciosamente.`;
   body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle{
     min-height:30px!important;
     height:30px!important;
-    border-radius:12px!important;
-    padding:4px 12px!important;
+    border-radius:8px!important;
+    padding:4px 11px!important;
     font-size:11px!important;
     font-weight:800!important;
     line-height:1!important;
@@ -3447,9 +3466,9 @@ Atenciosamente.`;
     align-items:center!important;
     gap:8px!important;
     position:relative!important;
-    border:1px solid rgba(154, 174, 200, .42)!important;
-    background:linear-gradient(180deg, rgba(24,40,65,.98), rgba(15,28,47,.98))!important;
-    box-shadow:0 10px 22px rgba(0,0,0,.24)!important;
+    border:1px solid #3f5a7c!important;
+    background:linear-gradient(180deg, #1a2e47, #15273f)!important;
+    box-shadow:0 8px 16px rgba(0,0,0,.2)!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle .hs-settings-gear{
     font-size:15px!important;
@@ -3478,34 +3497,43 @@ Atenciosamente.`;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-menu{
     position:absolute!important;
-    top:calc(100% + 9px)!important;
+    top:calc(100% + 8px)!important;
     right:0!important;
     z-index:1000031!important;
-    width:min(360px, 94vw)!important;
-    border-radius:14px!important;
-    border:1px solid rgba(154, 174, 200, .42)!important;
-    background:linear-gradient(180deg, rgba(10,22,40,.995), rgba(8,18,34,.99))!important;
-    box-shadow:0 18px 40px rgba(0,0,0,.35)!important;
-    padding:12px!important;
-    display:none!important;
+    width:min(340px, 92vw)!important;
+    border-radius:12px!important;
+    border:1px solid #324b69!important;
+    background:#0f1f33!important;
+    box-shadow:0 18px 36px rgba(0,0,0,.32)!important;
+    padding:10px!important;
+    display:flex!important;
     flex-direction:column!important;
-    gap:10px!important;
+    gap:8px!important;
+    opacity:0!important;
+    visibility:hidden!important;
+    pointer-events:none!important;
+    transform:translateY(-6px) scale(.985)!important;
+    transform-origin:top right!important;
+    transition:opacity .14s ease, transform .14s ease, visibility .14s ease!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-wrap.open .hs-settings-menu{
-    display:flex!important;
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+    transform:translateY(0) scale(1)!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-menu-title{
-    margin:0!important;
+    margin:0 1px 3px!important;
     padding:0 2px!important;
-    font-size:12px!important;
+    font-size:11px!important;
     font-weight:800!important;
-    letter-spacing:.03em!important;
+    letter-spacing:.04em!important;
     text-transform:uppercase!important;
-    opacity:.86!important;
+    opacity:.78!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-divider{
     height:1px!important;
-    background:linear-gradient(90deg, rgba(141,184,238,.02), rgba(141,184,238,.38), rgba(141,184,238,.02))!important;
+    background:linear-gradient(90deg, rgba(141,184,238,.03), rgba(141,184,238,.3), rgba(141,184,238,.03))!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-group{
     display:flex!important;
@@ -3516,29 +3544,31 @@ Atenciosamente.`;
     margin:0 2px!important;
     font-size:10px!important;
     font-weight:800!important;
-    letter-spacing:.06em!important;
+    letter-spacing:.05em!important;
     text-transform:uppercase!important;
-    opacity:.72!important;
+    opacity:.63!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-btn{
-    min-height:30px!important;
-    height:30px!important;
-    border-radius:10px!important;
+    min-height:31px!important;
+    height:31px!important;
+    border-radius:8px!important;
     padding:0 11px!important;
-    font-size:11px!important;
+    font-size:12px!important;
     font-weight:700!important;
     line-height:1!important;
     cursor:pointer!important;
     width:100%!important;
     text-align:left!important;
-    background:linear-gradient(180deg, rgba(22,38,61,.98), rgba(16,30,49,.98))!important;
-    border:1px solid rgba(136,164,194,.4)!important;
-    transition:transform .1s ease, border-color .14s ease, box-shadow .14s ease!important;
+    color:#d8e6f7!important;
+    background:linear-gradient(180deg, #1a2e47, #14263d)!important;
+    border:1px solid #3e5878!important;
+    transition:background-color .12s ease, border-color .12s ease, box-shadow .12s ease!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06)!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-btn:hover{
-    transform:translateY(-1px)!important;
-    border-color:rgba(184,211,243,.72)!important;
-    box-shadow:0 6px 14px rgba(0,0,0,.24)!important;
+    border-color:#5f7ea4!important;
+    background:linear-gradient(180deg, #213854, #1a2f49)!important;
+    box-shadow:0 0 0 1px rgba(95,126,164,.24)!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-menu .hs-preview-mode-btn{
     justify-content:flex-start!important;
@@ -4255,7 +4285,16 @@ Atenciosamente.`;
     const src = String(source || "").trim().toLowerCase();
     if (!src) return false;
     if (/^data:image\/(?:png|jpeg|jpg)(?:;|,)/.test(src)) return true;
-    return /\.(png|jpe?g)(?:[?#].*)?$/.test(src);
+    if (/\.(png|jpe?g)(?:[?#].*)?$/.test(src)) return true;
+    try {
+      const url = new URL(String(source || ""), location.href);
+      const queryNames = ["name", "filename", "file", "arquivo", "anexo"];
+      for (const key of queryNames) {
+        const value = String(url.searchParams.get(key) || "").trim().toLowerCase();
+        if (/\.(png|jpe?g)$/.test(value)) return true;
+      }
+    } catch {}
+    return false;
   }
   /**
    * Objetivo: Informa se modal local de anexo pode ser usado para o arquivo.
@@ -8793,6 +8832,127 @@ Atenciosamente.`;
     return /visualizar_requisicao\.php/i.test(location.pathname);
   }
   /**
+   * Objetivo: Libera URL temporaria (blob) usada no preview de imagem.
+   *
+   * Contexto: evita vazamento de memoria ao trocar/fechar previews.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function releaseImagePreviewObjectUrl() {
+    if (typeof hsImagePreviewObjectUrlRevoke === "function") {
+      try {
+        hsImagePreviewObjectUrlRevoke();
+      } catch {}
+    }
+    hsImagePreviewObjectUrlRevoke = null;
+  }
+  /**
+   * Objetivo: Detecta se URL parece endpoint de anexo protegido do sistema.
+   *
+   * Contexto: usado para decidir quando buscar imagem via fetch autenticado.
+   * Parametros:
+   * - value: entrada usada por esta rotina.
+   * Retorno: boolean.
+   */
+  function isProtectedAttachmentUrl(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return false;
+    try {
+      const u = new URL(raw, location.href);
+      if (!/\/anexo(?:\.php)?$/i.test(u.pathname)) {
+        const hasStrongHint =
+          u.searchParams.has("guid") || u.searchParams.has("anexo") || u.searchParams.has("id_anexo");
+        if (!hasStrongHint) return false;
+      }
+      return u.origin === location.origin;
+    } catch {
+      return false;
+    }
+  }
+  /**
+   * Objetivo: Deduz MIME de imagem com base em metadados de anexo.
+   *
+   * Contexto: corrige casos em que endpoint retorna blob sem tipo.
+   * Parametros:
+   * - fileName: entrada usada por esta rotina.
+   * - fileType: entrada usada por esta rotina.
+   * - sourceUrl: entrada usada por esta rotina.
+   * Retorno: string.
+   */
+  function inferImageMime(fileName = "", fileType = "", sourceUrl = "") {
+    const mime = String(fileType || "").trim().toLowerCase();
+    if (/^image\/(?:png|jpeg|jpg)$/.test(mime)) return mime.replace("jpg", "jpeg");
+
+    const sourceNameCandidates = [fileName];
+    try {
+      const u = new URL(String(sourceUrl || ""), location.href);
+      sourceNameCandidates.push(u.searchParams.get("name") || "");
+      sourceNameCandidates.push(u.searchParams.get("filename") || "");
+      sourceNameCandidates.push(u.searchParams.get("file") || "");
+      sourceNameCandidates.push(u.searchParams.get("arquivo") || "");
+      sourceNameCandidates.push(u.pathname.split("/").pop() || "");
+    } catch {}
+
+    const fullName = sourceNameCandidates.join(" ").toLowerCase();
+    if (/\.(png)(?:$|\s|\?|&)/.test(fullName)) return "image/png";
+    if (/\.(jpe?g)(?:$|\s|\?|&)/.test(fullName)) return "image/jpeg";
+    return "";
+  }
+  /**
+   * Objetivo: Resolve melhor fonte de imagem para preview no modal.
+   *
+   * Contexto: para anexos protegidos, busca bytes com credenciais da sessao.
+   * Parametros:
+   * - imageUrl: entrada usada por esta rotina.
+   * - label: entrada usada por esta rotina.
+   * - fileType: entrada usada por esta rotina.
+   * Retorno: Promise<object>.
+   */
+  async function resolvePreviewImageSource(imageUrl, label = "", fileType = "") {
+    const raw = String(imageUrl || "").trim();
+    if (!raw) return { previewSrc: "", fallbackSrc: "", revoke: null };
+    let absolute = raw;
+    try {
+      absolute = new URL(raw, location.href).toString();
+    } catch {}
+
+    if (!/^https?:/i.test(absolute)) {
+      return { previewSrc: absolute, fallbackSrc: absolute, revoke: null };
+    }
+    if (!isProtectedAttachmentUrl(absolute)) {
+      return { previewSrc: absolute, fallbackSrc: absolute, revoke: null };
+    }
+
+    try {
+      const response = await fetch(absolute, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const blob = await response.blob();
+      const mimeHint = inferImageMime(label, fileType, absolute);
+      const blobMime = String(blob.type || "").trim().toLowerCase();
+      const normalizedBlob =
+        /^image\/(?:png|jpeg|jpg|webp|gif|bmp|svg\+xml|avif)$/i.test(blobMime) || !mimeHint
+          ? blob
+          : blob.slice(0, blob.size, mimeHint);
+      const objectUrl = URL.createObjectURL(normalizedBlob);
+      return {
+        previewSrc: objectUrl,
+        fallbackSrc: absolute,
+        revoke: () => {
+          try {
+            URL.revokeObjectURL(objectUrl);
+          } catch {}
+        },
+      };
+    } catch {
+      return { previewSrc: absolute, fallbackSrc: absolute, revoke: null };
+    }
+  }
+  /**
    * Objetivo: Fecha modal de preview de imagem.
    *
    * Contexto: usado nos previews de anexos locais/remotos.
@@ -8802,6 +8962,21 @@ Atenciosamente.`;
   function closeImagePreviewModal() {
     if (!hsImagePreviewModal) hsImagePreviewModal = document.getElementById("hs-image-viewer");
     if (!(hsImagePreviewModal instanceof HTMLElement)) return;
+    const img = hsImagePreviewModal.querySelector(".hs-image-viewer-body img");
+    const state = hsImagePreviewModal.querySelector(".hs-image-viewer-state");
+    if (img instanceof HTMLImageElement) {
+      delete img.dataset.hsPreviewRequest;
+      delete img.dataset.hsFallbackSrc;
+      delete img.dataset.hsTriedFallback;
+      img.removeAttribute("src");
+      img.onerror = null;
+      img.onload = null;
+    }
+    if (state instanceof HTMLElement) {
+      state.style.display = "none";
+      state.textContent = "";
+    }
+    releaseImagePreviewObjectUrl();
     hsImagePreviewModal.classList.remove("open");
   }
   /**
@@ -8826,6 +9001,7 @@ Atenciosamente.`;
             <button type="button" data-action="close">Fechar</button>
           </header>
           <div class="hs-image-viewer-body">
+            <p class="hs-image-viewer-state" aria-live="polite"></p>
             <img alt="Preview do anexo" />
           </div>
         </section>
@@ -8848,7 +9024,7 @@ Atenciosamente.`;
    * - label: titulo opcional.
    * Retorno: void.
    */
-  function openImagePreviewModal(imageUrl, label = "", fileType = "") {
+  async function openImagePreviewModal(imageUrl, label = "", fileType = "") {
     const src = String(imageUrl || "").trim();
     if (!src) return;
     if (!isAttachmentModalPreviewAllowed(src, label, fileType)) {
@@ -8858,15 +9034,61 @@ Atenciosamente.`;
     const modal = ensureImagePreviewModal();
     if (!(modal instanceof HTMLElement)) return;
     const titleEl = modal.querySelector(".hs-image-viewer-title");
+    const stateEl = modal.querySelector(".hs-image-viewer-state");
     const img = modal.querySelector(".hs-image-viewer-body img");
     if (!(img instanceof HTMLImageElement)) return;
     if (titleEl instanceof HTMLElement) {
       const title = String(label || "").trim();
       titleEl.textContent = title ? `Preview da imagem - ${title}` : "Preview da imagem";
     }
-    img.src = src;
     img.alt = String(label || "Preview do anexo");
+
+    releaseImagePreviewObjectUrl();
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    img.dataset.hsPreviewRequest = requestId;
+    img.dataset.hsTriedFallback = "0";
+    img.removeAttribute("src");
+    if (stateEl instanceof HTMLElement) {
+      stateEl.style.display = "block";
+      stateEl.textContent = "Carregando imagem...";
+    }
     modal.classList.add("open");
+
+    const resolved = await resolvePreviewImageSource(src, label, fileType);
+    if (img.dataset.hsPreviewRequest !== requestId) {
+      if (typeof resolved?.revoke === "function") resolved.revoke();
+      return;
+    }
+    hsImagePreviewObjectUrlRevoke = typeof resolved?.revoke === "function" ? resolved.revoke : null;
+    const fallbackSrc = String(resolved?.fallbackSrc || src).trim();
+    img.dataset.hsFallbackSrc = fallbackSrc;
+    const previewSrc = String(resolved?.previewSrc || fallbackSrc).trim();
+    if (!previewSrc) return;
+
+    img.onload = () => {
+      if (img.dataset.hsPreviewRequest !== requestId) return;
+      if (stateEl instanceof HTMLElement) {
+        stateEl.style.display = "none";
+        stateEl.textContent = "";
+      }
+    };
+    img.onerror = () => {
+      if (img.dataset.hsPreviewRequest !== requestId) return;
+      const fallback = String(img.dataset.hsFallbackSrc || "").trim();
+      const triedFallback = img.dataset.hsTriedFallback === "1";
+      if (!triedFallback && fallback && img.currentSrc !== fallback) {
+        img.dataset.hsTriedFallback = "1";
+        if (stateEl instanceof HTMLElement) stateEl.textContent = "Tentando modo alternativo...";
+        img.src = fallback;
+        return;
+      }
+      if (stateEl instanceof HTMLElement) {
+        stateEl.style.display = "block";
+        stateEl.textContent = "Nao foi possivel carregar esta imagem no modal.";
+      }
+      toast("Imagem indisponivel para preview no momento.", "err", 2800);
+    };
+    img.src = previewSrc;
   }
   /**
    * Objetivo: Ajusta anexos para selecao unica por campo com preview local.
@@ -9171,7 +9393,7 @@ Atenciosamente.`;
 
         const anchor = target.closest("a[href]");
         if (anchor instanceof HTMLAnchorElement) {
-          const hrefRaw = String(anchor.getAttribute("href") || "").trim();
+          const hrefRaw = String(anchor.href || anchor.getAttribute("href") || "").trim();
           const hrefLooksLikeAnexo =
             /(?:^|\/)anexo(?:\.php)?(?:[?#]|$)/i.test(hrefRaw) ||
             /[?&](?:anexo|arquivo|file|id_anexo)=/i.test(hrefRaw);
@@ -10900,6 +11122,7 @@ Atenciosamente.`;
   let hsUpdatesLogPayload = null;
   let hsAppearanceModal = null;
   let hsImagePreviewModal = null;
+  let hsImagePreviewObjectUrlRevoke = null;
   let reqPopupEscBound = false;
   let hsReqClicksBound = false;
   let hsAjaxRefreshBusy = false;

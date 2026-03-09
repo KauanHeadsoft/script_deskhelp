@@ -1,6 +1,15 @@
 ﻿[
     {
         "date":  "2026-03-09",
+        "version":  "2.15.50",
+        "notes":  [
+                      "Preview PNG/JPG de anexo remoto (anexo.php) agora tenta carregar via fetch autenticado da sessao antes de renderizar no modal.",
+                      "Deteccao de imagem foi ampliada para URLs com nome do arquivo em querystring (ex.: ?name=arquivo.png).",
+                      "Menu de Configuracoes recebeu refinamento visual com abertura mais nativa, painel opaco e transicao suave."
+                  ]
+    },
+    {
+        "date":  "2026-03-09",
         "version":  "2.15.49",
         "notes":  [
                       "Preview PNG/JPG agora tambem funciona nos anexos ja recebidos da requisicao, respeitando o toggle dedicado.",
@@ -242,6 +251,9 @@
                   ]
     }
 ]
+
+
+
 
 
 
