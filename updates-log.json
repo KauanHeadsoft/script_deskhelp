@@ -1,6 +1,15 @@
 ﻿[
     {
         "date":  "2026-03-09",
+        "version":  "2.15.52",
+        "notes":  [
+                      "Menu de Configuracoes agora usa popover em portal no body, sem corte por overflow do cabecalho.",
+                      "Popover calcula posicao pelo botao do header e se reajusta em resize/scroll.",
+                      "Painel opaco reforcado para nao misturar com os textos ao fundo."
+                  ]
+    },
+    {
+        "date":  "2026-03-09",
         "version":  "2.15.51",
         "notes":  [
                       "Preview PNG/JPG remoto agora abre no modal via iframe interno (experiencia de nova guia sem sair da tela).",
@@ -260,6 +269,9 @@
                   ]
     }
 ]
+
+
+
 
 
 

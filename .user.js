@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.51
+// @version      2.15.52
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -74,7 +74,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.51";
+  const SCRIPT_VERSION_FALLBACK = "2.15.52";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -144,6 +144,15 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-09",
+      version: "2.15.52",
+      notes: [
+        "Menu de Configuracoes passou a usar popover em portal no body, eliminando cortes/sumico por overflow do cabecalho.",
+        "Popover agora calcula posicao pelo botao do header e reposiciona em resize/scroll para manter leitura limpa.",
+        "Visual opaco do painel foi reforcado para evitar mistura com textos da tela ao fundo.",
+      ],
+    },
     {
       date: "2026-03-09",
       version: "2.15.51",
@@ -3632,6 +3641,102 @@ Atenciosamente.`;
     0%{ box-shadow:0 0 0 1px rgba(166,118,0,.24), 0 2px 8px rgba(166,118,0,.2); }
     50%{ box-shadow:0 0 0 1px rgba(166,118,0,.42), 0 4px 12px rgba(166,118,0,.34); }
     100%{ box-shadow:0 0 0 1px rgba(166,118,0,.24), 0 2px 8px rgba(166,118,0,.2); }
+  }
+  body.hs-dashboard-page .hs-settings-menu-popover{
+    position:fixed!important;
+    z-index:1000031!important;
+    border-radius:12px!important;
+    border:1px solid #3f5f84!important;
+    background:#10243c!important;
+    box-shadow:0 20px 38px rgba(0,0,0,.34)!important;
+    padding:11px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:9px!important;
+    opacity:0!important;
+    visibility:hidden!important;
+    pointer-events:none!important;
+    transform:translateY(-6px) scale(.985)!important;
+    transform-origin:top right!important;
+    transition:opacity .14s ease, transform .14s ease, visibility .14s ease!important;
+  }
+  body.hs-dashboard-page .hs-settings-menu-popover.open{
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+    transform:translateY(0) scale(1)!important;
+  }
+  body.hs-dashboard-page .hs-settings-menu-popover::before{
+    content:""!important;
+    position:absolute!important;
+    top:-8px!important;
+    right:var(--hs-settings-arrow-right, 24px)!important;
+    width:14px!important;
+    height:14px!important;
+    transform:rotate(45deg)!important;
+    background:#10243c!important;
+    border-left:1px solid #3f5f84!important;
+    border-top:1px solid #3f5f84!important;
+  }
+  body.hs-dashboard-page .hs-settings-menu-popover[data-hs-arrow="up"]::before{
+    top:auto!important;
+    bottom:-8px!important;
+    transform:rotate(225deg)!important;
+  }
+  body.hs-dashboard-page .hs-settings-menu-popover .hs-settings-menu-title{
+    margin:0 1px 3px!important;
+    padding:0 2px!important;
+    font-size:12px!important;
+    font-weight:800!important;
+    letter-spacing:.04em!important;
+    text-transform:uppercase!important;
+    opacity:.84!important;
+  }
+  body.hs-dashboard-page .hs-settings-menu-popover .hs-settings-divider{
+    height:1px!important;
+    background:linear-gradient(90deg, rgba(141,184,238,.03), rgba(141,184,238,.3), rgba(141,184,238,.03))!important;
+  }
+  body.hs-dashboard-page .hs-settings-menu-popover .hs-settings-group{
+    display:flex!important;
+    flex-direction:column!important;
+    gap:7px!important;
+  }
+  body.hs-dashboard-page .hs-settings-menu-popover .hs-settings-group-title{
+    margin:0 2px!important;
+    font-size:10px!important;
+    font-weight:800!important;
+    letter-spacing:.05em!important;
+    text-transform:uppercase!important;
+    opacity:.63!important;
+  }
+  body.hs-dashboard-page .hs-settings-menu-popover .hs-preview-mode-btn{
+    min-height:31px!important;
+    height:31px!important;
+    border-radius:8px!important;
+    padding:0 11px!important;
+    font-size:12px!important;
+    font-weight:700!important;
+    line-height:1!important;
+    cursor:pointer!important;
+    width:100%!important;
+    text-align:left!important;
+    color:#d8e6f7!important;
+    background:linear-gradient(180deg, #1a2e47, #14263d)!important;
+    border:1px solid #3e5878!important;
+    transition:background-color .12s ease, border-color .12s ease, box-shadow .12s ease!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06)!important;
+  }
+  body.hs-dashboard-page .hs-settings-menu-popover .hs-preview-mode-btn:hover{
+    border-color:#5f7ea4!important;
+    background:linear-gradient(180deg, #213854, #1a2f49)!important;
+    box-shadow:0 0 0 1px rgba(95,126,164,.24)!important;
+  }
+  body.hs-dashboard-page .hs-settings-menu-popover .hs-update-available-btn{
+    color:#1f2b18!important;
+    border-color:#e5bf4f!important;
+    background:linear-gradient(180deg, #ffe9a8, #f6d36a)!important;
+    box-shadow:0 0 0 1px rgba(166,118,0,.24), 0 2px 8px rgba(166,118,0,.2)!important;
+    animation:hs-update-pulse 1.9s ease-in-out infinite!important;
   }
   .hs-appearance-modal .hs-update-modal-card{
     width:min(900px, 96vw);
@@ -7204,6 +7309,7 @@ Atenciosamente.`;
       if (el !== host) el.remove();
     });
     host.querySelector("#hs-versions-btn")?.remove();
+    host.querySelectorAll(".hs-settings-menu").forEach((el) => el.remove());
 
     let backdrop = document.getElementById("hs-settings-backdrop");
     if (!(backdrop instanceof HTMLElement)) {
@@ -7230,12 +7336,40 @@ Atenciosamente.`;
       host.appendChild(settingsBtn);
     }
 
-    let menu = host.querySelector(".hs-settings-menu");
+    let menu = document.getElementById("hs-settings-menu-popover");
     if (!(menu instanceof HTMLElement)) {
       menu = document.createElement("div");
-      menu.className = "hs-settings-menu";
-      host.appendChild(menu);
+      menu.id = "hs-settings-menu-popover";
+      menu.className = "hs-settings-menu hs-settings-menu-popover";
+      document.body.appendChild(menu);
+    } else if (!menu.isConnected) {
+      document.body.appendChild(menu);
     }
+    const positionMenu = () => {
+      if (!(menu instanceof HTMLElement) || !(settingsBtn instanceof HTMLButtonElement)) return;
+      const pad = 8;
+      const rect = settingsBtn.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      const width = Math.max(280, Math.min(380, Math.round(menuRect.width || 340)));
+      let left = Math.round(rect.right - width);
+      left = Math.max(pad, Math.min(left, window.innerWidth - width - pad));
+
+      let top = Math.round(rect.bottom + 10);
+      const desiredBottom = top + Math.round(menuRect.height || 420) + pad;
+      if (desiredBottom > window.innerHeight) {
+        top = Math.round(rect.top - (menuRect.height || 420) - 10);
+      }
+      top = Math.max(pad, Math.min(top, window.innerHeight - Math.round(menuRect.height || 420) - pad));
+
+      menu.style.setProperty("left", `${left}px`, "important");
+      menu.style.setProperty("top", `${top}px`, "important");
+      menu.style.setProperty("width", `${width}px`, "important");
+      menu.style.setProperty("max-height", `${Math.max(220, window.innerHeight - pad * 2)}px`, "important");
+      menu.style.setProperty("overflow", "auto", "important");
+      const arrowRight = Math.max(18, Math.min(width - 24, Math.round(rect.right - left - 18)));
+      menu.style.setProperty("--hs-settings-arrow-right", `${arrowRight}px`);
+      menu.dataset.hsArrow = top < rect.top ? "up" : "down";
+    };
     let menuTitle = menu.querySelector(".hs-settings-menu-title");
     if (!(menuTitle instanceof HTMLElement)) {
       menuTitle = document.createElement("p");
@@ -7301,10 +7435,15 @@ Atenciosamente.`;
 
     const setMenuOpen = (open) => {
       host.classList.toggle("open", !!open);
+      menu.classList.toggle("open", !!open);
       settingsBtn.setAttribute("aria-expanded", open ? "true" : "false");
       if (backdrop instanceof HTMLElement) {
         backdrop.classList.toggle("open", !!open);
         backdrop.setAttribute("aria-hidden", open ? "false" : "true");
+      }
+      if (open) {
+        positionMenu();
+        window.requestAnimationFrame(positionMenu);
       }
     };
     if (host.dataset.hsSettingsBind !== "1") {
@@ -7318,7 +7457,7 @@ Atenciosamente.`;
         "click",
         (ev) => {
           const target = ev.target instanceof Node ? ev.target : null;
-          if (target && host.contains(target)) return;
+          if (target && (host.contains(target) || menu.contains(target))) return;
           setMenuOpen(false);
         },
         true
@@ -7328,6 +7467,16 @@ Atenciosamente.`;
         closeAppearanceModal();
         setMenuOpen(false);
       });
+      window.addEventListener("resize", () => {
+        if (host.classList.contains("open")) positionMenu();
+      });
+      window.addEventListener(
+        "scroll",
+        () => {
+          if (host.classList.contains("open")) positionMenu();
+        },
+        true
+      );
     }
     settingsBtn.title = "Abrir configuracoes do script";
     if (backdrop instanceof HTMLElement && backdrop.dataset.hsBackdropBind !== "1") {
