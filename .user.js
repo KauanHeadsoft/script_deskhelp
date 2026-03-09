@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.47
+// @version      2.15.48
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -50,8 +50,10 @@
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
   const ATTACH_IMAGE_PREVIEW_DEFAULT = true;
   const ATTACH_IMAGE_PREVIEW_LS_KEY = "hs2025-attach-image-preview";
+  const HIDE_SUGGESTION_FILTER_DEFAULT = true;
+  const HIDE_SUGGESTION_FILTER_LS_KEY = "hs2025-hide-suggestion-filter";
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.47";
+  const SCRIPT_VERSION_FALLBACK = "2.15.48";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -121,6 +123,15 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-09",
+      version: "2.15.48",
+      notes: [
+        "Configuracoes ganharam toggle para ocultar/exibir o filtro 'Sugestao de melhoria' no dashboard.",
+        "Preferencia do toggle e salva no navegador (localStorage), independente do GitHub.",
+        "Aplicacao do filtro foi ajustada para reexibir a linha quando o toggle for desativado.",
+      ],
+    },
     {
       date: "2026-03-09",
       version: "2.15.47",
@@ -3832,6 +3843,36 @@ Atenciosamente.`;
     } catch {}
   }
   /**
+   * Objetivo: Le preferencia para ocultar linha "Sugestao de melhoria" nos filtros.
+   *
+   * Contexto: acionado na tela de dashboard e no menu de configuracoes.
+   * Parametros: nenhum.
+   * Retorno: boolean.
+   * Efeitos colaterais: leitura opcional de localStorage.
+   */
+  function isHideSuggestionFilterEnabled() {
+    try {
+      const raw = String(localStorage.getItem(HIDE_SUGGESTION_FILTER_LS_KEY) || "").trim().toLowerCase();
+      if (raw === "1" || raw === "true" || raw === "on") return true;
+      if (raw === "0" || raw === "false" || raw === "off") return false;
+    } catch {}
+    return HIDE_SUGGESTION_FILTER_DEFAULT;
+  }
+  /**
+   * Objetivo: Persiste preferencia para ocultar linha "Sugestao de melhoria" nos filtros.
+   *
+   * Contexto: acionado pelo menu de configuracoes.
+   * Parametros:
+   * - enabled: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: grava valor em localStorage quando disponivel.
+   */
+  function setHideSuggestionFilterEnabled(enabled) {
+    try {
+      localStorage.setItem(HIDE_SUGGESTION_FILTER_LS_KEY, enabled ? "1" : "0");
+    } catch {}
+  }
+  /**
    * Objetivo: Valida se arquivo/URL e elegivel para modal (somente PNG/JPG).
    *
    * Contexto: restringe preview modal dos anexos para formatos suportados.
@@ -5895,7 +5936,9 @@ Atenciosamente.`;
     if (!frm) return;
     const keepTop = ["responsavel", "responsÃ¡vel", "cliente"];
     const hideTop = ["situacao", "situaÃ§Ã£o", "categoria", "agrupamento", "concluido", "concluÃ­do", "ans", "setor"];
-    const hideRows = ["ordenar por percentual", "sugestao de melhoria", "sugestÃ£o de melhoria", "paralisado/stand by"];
+    const hideRows = ["ordenar por percentual", "paralisado/stand by"];
+    const suggestionRows = ["sugestao de melhoria", "sugestÃ£o de melhoria"];
+    const hideSuggestionRow = isHideSuggestionFilterEnabled();
 
     // Esconde pares TH/TD dos filtros riscados
     frm.querySelectorAll("th").forEach((th) => {
@@ -5920,8 +5963,14 @@ Atenciosamente.`;
     // Esconde linhas de opÃ§Ãµes riscadas
     frm.querySelectorAll("tr").forEach((tr) => {
       const t = norm(tr.textContent || "");
-      if (hideRows.some((k) => t.includes(k))) {
+      const mustHide =
+        hideRows.some((k) => t.includes(k)) || (hideSuggestionRow && suggestionRows.some((k) => t.includes(k)));
+      if (mustHide) {
         tr.style.display = "none";
+        tr.dataset.hsScriptHiddenRow = "1";
+      } else if (tr.dataset.hsScriptHiddenRow === "1") {
+        tr.style.display = "";
+        delete tr.dataset.hsScriptHiddenRow;
       }
     });
   }
@@ -6507,6 +6556,7 @@ Atenciosamente.`;
 
     const gridPreviewBtn = ensureMenuButton("hs-preview-mode-toggle");
     const attachPreviewBtn = ensureMenuButton("hs-attach-preview-toggle");
+    const suggestionFilterBtn = ensureMenuButton("hs-suggestion-filter-toggle");
     const updatesBtn = ensureMenuButton("hs-updates-log-btn");
     const checkBtn = ensureMenuButton("hs-update-check-btn");
     const manualBtn = ensureMenuButton("hs-update-manual-btn");
@@ -6570,6 +6620,13 @@ Atenciosamente.`;
         ? "Preview local de anexos ativo para PNG/JPG."
         : "Preview local de anexos desativado. Clique abre em nova guia.";
     };
+    const syncSuggestionFilterLabel = () => {
+      const enabled = isHideSuggestionFilterEnabled();
+      suggestionFilterBtn.value = enabled ? "Ocultar sugestao ON" : "Ocultar sugestao OFF";
+      suggestionFilterBtn.title = enabled
+        ? "A linha 'Sugestao de melhoria' esta oculta nos filtros."
+        : "A linha 'Sugestao de melhoria' fica visivel nos filtros.";
+    };
     const refreshSettingsNotification = (result = null) => {
       const state = result || hsScriptUpdateLastResult || readCachedUpdateCheckResult();
       const hasUpdate = !!state?.hasUpdate && compareVersionTexts(String(state?.remoteVersion || ""), SCRIPT_VERSION) > 0;
@@ -6625,6 +6682,22 @@ Atenciosamente.`;
         next
           ? "Preview local de anexos ativado para PNG/JPG."
           : "Preview local de anexos desativado. Arquivos abrem em nova guia.",
+        "ok",
+        2600
+      );
+      setMenuOpen(false);
+    };
+    suggestionFilterBtn.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const next = !isHideSuggestionFilterEnabled();
+      setHideSuggestionFilterEnabled(next);
+      syncSuggestionFilterLabel();
+      hideSomeFilters();
+      toast(
+        next
+          ? "Filtro 'Sugestao de melhoria' ocultado."
+          : "Filtro 'Sugestao de melhoria' visivel.",
         "ok",
         2600
       );
@@ -6719,6 +6792,7 @@ Atenciosamente.`;
 
     syncGridPreviewLabel();
     syncAttachmentPreviewLabel();
+    syncSuggestionFilterLabel();
     refreshSettingsNotification(cached);
   }
   /**

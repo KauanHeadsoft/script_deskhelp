@@ -1,6 +1,15 @@
 ﻿[
     {
         "date":  "2026-03-09",
+        "version":  "2.15.48",
+        "notes":  [
+                      "Novo toggle em Configuracoes para ocultar/exibir a linha 'Sugestao de melhoria' no dashboard.",
+                      "Preferencia do toggle agora fica salva no localStorage do navegador.",
+                      "Reaplicacao dos filtros foi ajustada para reexibir a linha ao desativar o toggle."
+                  ]
+    },
+    {
+        "date":  "2026-03-09",
         "version":  "2.15.47",
         "notes":  [
                       "Menu de Configuracoes agora aplica fundo com desfoque ao abrir, melhorando foco visual.",
@@ -224,6 +233,9 @@
                   ]
     }
 ]
+
+
+
 
 
 
