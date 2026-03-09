@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.50
+// @version      2.15.51
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -74,7 +74,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.50";
+  const SCRIPT_VERSION_FALLBACK = "2.15.51";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -144,6 +144,15 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-09",
+      version: "2.15.51",
+      notes: [
+        "Preview PNG/JPG remoto agora abre no modal via iframe interno (mesma experiencia de nova guia, sem sair da tela).",
+        "Menu de Configuracoes foi movido para o cabecalho no dashboard e ganhou painel opaco com backdrop para leitura limpa.",
+        "Visual do menu foi refinado para estilo mais nativo/profissional, com transicao suave e hierarquia mais clara.",
+      ],
+    },
     {
       date: "2026-03-09",
       version: "2.15.50",
@@ -1284,6 +1293,14 @@ Atenciosamente.`;
     border-radius:8px;
     border:1px solid var(--border);
     background:rgba(2,8,18,.45);
+  }
+  .hs-image-viewer-body .hs-image-viewer-frame{
+    width:100%;
+    min-height:56vh;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:#0a1320;
+    display:none;
   }
   @media (max-width:760px){
     .hs-image-viewer-card{
@@ -3439,26 +3456,40 @@ Atenciosamente.`;
     flex:0 0 auto!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-wrap{
-    margin-top:6px!important;
-    display:flex!important;
-    justify-content:flex-end!important;
-    position:relative!important;
+    display:none!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-wrap.open{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap{
+    margin-left:10px!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    position:relative!important;
+    vertical-align:middle!important;
     z-index:1000030!important;
   }
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap.open{
+    z-index:1000031!important;
+  }
   body.hs-dashboard-page .hs-settings-backdrop{
-    display:none!important;
+    position:fixed!important;
+    inset:0!important;
+    z-index:1000029!important;
+    background:rgba(4,11,20,.44)!important;
+    opacity:0!important;
+    visibility:hidden!important;
+    pointer-events:none!important;
+    transition:opacity .12s ease, visibility .12s ease!important;
   }
   body.hs-dashboard-page .hs-settings-backdrop.open{
-    display:none!important;
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle{
-    min-height:30px!important;
-    height:30px!important;
-    border-radius:8px!important;
-    padding:4px 11px!important;
-    font-size:11px!important;
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-settings-toggle{
+    min-height:31px!important;
+    height:31px!important;
+    border-radius:7px!important;
+    padding:4px 12px!important;
+    font-size:12px!important;
     font-weight:800!important;
     line-height:1!important;
     cursor:pointer!important;
@@ -3466,19 +3497,24 @@ Atenciosamente.`;
     align-items:center!important;
     gap:8px!important;
     position:relative!important;
-    border:1px solid #3f5a7c!important;
-    background:linear-gradient(180deg, #1a2e47, #15273f)!important;
-    box-shadow:0 8px 16px rgba(0,0,0,.2)!important;
+    color:#dbe8f9!important;
+    border:1px solid #446388!important;
+    background:linear-gradient(180deg, #1f3654, #18314d)!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 8px 16px rgba(0,0,0,.2)!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle .hs-settings-gear{
-    font-size:15px!important;
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-settings-toggle:hover{
+    border-color:#5e7ea7!important;
+    background:linear-gradient(180deg, #274264, #203a5a)!important;
+  }
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-settings-toggle .hs-settings-gear{
+    font-size:14px!important;
     line-height:1!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle .hs-settings-label{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-settings-toggle .hs-settings-label{
     white-space:nowrap!important;
     letter-spacing:.02em!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-settings-notice-dot{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-settings-notice-dot{
     width:9px!important;
     height:9px!important;
     border-radius:50%!important;
@@ -3486,7 +3522,7 @@ Atenciosamente.`;
     box-shadow:0 0 0 1px rgba(255,95,86,.45), 0 0 0 4px rgba(255,95,86,.18)!important;
     display:none!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle.has-notification .hs-settings-notice-dot{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-settings-toggle.has-notification .hs-settings-notice-dot{
     display:inline-block!important;
     animation:hs-settings-dot-pulse 1.6s ease-in-out infinite!important;
   }
@@ -3495,20 +3531,20 @@ Atenciosamente.`;
     50%{ transform:scale(1.12); box-shadow:0 0 0 1px rgba(255,95,86,.6), 0 0 0 7px rgba(255,95,86,.2); }
     100%{ transform:scale(1); box-shadow:0 0 0 1px rgba(255,95,86,.45), 0 0 0 4px rgba(255,95,86,.18); }
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-settings-menu{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-settings-menu{
     position:absolute!important;
-    top:calc(100% + 8px)!important;
+    top:calc(100% + 10px)!important;
     right:0!important;
     z-index:1000031!important;
-    width:min(340px, 92vw)!important;
+    width:min(360px, 94vw)!important;
     border-radius:12px!important;
-    border:1px solid #324b69!important;
-    background:#0f1f33!important;
-    box-shadow:0 18px 36px rgba(0,0,0,.32)!important;
-    padding:10px!important;
+    border:1px solid #3f5f84!important;
+    background:#10243c!important;
+    box-shadow:0 20px 38px rgba(0,0,0,.34)!important;
+    padding:11px!important;
     display:flex!important;
     flex-direction:column!important;
-    gap:8px!important;
+    gap:9px!important;
     opacity:0!important;
     visibility:hidden!important;
     pointer-events:none!important;
@@ -3516,31 +3552,43 @@ Atenciosamente.`;
     transform-origin:top right!important;
     transition:opacity .14s ease, transform .14s ease, visibility .14s ease!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-wrap.open .hs-settings-menu{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-settings-menu::before{
+    content:""!important;
+    position:absolute!important;
+    top:-8px!important;
+    right:28px!important;
+    width:14px!important;
+    height:14px!important;
+    transform:rotate(45deg)!important;
+    background:#10243c!important;
+    border-left:1px solid #3f5f84!important;
+    border-top:1px solid #3f5f84!important;
+  }
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap.open .hs-settings-menu{
     opacity:1!important;
     visibility:visible!important;
     pointer-events:auto!important;
     transform:translateY(0) scale(1)!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-settings-menu-title{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-settings-menu-title{
     margin:0 1px 3px!important;
     padding:0 2px!important;
-    font-size:11px!important;
+    font-size:12px!important;
     font-weight:800!important;
     letter-spacing:.04em!important;
     text-transform:uppercase!important;
-    opacity:.78!important;
+    opacity:.84!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-settings-divider{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-settings-divider{
     height:1px!important;
     background:linear-gradient(90deg, rgba(141,184,238,.03), rgba(141,184,238,.3), rgba(141,184,238,.03))!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-settings-group{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-settings-group{
     display:flex!important;
     flex-direction:column!important;
     gap:7px!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-settings-group-title{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-settings-group-title{
     margin:0 2px!important;
     font-size:10px!important;
     font-weight:800!important;
@@ -3548,7 +3596,7 @@ Atenciosamente.`;
     text-transform:uppercase!important;
     opacity:.63!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-btn{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-preview-mode-btn{
     min-height:31px!important;
     height:31px!important;
     border-radius:8px!important;
@@ -3565,15 +3613,15 @@ Atenciosamente.`;
     transition:background-color .12s ease, border-color .12s ease, box-shadow .12s ease!important;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.06)!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-btn:hover{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-preview-mode-btn:hover{
     border-color:#5f7ea4!important;
     background:linear-gradient(180deg, #213854, #1a2f49)!important;
     box-shadow:0 0 0 1px rgba(95,126,164,.24)!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-settings-menu .hs-preview-mode-btn{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-settings-menu .hs-preview-mode-btn{
     justify-content:flex-start!important;
   }
-  body.hs-dashboard-page form[name="filtros"] .hs-update-available-btn{
+  body.hs-dashboard-page #cabecalho_menu #hs-dashboard-settings-wrap .hs-update-available-btn{
     color:#1f2b18!important;
     border-color:#e5bf4f!important;
     background:linear-gradient(180deg, #ffe9a8, #f6d36a)!important;
@@ -7140,14 +7188,33 @@ Atenciosamente.`;
     if (!document.body.classList.contains("hs-dashboard-page")) return;
     const filtrosForm = document.querySelector("#conteudo .filtros form[name='filtros'], form[name='filtros']");
     if (!(filtrosForm instanceof HTMLFormElement)) return;
+    const headerMenu = document.getElementById("cabecalho_menu");
+    const hostParent = headerMenu instanceof HTMLElement ? headerMenu : filtrosForm;
 
-    let host = filtrosForm.querySelector(".hs-preview-mode-wrap");
+    let host = hostParent.querySelector("#hs-dashboard-settings-wrap");
     if (!(host instanceof HTMLElement)) {
       host = document.createElement("div");
+      host.id = "hs-dashboard-settings-wrap";
       host.className = "hs-preview-mode-wrap";
-      filtrosForm.appendChild(host);
+      hostParent.appendChild(host);
+    } else if (host.parentElement !== hostParent) {
+      hostParent.appendChild(host);
     }
+    document.querySelectorAll("form[name='filtros'] .hs-preview-mode-wrap").forEach((el) => {
+      if (el !== host) el.remove();
+    });
     host.querySelector("#hs-versions-btn")?.remove();
+
+    let backdrop = document.getElementById("hs-settings-backdrop");
+    if (!(backdrop instanceof HTMLElement)) {
+      backdrop = document.createElement("div");
+      backdrop.id = "hs-settings-backdrop";
+      backdrop.className = "hs-settings-backdrop";
+      backdrop.setAttribute("aria-hidden", "true");
+      document.body.appendChild(backdrop);
+    } else if (!backdrop.isConnected) {
+      document.body.appendChild(backdrop);
+    }
 
     let settingsBtn = host.querySelector("#hs-settings-menu-btn");
     if (!(settingsBtn instanceof HTMLButtonElement)) {
@@ -7235,6 +7302,10 @@ Atenciosamente.`;
     const setMenuOpen = (open) => {
       host.classList.toggle("open", !!open);
       settingsBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      if (backdrop instanceof HTMLElement) {
+        backdrop.classList.toggle("open", !!open);
+        backdrop.setAttribute("aria-hidden", open ? "false" : "true");
+      }
     };
     if (host.dataset.hsSettingsBind !== "1") {
       host.dataset.hsSettingsBind = "1";
@@ -7259,6 +7330,18 @@ Atenciosamente.`;
       });
     }
     settingsBtn.title = "Abrir configuracoes do script";
+    if (backdrop instanceof HTMLElement && backdrop.dataset.hsBackdropBind !== "1") {
+      backdrop.dataset.hsBackdropBind = "1";
+      backdrop.addEventListener(
+        "click",
+        (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          setMenuOpen(false);
+        },
+        true
+      );
+    }
 
     const syncGridPreviewLabel = () => {
       const enabled = isPreviewOnlyModeEnabled();
@@ -8963,6 +9046,7 @@ Atenciosamente.`;
     if (!hsImagePreviewModal) hsImagePreviewModal = document.getElementById("hs-image-viewer");
     if (!(hsImagePreviewModal instanceof HTMLElement)) return;
     const img = hsImagePreviewModal.querySelector(".hs-image-viewer-body img");
+    const frame = hsImagePreviewModal.querySelector(".hs-image-viewer-frame");
     const state = hsImagePreviewModal.querySelector(".hs-image-viewer-state");
     if (img instanceof HTMLImageElement) {
       delete img.dataset.hsPreviewRequest;
@@ -8971,6 +9055,14 @@ Atenciosamente.`;
       img.removeAttribute("src");
       img.onerror = null;
       img.onload = null;
+      img.style.display = "none";
+    }
+    if (frame instanceof HTMLIFrameElement) {
+      frame.onerror = null;
+      frame.onload = null;
+      frame.style.display = "none";
+      frame.removeAttribute("src");
+      frame.src = "about:blank";
     }
     if (state instanceof HTMLElement) {
       state.style.display = "none";
@@ -9003,6 +9095,7 @@ Atenciosamente.`;
           <div class="hs-image-viewer-body">
             <p class="hs-image-viewer-state" aria-live="polite"></p>
             <img alt="Preview do anexo" />
+            <iframe class="hs-image-viewer-frame" title="Preview do anexo" loading="eager"></iframe>
           </div>
         </section>
       `;
@@ -9024,7 +9117,7 @@ Atenciosamente.`;
    * - label: titulo opcional.
    * Retorno: void.
    */
-  async function openImagePreviewModal(imageUrl, label = "", fileType = "") {
+  function openImagePreviewModal(imageUrl, label = "", fileType = "") {
     const src = String(imageUrl || "").trim();
     if (!src) return;
     if (!isAttachmentModalPreviewAllowed(src, label, fileType)) {
@@ -9036,6 +9129,7 @@ Atenciosamente.`;
     const titleEl = modal.querySelector(".hs-image-viewer-title");
     const stateEl = modal.querySelector(".hs-image-viewer-state");
     const img = modal.querySelector(".hs-image-viewer-body img");
+    const frame = modal.querySelector(".hs-image-viewer-frame");
     if (!(img instanceof HTMLImageElement)) return;
     if (titleEl instanceof HTMLElement) {
       const title = String(label || "").trim();
@@ -9044,51 +9138,67 @@ Atenciosamente.`;
     img.alt = String(label || "Preview do anexo");
 
     releaseImagePreviewObjectUrl();
-    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    img.dataset.hsPreviewRequest = requestId;
-    img.dataset.hsTriedFallback = "0";
+    delete img.dataset.hsPreviewRequest;
+    delete img.dataset.hsFallbackSrc;
+    delete img.dataset.hsTriedFallback;
     img.removeAttribute("src");
+    img.style.display = "none";
+    if (frame instanceof HTMLIFrameElement) {
+      frame.onerror = null;
+      frame.onload = null;
+      frame.style.display = "none";
+      frame.removeAttribute("src");
+      frame.src = "about:blank";
+    }
     if (stateEl instanceof HTMLElement) {
       stateEl.style.display = "block";
       stateEl.textContent = "Carregando imagem...";
     }
     modal.classList.add("open");
+    const absoluteSrc = (() => {
+      try {
+        return new URL(src, location.href).toString();
+      } catch {
+        return src;
+      }
+    })();
+    const useIframe = /^https?:/i.test(absoluteSrc);
 
-    const resolved = await resolvePreviewImageSource(src, label, fileType);
-    if (img.dataset.hsPreviewRequest !== requestId) {
-      if (typeof resolved?.revoke === "function") resolved.revoke();
+    if (useIframe && frame instanceof HTMLIFrameElement) {
+      frame.style.display = "block";
+      frame.onload = () => {
+        if (stateEl instanceof HTMLElement) {
+          stateEl.style.display = "none";
+          stateEl.textContent = "";
+        }
+      };
+      frame.onerror = () => {
+        if (stateEl instanceof HTMLElement) {
+          stateEl.style.display = "block";
+          stateEl.textContent = "Nao foi possivel carregar esta imagem no modal.";
+        }
+        toast("Falha no preview interno. Abrindo em nova guia.", "err", 2600);
+        window.open(absoluteSrc, "_blank", "noopener,noreferrer");
+      };
+      frame.src = absoluteSrc;
       return;
     }
-    hsImagePreviewObjectUrlRevoke = typeof resolved?.revoke === "function" ? resolved.revoke : null;
-    const fallbackSrc = String(resolved?.fallbackSrc || src).trim();
-    img.dataset.hsFallbackSrc = fallbackSrc;
-    const previewSrc = String(resolved?.previewSrc || fallbackSrc).trim();
-    if (!previewSrc) return;
 
+    img.style.display = "";
     img.onload = () => {
-      if (img.dataset.hsPreviewRequest !== requestId) return;
       if (stateEl instanceof HTMLElement) {
         stateEl.style.display = "none";
         stateEl.textContent = "";
       }
     };
     img.onerror = () => {
-      if (img.dataset.hsPreviewRequest !== requestId) return;
-      const fallback = String(img.dataset.hsFallbackSrc || "").trim();
-      const triedFallback = img.dataset.hsTriedFallback === "1";
-      if (!triedFallback && fallback && img.currentSrc !== fallback) {
-        img.dataset.hsTriedFallback = "1";
-        if (stateEl instanceof HTMLElement) stateEl.textContent = "Tentando modo alternativo...";
-        img.src = fallback;
-        return;
-      }
       if (stateEl instanceof HTMLElement) {
         stateEl.style.display = "block";
         stateEl.textContent = "Nao foi possivel carregar esta imagem no modal.";
       }
       toast("Imagem indisponivel para preview no momento.", "err", 2800);
     };
-    img.src = previewSrc;
+    img.src = absoluteSrc;
   }
   /**
    * Objetivo: Ajusta anexos para selecao unica por campo com preview local.

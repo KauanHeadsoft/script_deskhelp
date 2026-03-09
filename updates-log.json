@@ -1,6 +1,15 @@
 ﻿[
     {
         "date":  "2026-03-09",
+        "version":  "2.15.51",
+        "notes":  [
+                      "Preview PNG/JPG remoto agora abre no modal via iframe interno (experiencia de nova guia sem sair da tela).",
+                      "Menu de Configuracoes foi movido para o cabecalho no dashboard e ganhou painel opaco com backdrop.",
+                      "Visual do menu foi refinado para estilo mais nativo/profissional e melhor legibilidade."
+                  ]
+    },
+    {
+        "date":  "2026-03-09",
         "version":  "2.15.50",
         "notes":  [
                       "Preview PNG/JPG de anexo remoto (anexo.php) agora tenta carregar via fetch autenticado da sessao antes de renderizar no modal.",
@@ -251,6 +260,9 @@
                   ]
     }
 ]
+
+
+
 
 
 
