@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.54.1
+// @version      2.15.54
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
