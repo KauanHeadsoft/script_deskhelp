@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.48
+// @version      2.15.49
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -52,8 +52,29 @@
   const ATTACH_IMAGE_PREVIEW_LS_KEY = "hs2025-attach-image-preview";
   const HIDE_SUGGESTION_FILTER_DEFAULT = true;
   const HIDE_SUGGESTION_FILTER_LS_KEY = "hs2025-hide-suggestion-filter";
+  const APPEARANCE_SETTINGS_LS_KEY = "hs2025-appearance-settings";
+  const APPEARANCE_WALLPAPER_OPACITY_DEFAULT = 0.06;
+  const APPEARANCE_WALLPAPER_OPACITY_MIN = 0;
+  const APPEARANCE_WALLPAPER_OPACITY_MAX = 0.18;
+  const APPEARANCE_DEFAULTS = Object.freeze({
+    fontFamily: "default",
+    wallpaperUrl: "",
+    wallpaperOpacity: APPEARANCE_WALLPAPER_OPACITY_DEFAULT,
+    bgColor: "",
+    textColor: "",
+    accentColor: "",
+  });
+  const APPEARANCE_FONT_MAP = Object.freeze({
+    default: "'Segoe UI', Tahoma, sans-serif",
+    segoe: "'Segoe UI', Tahoma, sans-serif",
+    trebuchet: "'Trebuchet MS', 'Segoe UI', sans-serif",
+    verdana: "Verdana, 'Segoe UI', sans-serif",
+    georgia: "Georgia, 'Times New Roman', serif",
+    lucida: "'Lucida Sans Unicode', 'Lucida Grande', sans-serif",
+    monospace: "'Consolas', 'Courier New', monospace",
+  });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.48";
+  const SCRIPT_VERSION_FALLBACK = "2.15.49";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -123,6 +144,15 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-09",
+      version: "2.15.49",
+      notes: [
+        "Preview PNG/JPG passou a funcionar tambem nos anexos ja recebidos da requisicao, respeitando o toggle dedicado.",
+        "Modal de atualizacoes ganhou z-index acima do cabecalho para evitar sobreposicao visual.",
+        "Menu de Configuracoes foi reorganizado (sem blur) e recebeu painel de Aparencia para fonte, cores e papel de fundo suave.",
+      ],
+    },
     {
       date: "2026-03-09",
       version: "2.15.48",
@@ -398,6 +428,10 @@ Atenciosamente.`;
    * Persistencia local (browser storage):
    * - localStorage:
    *   - hs2025-theme
+   *   - hs2025-appearance-settings
+   *   - hs2025-preview-only-mode
+   *   - hs2025-attach-image-preview
+   *   - hs2025-hide-suggestion-filter
    *   - hs2025-openai-api-key
    *   - hs2025-gemini-api-key
    *   - hs2025-ai-mode
@@ -699,6 +733,9 @@ Atenciosamente.`;
     --row1:#121b29; --row2:#172334;
     --accent:#3a6fae;
     --link:#8db8ee; --link-hover:#b8d3f3;
+    --hs-body-font:'Segoe UI', Tahoma, sans-serif;
+    --hs-wallpaper-image:none;
+    --hs-wallpaper-overlay:rgba(14,20,29,.96);
   }
   html[data-hs-theme="light"]{
     --bg:#ffffff; --fg:#0f172a;
@@ -708,9 +745,22 @@ Atenciosamente.`;
     --row1:#ffffff; --row2:#f6f8fa;
     --accent:#1f5fb4;
     --link:#0b57d0; --link-hover:#0842a0;
+    --hs-wallpaper-overlay:rgba(255,255,255,.95);
   }
 
-  html,body{ background:var(--bg)!important; color:var(--fg)!important; }
+  html,body{
+    background-color:var(--bg)!important;
+    color:var(--fg)!important;
+    font-family:var(--hs-body-font)!important;
+  }
+  body{
+    background-image:
+      linear-gradient(var(--hs-wallpaper-overlay), var(--hs-wallpaper-overlay)),
+      var(--hs-wallpaper-image)!important;
+    background-size:cover!important;
+    background-position:center center!important;
+    background-attachment:fixed!important;
+  }
 
   #${BADGE_ID}{
     position:fixed; right:14px; bottom:14px; z-index:999999;
@@ -944,7 +994,7 @@ Atenciosamente.`;
   .hs-update-modal{
     position:fixed;
     inset:0;
-    z-index:1000003;
+    z-index:1000032;
     display:none;
   }
   .hs-update-modal.open{ display:block; }
@@ -1154,7 +1204,7 @@ Atenciosamente.`;
   .hs-image-viewer{
     position:fixed;
     inset:0;
-    z-index:1000004;
+    z-index:1000034;
     display:none;
   }
   .hs-image-viewer.open{ display:block; }
@@ -3376,44 +3426,38 @@ Atenciosamente.`;
     position:relative!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-wrap.open{
-    z-index:1000005!important;
+    z-index:1000030!important;
   }
   body.hs-dashboard-page .hs-settings-backdrop{
-    position:fixed!important;
-    inset:0!important;
-    z-index:1000002!important;
-    background:rgba(4,12,24,.30)!important;
-    backdrop-filter:blur(4px)!important;
-    -webkit-backdrop-filter:blur(4px)!important;
-    opacity:0!important;
-    pointer-events:none!important;
-    transition:opacity .14s ease!important;
+    display:none!important;
   }
   body.hs-dashboard-page .hs-settings-backdrop.open{
-    opacity:1!important;
-    pointer-events:auto!important;
+    display:none!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle{
-    min-height:26px!important;
-    height:26px!important;
-    border-radius:10px!important;
-    padding:2px 10px!important;
+    min-height:30px!important;
+    height:30px!important;
+    border-radius:12px!important;
+    padding:4px 12px!important;
     font-size:11px!important;
     font-weight:800!important;
     line-height:1!important;
     cursor:pointer!important;
     display:inline-flex!important;
     align-items:center!important;
-    gap:7px!important;
+    gap:8px!important;
     position:relative!important;
+    border:1px solid rgba(154, 174, 200, .42)!important;
+    background:linear-gradient(180deg, rgba(24,40,65,.98), rgba(15,28,47,.98))!important;
+    box-shadow:0 10px 22px rgba(0,0,0,.24)!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle .hs-settings-gear{
-    font-size:14px!important;
+    font-size:15px!important;
     line-height:1!important;
-    transform:translateY(-.5px)!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle .hs-settings-label{
     white-space:nowrap!important;
+    letter-spacing:.02em!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-notice-dot{
     width:9px!important;
@@ -3434,40 +3478,67 @@ Atenciosamente.`;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-menu{
     position:absolute!important;
-    top:calc(100% + 7px)!important;
+    top:calc(100% + 9px)!important;
     right:0!important;
-    z-index:1000006!important;
-    min-width:250px!important;
-    border-radius:12px!important;
-    border:1px solid rgba(154, 174, 200, .36)!important;
-    background:linear-gradient(180deg, rgba(13,27,49,.98), rgba(8,18,35,.98))!important;
-    box-shadow:0 16px 34px rgba(0,0,0,.28)!important;
-    padding:8px!important;
+    z-index:1000031!important;
+    width:min(360px, 94vw)!important;
+    border-radius:14px!important;
+    border:1px solid rgba(154, 174, 200, .42)!important;
+    background:linear-gradient(180deg, rgba(10,22,40,.995), rgba(8,18,34,.99))!important;
+    box-shadow:0 18px 40px rgba(0,0,0,.35)!important;
+    padding:12px!important;
     display:none!important;
     flex-direction:column!important;
-    gap:6px!important;
+    gap:10px!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-wrap.open .hs-settings-menu{
     display:flex!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-menu-title{
-    margin:0 0 2px!important;
+    margin:0!important;
     padding:0 2px!important;
-    font-size:11px!important;
+    font-size:12px!important;
     font-weight:800!important;
-    opacity:.9!important;
+    letter-spacing:.03em!important;
+    text-transform:uppercase!important;
+    opacity:.86!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-settings-divider{
+    height:1px!important;
+    background:linear-gradient(90deg, rgba(141,184,238,.02), rgba(141,184,238,.38), rgba(141,184,238,.02))!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-settings-group{
+    display:flex!important;
+    flex-direction:column!important;
+    gap:7px!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-settings-group-title{
+    margin:0 2px!important;
+    font-size:10px!important;
+    font-weight:800!important;
+    letter-spacing:.06em!important;
+    text-transform:uppercase!important;
+    opacity:.72!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-btn{
-    min-height:24px!important;
-    height:24px!important;
-    border-radius:8px!important;
-    padding:2px 10px!important;
-    font-size:10px!important;
+    min-height:30px!important;
+    height:30px!important;
+    border-radius:10px!important;
+    padding:0 11px!important;
+    font-size:11px!important;
     font-weight:700!important;
     line-height:1!important;
     cursor:pointer!important;
     width:100%!important;
     text-align:left!important;
+    background:linear-gradient(180deg, rgba(22,38,61,.98), rgba(16,30,49,.98))!important;
+    border:1px solid rgba(136,164,194,.4)!important;
+    transition:transform .1s ease, border-color .14s ease, box-shadow .14s ease!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-btn:hover{
+    transform:translateY(-1px)!important;
+    border-color:rgba(184,211,243,.72)!important;
+    box-shadow:0 6px 14px rgba(0,0,0,.24)!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-menu .hs-preview-mode-btn{
     justify-content:flex-start!important;
@@ -3483,6 +3554,69 @@ Atenciosamente.`;
     0%{ box-shadow:0 0 0 1px rgba(166,118,0,.24), 0 2px 8px rgba(166,118,0,.2); }
     50%{ box-shadow:0 0 0 1px rgba(166,118,0,.42), 0 4px 12px rgba(166,118,0,.34); }
     100%{ box-shadow:0 0 0 1px rgba(166,118,0,.24), 0 2px 8px rgba(166,118,0,.2); }
+  }
+  .hs-appearance-modal .hs-update-modal-card{
+    width:min(900px, 96vw);
+  }
+  .hs-appearance-grid{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:10px;
+  }
+  .hs-appearance-field{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .hs-appearance-field > span{
+    font-size:11px;
+    font-weight:700;
+    opacity:.88;
+  }
+  .hs-appearance-field :is(input,select){
+    min-height:34px!important;
+    height:34px!important;
+    border-radius:9px!important;
+    padding:4px 10px!important;
+    font-size:12px!important;
+  }
+  .hs-appearance-field input[type="color"]{
+    padding:3px!important;
+    cursor:pointer;
+  }
+  .hs-appearance-range-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .hs-appearance-range-row input[type="range"]{
+    flex:1 1 auto;
+    min-height:32px!important;
+    height:32px!important;
+    padding:0!important;
+  }
+  .hs-appearance-range-row output{
+    min-width:42px;
+    text-align:right;
+    font-size:12px;
+    font-weight:700;
+    opacity:.9;
+  }
+  .hs-appearance-hint{
+    margin:0;
+    font-size:11px;
+    line-height:1.35;
+    opacity:.8;
+  }
+  @media (max-width:880px){
+    .hs-appearance-grid{
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width:640px){
+    .hs-appearance-grid{
+      grid-template-columns:1fr;
+    }
   }
   @media (max-width:1200px){
     body.hs-dashboard-page form[name="filtros"] td:nth-child(2),
@@ -3871,6 +4005,234 @@ Atenciosamente.`;
     try {
       localStorage.setItem(HIDE_SUGGESTION_FILTER_LS_KEY, enabled ? "1" : "0");
     } catch {}
+  }
+  /**
+   * Objetivo: Limita numero em faixa segura.
+   *
+   * Contexto: utilitario de normalizacao para controles de aparencia.
+   * Parametros:
+   * - value: entrada usada por esta rotina.
+   * - min: entrada usada por esta rotina.
+   * - max: entrada usada por esta rotina.
+   * Retorno: number.
+   */
+  function clampNumber(value, min, max) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return min;
+    return Math.min(max, Math.max(min, n));
+  }
+  /**
+   * Objetivo: Normaliza cor hexadecimal para formato #RRGGBB.
+   *
+   * Contexto: usado em configuracoes de aparencia.
+   * Parametros:
+   * - value: entrada usada por esta rotina.
+   * Retorno: string.
+   */
+  function normalizeHexColor(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const short = raw.match(/^#([0-9a-f]{3})$/i);
+    if (short) {
+      const [r, g, b] = short[1].split("");
+      return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+    }
+    const full = raw.match(/^#([0-9a-f]{6})$/i);
+    if (!full) return "";
+    return `#${full[1]}`.toUpperCase();
+  }
+  /**
+   * Objetivo: Converte hexadecimal #RRGGBB para RGB numerico.
+   *
+   * Contexto: base para mistura e overlay de cores.
+   * Parametros:
+   * - hex: entrada usada por esta rotina.
+   * Retorno: Array<number>.
+   */
+  function hexToRgb(hex) {
+    const normalized = normalizeHexColor(hex);
+    if (!normalized) return [0, 0, 0];
+    const clean = normalized.slice(1);
+    return [
+      parseInt(clean.slice(0, 2), 16),
+      parseInt(clean.slice(2, 4), 16),
+      parseInt(clean.slice(4, 6), 16),
+    ];
+  }
+  /**
+   * Objetivo: Converte RGB numerico para hexadecimal #RRGGBB.
+   *
+   * Contexto: usado ao derivar cores do tema personalizado.
+   * Parametros:
+   * - r: entrada usada por esta rotina.
+   * - g: entrada usada por esta rotina.
+   * - b: entrada usada por esta rotina.
+   * Retorno: string.
+   */
+  function rgbToHex(r, g, b) {
+    const toHex = (n) => clampNumber(n, 0, 255).toString(16).padStart(2, "0");
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+  }
+  /**
+   * Objetivo: Mistura duas cores hexadecimais por proporcao.
+   *
+   * Contexto: gera variacoes de painel/borda/linhas de forma consistente.
+   * Parametros:
+   * - a: entrada usada por esta rotina.
+   * - b: entrada usada por esta rotina.
+   * - ratio: entrada usada por esta rotina.
+   * Retorno: string.
+   */
+  function mixHexColors(a, b, ratio) {
+    const [ar, ag, ab] = hexToRgb(a);
+    const [br, bg, bb] = hexToRgb(b);
+    const k = clampNumber(ratio, 0, 1);
+    return rgbToHex(
+      Math.round(ar + (br - ar) * k),
+      Math.round(ag + (bg - ag) * k),
+      Math.round(ab + (bb - ab) * k)
+    );
+  }
+  /**
+   * Objetivo: Sanitiza URL de papel de fundo permitindo apenas http/https.
+   *
+   * Contexto: evita payloads invalidados na configuracao visual.
+   * Parametros:
+   * - value: entrada usada por esta rotina.
+   * Retorno: string.
+   */
+  function sanitizeWallpaperUrl(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    try {
+      const u = new URL(raw, location.href);
+      if (!/^https?:$/i.test(u.protocol)) return "";
+      return u.toString();
+    } catch {
+      return "";
+    }
+  }
+  /**
+   * Objetivo: Normaliza objeto de configuracoes de aparencia.
+   *
+   * Contexto: aplicado no carregamento/salvamento da preferencia local.
+   * Parametros:
+   * - raw: entrada usada por esta rotina.
+   * Retorno: object.
+   */
+  function normalizeAppearanceSettings(raw = null) {
+    const source = raw && typeof raw === "object" ? raw : {};
+    const fontRaw = String(source.fontFamily || APPEARANCE_DEFAULTS.fontFamily)
+      .trim()
+      .toLowerCase();
+    const fontFamily = APPEARANCE_FONT_MAP[fontRaw] ? fontRaw : APPEARANCE_DEFAULTS.fontFamily;
+    const wallpaperUrl = sanitizeWallpaperUrl(source.wallpaperUrl || "");
+    const opacityRaw = Number(source.wallpaperOpacity);
+    const wallpaperOpacity = clampNumber(
+      Number.isFinite(opacityRaw) ? opacityRaw : APPEARANCE_WALLPAPER_OPACITY_DEFAULT,
+      APPEARANCE_WALLPAPER_OPACITY_MIN,
+      APPEARANCE_WALLPAPER_OPACITY_MAX
+    );
+    return {
+      fontFamily,
+      wallpaperUrl,
+      wallpaperOpacity,
+      bgColor: normalizeHexColor(source.bgColor || ""),
+      textColor: normalizeHexColor(source.textColor || ""),
+      accentColor: normalizeHexColor(source.accentColor || ""),
+    };
+  }
+  /**
+   * Objetivo: Le preferencias de aparencia no localStorage.
+   *
+   * Contexto: aplicado durante bootstrap e abertura do modal visual.
+   * Parametros: nenhum.
+   * Retorno: object.
+   * Efeitos colaterais: leitura opcional de localStorage.
+   */
+  function readAppearanceSettings() {
+    try {
+      const raw = String(localStorage.getItem(APPEARANCE_SETTINGS_LS_KEY) || "").trim();
+      if (!raw) return { ...APPEARANCE_DEFAULTS };
+      const parsed = JSON.parse(raw);
+      return normalizeAppearanceSettings(parsed);
+    } catch {
+      return { ...APPEARANCE_DEFAULTS };
+    }
+  }
+  /**
+   * Objetivo: Persiste preferencias de aparencia no localStorage.
+   *
+   * Contexto: acionado pelos controles do modal de aparencia.
+   * Parametros:
+   * - value: entrada usada por esta rotina.
+   * Retorno: object.
+   * Efeitos colaterais: escrita opcional em localStorage.
+   */
+  function writeAppearanceSettings(value) {
+    const normalized = normalizeAppearanceSettings(value);
+    try {
+      localStorage.setItem(APPEARANCE_SETTINGS_LS_KEY, JSON.stringify(normalized));
+    } catch {}
+    return normalized;
+  }
+  /**
+   * Objetivo: Aplica variaveis visuais de fonte/cor/papel de fundo no documento.
+   *
+   * Contexto: executado apos trocar tema e ao salvar configuracao de aparencia.
+   * Parametros: nenhum.
+   * Retorno: object.
+   */
+  function applyAppearanceSettings() {
+    const html = document.documentElement;
+    if (!(html instanceof HTMLElement)) return { ...APPEARANCE_DEFAULTS };
+    const mode = html.getAttribute("data-hs-theme") === "light" ? "light" : "dark";
+    const settings = readAppearanceSettings();
+    const defaults =
+      mode === "light"
+        ? { bg: "#FFFFFF", fg: "#0F172A", accent: "#1F5FB4" }
+        : { bg: "#0E141D", fg: "#DCE6F2", accent: "#3A6FAE" };
+    const bg = normalizeHexColor(settings.bgColor) || defaults.bg;
+    const fg = normalizeHexColor(settings.textColor) || defaults.fg;
+    const accent = normalizeHexColor(settings.accentColor) || defaults.accent;
+    const panel = mixHexColors(bg, fg, mode === "light" ? 0.04 : 0.08);
+    const panel2 = mixHexColors(bg, fg, mode === "light" ? 0.08 : 0.13);
+    const border = mixHexColors(bg, fg, mode === "light" ? 0.18 : 0.24);
+    const row1 = mixHexColors(panel, bg, mode === "light" ? 0.48 : 0.56);
+    const row2 = mixHexColors(panel2, bg, mode === "light" ? 0.6 : 0.38);
+    const chipBg = mixHexColors(panel2, bg, mode === "light" ? 0.54 : 0.38);
+    const neutral = mixHexColors(fg, bg, mode === "light" ? 0.06 : 0.09);
+    const link = mixHexColors(accent, fg, mode === "light" ? 0.2 : 0.38);
+    const linkHover = mixHexColors(accent, fg, mode === "light" ? 0.34 : 0.56);
+    const [r, g, b] = hexToRgb(bg);
+    const wallpaperOpacity = clampNumber(
+      settings.wallpaperOpacity,
+      APPEARANCE_WALLPAPER_OPACITY_MIN,
+      APPEARANCE_WALLPAPER_OPACITY_MAX
+    );
+    const overlayAlpha = clampNumber(1 - wallpaperOpacity, 0.82, 1);
+    const wallpaperOverlay = `rgba(${r},${g},${b},${overlayAlpha.toFixed(3)})`;
+    const wallpaperCss = settings.wallpaperUrl
+      ? `url("${String(settings.wallpaperUrl).replace(/[\\"]/g, "\\$&")}")`
+      : "none";
+    const fontCss = APPEARANCE_FONT_MAP[settings.fontFamily] || APPEARANCE_FONT_MAP.default;
+
+    html.style.setProperty("--bg", bg);
+    html.style.setProperty("--fg", fg);
+    html.style.setProperty("--panel", panel);
+    html.style.setProperty("--panel2", panel2);
+    html.style.setProperty("--border", border);
+    html.style.setProperty("--row1", row1);
+    html.style.setProperty("--row2", row2);
+    html.style.setProperty("--chip-bg", chipBg);
+    html.style.setProperty("--neutral", neutral);
+    html.style.setProperty("--accent", accent);
+    html.style.setProperty("--link", link);
+    html.style.setProperty("--link-hover", linkHover);
+    html.style.setProperty("--hs-body-font", fontCss);
+    html.style.setProperty("--hs-wallpaper-image", wallpaperCss);
+    html.style.setProperty("--hs-wallpaper-overlay", wallpaperOverlay);
+    return settings;
   }
   /**
    * Objetivo: Valida se arquivo/URL e elegivel para modal (somente PNG/JPG).
@@ -4417,6 +4779,249 @@ Atenciosamente.`;
       highlightVersion,
       checkedAt,
     });
+  }
+  /**
+   * Objetivo: Fecha modal de aparencia visual.
+   *
+   * Contexto: acionado por backdrop, botao fechar e Escape.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function closeAppearanceModal() {
+    if (!hsAppearanceModal) hsAppearanceModal = document.getElementById("hs-appearance-modal");
+    if (!(hsAppearanceModal instanceof HTMLElement)) return;
+    hsAppearanceModal.classList.remove("open");
+  }
+  /**
+   * Objetivo: Atualiza texto percentual da intensidade do papel de fundo.
+   *
+   * Contexto: usado no modal de aparencia.
+   * Parametros:
+   * - modal: entrada usada por esta rotina.
+   * Retorno: void.
+   */
+  function refreshAppearanceOpacityLabel(modal) {
+    if (!(modal instanceof HTMLElement)) return;
+    const range = modal.querySelector("#hs-appearance-wallpaper-opacity");
+    const out = modal.querySelector("#hs-appearance-wallpaper-opacity-out");
+    if (!(range instanceof HTMLInputElement) || !(out instanceof HTMLOutputElement)) return;
+    const pct = clampNumber(Number(range.value || "0"), 0, 18);
+    out.value = `${Math.round(pct)}%`;
+  }
+  /**
+   * Objetivo: Preenche campos do modal de aparencia com estado atual.
+   *
+   * Contexto: executado ao abrir o modal.
+   * Parametros:
+   * - modal: entrada usada por esta rotina.
+   * - data: entrada usada por esta rotina.
+   * Retorno: void.
+   */
+  function fillAppearanceModalFields(modal, data) {
+    if (!(modal instanceof HTMLElement)) return;
+    const settings = normalizeAppearanceSettings(data);
+    const font = modal.querySelector("#hs-appearance-font");
+    const bg = modal.querySelector("#hs-appearance-bg");
+    const text = modal.querySelector("#hs-appearance-text");
+    const accent = modal.querySelector("#hs-appearance-accent");
+    const wallpaper = modal.querySelector("#hs-appearance-wallpaper-url");
+    const opacity = modal.querySelector("#hs-appearance-wallpaper-opacity");
+    if (font instanceof HTMLSelectElement) font.value = settings.fontFamily || APPEARANCE_DEFAULTS.fontFamily;
+    if (bg instanceof HTMLInputElement)
+      bg.value = normalizeHexColor(settings.bgColor) || (getTheme() === "light" ? "#FFFFFF" : "#0E141D");
+    if (text instanceof HTMLInputElement)
+      text.value = normalizeHexColor(settings.textColor) || (getTheme() === "light" ? "#0F172A" : "#DCE6F2");
+    if (accent instanceof HTMLInputElement)
+      accent.value = normalizeHexColor(settings.accentColor) || (getTheme() === "light" ? "#1F5FB4" : "#3A6FAE");
+    if (wallpaper instanceof HTMLInputElement) wallpaper.value = String(settings.wallpaperUrl || "");
+    if (opacity instanceof HTMLInputElement) {
+      const pct = Math.round(
+        clampNumber(
+          Number(settings.wallpaperOpacity),
+          APPEARANCE_WALLPAPER_OPACITY_MIN,
+          APPEARANCE_WALLPAPER_OPACITY_MAX
+        ) * 100
+      );
+      opacity.value = String(pct);
+    }
+    refreshAppearanceOpacityLabel(modal);
+  }
+  /**
+   * Objetivo: Coleta e valida dados do formulario de aparencia.
+   *
+   * Contexto: chamado ao aplicar configuracao visual no modal.
+   * Parametros:
+   * - modal: entrada usada por esta rotina.
+   * Retorno: object|null.
+   */
+  function collectAppearanceModalSettings(modal) {
+    if (!(modal instanceof HTMLElement)) return null;
+    const base = readAppearanceSettings();
+    const font = modal.querySelector("#hs-appearance-font");
+    const bg = modal.querySelector("#hs-appearance-bg");
+    const text = modal.querySelector("#hs-appearance-text");
+    const accent = modal.querySelector("#hs-appearance-accent");
+    const wallpaper = modal.querySelector("#hs-appearance-wallpaper-url");
+    const opacity = modal.querySelector("#hs-appearance-wallpaper-opacity");
+
+    const wallpaperInputRaw = wallpaper instanceof HTMLInputElement ? String(wallpaper.value || "").trim() : "";
+    const wallpaperUrl = sanitizeWallpaperUrl(wallpaperInputRaw);
+    if (wallpaperInputRaw && !wallpaperUrl) {
+      toast("Papel de fundo: use URL valida iniciando com http:// ou https://.", "err", 3400);
+      return null;
+    }
+
+    return normalizeAppearanceSettings({
+      ...base,
+      fontFamily:
+        font instanceof HTMLSelectElement
+          ? String(font.value || APPEARANCE_DEFAULTS.fontFamily).trim().toLowerCase()
+          : base.fontFamily,
+      bgColor: bg instanceof HTMLInputElement ? String(bg.value || "") : base.bgColor,
+      textColor: text instanceof HTMLInputElement ? String(text.value || "") : base.textColor,
+      accentColor: accent instanceof HTMLInputElement ? String(accent.value || "") : base.accentColor,
+      wallpaperUrl,
+      wallpaperOpacity:
+        opacity instanceof HTMLInputElement
+          ? clampNumber(Number(opacity.value || "0") / 100, APPEARANCE_WALLPAPER_OPACITY_MIN, APPEARANCE_WALLPAPER_OPACITY_MAX)
+          : base.wallpaperOpacity,
+    });
+  }
+  /**
+   * Objetivo: Garante modal de configuracao visual (fonte, cores e papel de fundo).
+   *
+   * Contexto: aberto a partir do menu de configuracoes do dashboard.
+   * Parametros: nenhum.
+   * Retorno: HTMLElement|null.
+   */
+  function ensureAppearanceModal() {
+    if (hsAppearanceModal && hsAppearanceModal.isConnected) return hsAppearanceModal;
+    let modal = document.getElementById("hs-appearance-modal");
+    if (!(modal instanceof HTMLElement)) {
+      const fontOptions = [
+        { value: "default", label: "Padrao (Segoe UI)" },
+        { value: "segoe", label: "Segoe UI" },
+        { value: "trebuchet", label: "Trebuchet MS" },
+        { value: "verdana", label: "Verdana" },
+        { value: "lucida", label: "Lucida Sans" },
+        { value: "georgia", label: "Georgia" },
+        { value: "monospace", label: "Consolas (mono)" },
+      ];
+      modal = document.createElement("div");
+      modal.id = "hs-appearance-modal";
+      modal.className = "hs-update-modal hs-appearance-modal";
+      modal.innerHTML = `
+        <div class="hs-update-modal-backdrop"></div>
+        <section class="hs-update-modal-card" role="dialog" aria-modal="true" aria-label="Aparencia da pagina">
+          <header class="hs-update-modal-head">
+            <span>Aparencia da Pagina</span>
+            <button type="button" data-action="close">Fechar</button>
+          </header>
+          <div class="hs-update-modal-body">
+            <p class="hs-update-modal-status">
+              Personalize fonte, cores e papel de fundo. Tudo fica salvo localmente neste navegador.
+            </p>
+            <div class="hs-appearance-grid">
+              <label class="hs-appearance-field">
+                <span>Fonte principal</span>
+                <select id="hs-appearance-font">
+                  ${fontOptions.map((item) => `<option value="${item.value}">${item.label}</option>`).join("")}
+                </select>
+              </label>
+              <label class="hs-appearance-field">
+                <span>Cor de fundo</span>
+                <input id="hs-appearance-bg" type="color" />
+              </label>
+              <label class="hs-appearance-field">
+                <span>Cor do texto</span>
+                <input id="hs-appearance-text" type="color" />
+              </label>
+              <label class="hs-appearance-field">
+                <span>Cor de destaque</span>
+                <input id="hs-appearance-accent" type="color" />
+              </label>
+              <label class="hs-appearance-field" style="grid-column:span 2;">
+                <span>Papel de fundo (URL)</span>
+                <input
+                  id="hs-appearance-wallpaper-url"
+                  type="text"
+                  placeholder="https://..."
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </label>
+            </div>
+            <div class="hs-appearance-range-row">
+              <span>Intensidade do papel de fundo</span>
+              <input id="hs-appearance-wallpaper-opacity" type="range" min="0" max="18" step="1" value="6" />
+              <output id="hs-appearance-wallpaper-opacity-out">6%</output>
+            </div>
+            <p class="hs-appearance-hint">
+              Dica: mantenha entre 3% e 8% para um papel quase invisivel e leitura confortavel.
+            </p>
+            <div class="hs-update-modal-actions">
+              <button type="button" class="is-main" data-action="apply">Aplicar</button>
+              <button type="button" data-action="remove-wallpaper">Remover papel</button>
+              <button type="button" data-action="reset">Restaurar padrao</button>
+            </div>
+          </div>
+        </section>
+      `;
+      document.body.appendChild(modal);
+    }
+    hsAppearanceModal = modal;
+    if (modal.dataset.hsBound === "1") return modal;
+    modal.dataset.hsBound = "1";
+    modal.querySelector(".hs-update-modal-backdrop")?.addEventListener("click", closeAppearanceModal);
+    modal.querySelector('[data-action="close"]')?.addEventListener("click", closeAppearanceModal);
+    modal.querySelector("#hs-appearance-wallpaper-opacity")?.addEventListener("input", () => {
+      refreshAppearanceOpacityLabel(modal);
+    });
+    modal.addEventListener("click", (ev) => {
+      const btn = ev.target instanceof HTMLElement ? ev.target.closest("button[data-action]") : null;
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const action = String(btn.dataset.action || "").trim();
+      if (!action) return;
+      if (action === "apply") {
+        const payload = collectAppearanceModalSettings(modal);
+        if (!payload) return;
+        writeAppearanceSettings(payload);
+        applyAppearanceSettings();
+        fillAppearanceModalFields(modal, payload);
+        toast("Aparencia aplicada com sucesso.", "ok", 2400);
+        return;
+      }
+      if (action === "remove-wallpaper") {
+        const payload = collectAppearanceModalSettings(modal);
+        if (!payload) return;
+        payload.wallpaperUrl = "";
+        writeAppearanceSettings(payload);
+        applyAppearanceSettings();
+        fillAppearanceModalFields(modal, payload);
+        toast("Papel de fundo removido.", "ok", 2200);
+        return;
+      }
+      if (action === "reset") {
+        writeAppearanceSettings(APPEARANCE_DEFAULTS);
+        const fresh = applyAppearanceSettings();
+        fillAppearanceModalFields(modal, fresh);
+        toast("Aparencia restaurada para o padrao.", "ok", 2400);
+      }
+    });
+    return modal;
+  }
+  /**
+   * Objetivo: Abre modal de aparencia com valores atuais.
+   *
+   * Contexto: acionado pelo menu de configuracoes.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function openAppearanceModal() {
+    const modal = ensureAppearanceModal();
+    if (!(modal instanceof HTMLElement)) return;
+    fillAppearanceModalFields(modal, readAppearanceSettings());
+    modal.classList.add("open");
   }
   /**
    * Objetivo: Compara versoes no formato numerico separado por ponto.
@@ -5734,6 +6339,7 @@ Atenciosamente.`;
     try {
       if (localStorage.getItem(LS_KEY) !== mode) localStorage.setItem(LS_KEY, mode);
     } catch {}
+    applyAppearanceSettings();
     const btn = document.getElementById(BTN_ID);
     if (btn) btn.textContent = mode === "dark" ? THEME_LABEL_WHEN_DARK : THEME_LABEL_WHEN_LIGHT;
   }
@@ -6531,45 +7137,65 @@ Atenciosamente.`;
       menuTitle.textContent = "Configuracoes";
       menu.appendChild(menuTitle);
     }
-    let backdrop = document.getElementById("hs-settings-backdrop");
-    if (!(backdrop instanceof HTMLElement)) {
-      backdrop = document.createElement("div");
-      backdrop.id = "hs-settings-backdrop";
-      backdrop.className = "hs-settings-backdrop";
-      backdrop.setAttribute("aria-hidden", "true");
-      document.body.appendChild(backdrop);
-    } else if (!backdrop.isConnected) {
-      document.body.appendChild(backdrop);
-    }
+    const ensureMenuDivider = () => {
+      let divider = menu.querySelector(".hs-settings-divider");
+      if (!(divider instanceof HTMLElement)) {
+        divider = document.createElement("div");
+        divider.className = "hs-settings-divider";
+        menu.appendChild(divider);
+      }
+      return divider;
+    };
+    const ensureMenuGroup = (id, title) => {
+      let group = menu.querySelector(`.hs-settings-group[data-group="${id}"]`);
+      if (!(group instanceof HTMLElement)) {
+        group = document.createElement("div");
+        group.className = "hs-settings-group";
+        group.dataset.group = id;
+        const titleEl = document.createElement("p");
+        titleEl.className = "hs-settings-group-title";
+        titleEl.textContent = title;
+        group.appendChild(titleEl);
+        menu.appendChild(group);
+      } else {
+        const titleEl = group.querySelector(".hs-settings-group-title");
+        if (titleEl instanceof HTMLElement) titleEl.textContent = title;
+      }
+      return group;
+    };
 
-    const ensureMenuButton = (id) => {
+    const visualGroup = ensureMenuGroup("visual", "Visualizacao");
+    const styleGroup = ensureMenuGroup("style", "Aparencia");
+    ensureMenuDivider();
+    const updateGroup = ensureMenuGroup("update", "Atualizacao");
+
+    const ensureMenuButton = (id, parent = menu) => {
       let button = menu.querySelector(`#${id}`);
       if (!(button instanceof HTMLInputElement)) {
         button = document.createElement("input");
         button.type = "button";
         button.id = id;
         button.className = "hs-preview-mode-btn";
-        menu.appendChild(button);
+        parent.appendChild(button);
+      } else if (button.parentElement !== parent) {
+        parent.appendChild(button);
       }
       return button;
     };
 
-    const gridPreviewBtn = ensureMenuButton("hs-preview-mode-toggle");
-    const attachPreviewBtn = ensureMenuButton("hs-attach-preview-toggle");
-    const suggestionFilterBtn = ensureMenuButton("hs-suggestion-filter-toggle");
-    const updatesBtn = ensureMenuButton("hs-updates-log-btn");
-    const checkBtn = ensureMenuButton("hs-update-check-btn");
-    const manualBtn = ensureMenuButton("hs-update-manual-btn");
-    const alertBtn = ensureMenuButton("hs-update-available-btn");
+    const gridPreviewBtn = ensureMenuButton("hs-preview-mode-toggle", visualGroup);
+    const attachPreviewBtn = ensureMenuButton("hs-attach-preview-toggle", visualGroup);
+    const suggestionFilterBtn = ensureMenuButton("hs-suggestion-filter-toggle", visualGroup);
+    const appearanceBtn = ensureMenuButton("hs-appearance-toggle", styleGroup);
+    const updatesBtn = ensureMenuButton("hs-updates-log-btn", updateGroup);
+    const checkBtn = ensureMenuButton("hs-update-check-btn", updateGroup);
+    const manualBtn = ensureMenuButton("hs-update-manual-btn", updateGroup);
+    const alertBtn = ensureMenuButton("hs-update-available-btn", updateGroup);
     alertBtn.classList.add("hs-update-available-btn");
 
     const setMenuOpen = (open) => {
       host.classList.toggle("open", !!open);
       settingsBtn.setAttribute("aria-expanded", open ? "true" : "false");
-      if (backdrop instanceof HTMLElement) {
-        backdrop.classList.toggle("open", !!open);
-        backdrop.setAttribute("aria-hidden", open ? "false" : "true");
-      }
     };
     if (host.dataset.hsSettingsBind !== "1") {
       host.dataset.hsSettingsBind = "1";
@@ -6589,20 +7215,9 @@ Atenciosamente.`;
       );
       document.addEventListener("keydown", (ev) => {
         if (String(ev.key || "").toLowerCase() !== "escape") return;
+        closeAppearanceModal();
         setMenuOpen(false);
       });
-    }
-    if (backdrop instanceof HTMLElement && backdrop.dataset.hsBackdropBind !== "1") {
-      backdrop.dataset.hsBackdropBind = "1";
-      backdrop.addEventListener(
-        "click",
-        (ev) => {
-          ev.preventDefault();
-          ev.stopPropagation();
-          setMenuOpen(false);
-        },
-        true
-      );
     }
     settingsBtn.title = "Abrir configuracoes do script";
 
@@ -6617,8 +7232,8 @@ Atenciosamente.`;
       const enabled = isAttachmentImagePreviewEnabled();
       attachPreviewBtn.value = enabled ? "Preview PNG/JPG ON" : "Preview PNG/JPG OFF";
       attachPreviewBtn.title = enabled
-        ? "Preview local de anexos ativo para PNG/JPG."
-        : "Preview local de anexos desativado. Clique abre em nova guia.";
+        ? "Preview de anexos PNG/JPG (locais e recebidos) ativo."
+        : "Preview de anexos desativado. Clique abre em nova guia.";
     };
     const syncSuggestionFilterLabel = () => {
       const enabled = isHideSuggestionFilterEnabled();
@@ -6680,11 +7295,19 @@ Atenciosamente.`;
       syncAttachmentPreviewLabel();
       toast(
         next
-          ? "Preview local de anexos ativado para PNG/JPG."
-          : "Preview local de anexos desativado. Arquivos abrem em nova guia.",
+          ? "Preview de anexos PNG/JPG ativado."
+          : "Preview de anexos desativado. Arquivos abrem em nova guia.",
         "ok",
         2600
       );
+      setMenuOpen(false);
+    };
+    appearanceBtn.value = "Aparencia visual";
+    appearanceBtn.title = "Escolher fonte, cores e papel de fundo sutil";
+    appearanceBtn.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      openAppearanceModal();
       setMenuOpen(false);
     };
     suggestionFilterBtn.onclick = (ev) => {
@@ -8545,6 +9168,49 @@ Atenciosamente.`;
       (ev) => {
         const target = ev.target instanceof Element ? ev.target : null;
         if (!target) return;
+
+        const anchor = target.closest("a[href]");
+        if (anchor instanceof HTMLAnchorElement) {
+          const hrefRaw = String(anchor.getAttribute("href") || "").trim();
+          const hrefLooksLikeAnexo =
+            /(?:^|\/)anexo(?:\.php)?(?:[?#]|$)/i.test(hrefRaw) ||
+            /[?&](?:anexo|arquivo|file|id_anexo)=/i.test(hrefRaw);
+          const inAttachmentContext = (() => {
+            if (anchor.closest("#Novo_Acompanhamento, #acompanhamento_form, .hs-attach-picker")) return true;
+            if (anchor.closest("[id*='anex'], [class*='anex'], [name*='anex']")) return true;
+            const tr = anchor.closest("tr");
+            if (tr && /anex/.test(norm(tr.textContent || ""))) return true;
+            if (hrefLooksLikeAnexo) return true;
+            return false;
+          })();
+          if (inAttachmentContext) {
+            const hrefAbs = toAbsoluteUrl(hrefRaw);
+            const label = String(
+              anchor.getAttribute("download") ||
+                anchor.getAttribute("title") ||
+                anchor.textContent ||
+                ""
+            ).trim();
+            const allowModal =
+              !!hrefAbs &&
+              !/^javascript:/i.test(hrefAbs) &&
+              isAttachmentModalPreviewAllowed(hrefAbs, label, "");
+            const isPlainLeftClick =
+              !ev.defaultPrevented &&
+              (("button" in ev && ev.button === 0) || !("button" in ev)) &&
+              !ev.ctrlKey &&
+              !ev.metaKey &&
+              !ev.shiftKey &&
+              !ev.altKey;
+            if (allowModal && isPlainLeftClick) {
+              ev.preventDefault();
+              ev.stopPropagation();
+              openImagePreviewModal(hrefAbs, label, "");
+              return;
+            }
+          }
+        }
+
         const trigger = target.closest("a,button,input[type='button'],input[type='submit'],img");
         if (!trigger) return;
 
@@ -10232,6 +10898,7 @@ Atenciosamente.`;
   let hsManualUpdatePayload = null;
   let hsUpdatesLogModal = null;
   let hsUpdatesLogPayload = null;
+  let hsAppearanceModal = null;
   let hsImagePreviewModal = null;
   let reqPopupEscBound = false;
   let hsReqClicksBound = false;

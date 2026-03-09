@@ -1,6 +1,15 @@
 ﻿[
     {
         "date":  "2026-03-09",
+        "version":  "2.15.49",
+        "notes":  [
+                      "Preview PNG/JPG agora tambem funciona nos anexos ja recebidos da requisicao, respeitando o toggle dedicado.",
+                      "Modal de Atualizacoes recebeu z-index acima do cabecalho para evitar ficar escondido.",
+                      "Menu de Configuracoes foi reorganizado (sem blur) e ganhou painel de Aparencia para fonte, cores e papel de fundo suave."
+                  ]
+    },
+    {
+        "date":  "2026-03-09",
         "version":  "2.15.48",
         "notes":  [
                       "Novo toggle em Configuracoes para ocultar/exibir a linha 'Sugestao de melhoria' no dashboard.",
@@ -233,6 +242,9 @@
                   ]
     }
 ]
+
+
+
 
 
 
