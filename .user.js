@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.53
+// @version      2.15.54
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -74,7 +74,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.53";
+  const SCRIPT_VERSION_FALLBACK = "2.15.54";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -89,6 +89,7 @@
     "Regra 1: nunca remover entradas antigas do campo de atualizacoes.",
     "Regra 2: toda nova versao deve adicionar uma entrada no RECENT_UPDATES.",
     "Regra 3: manter notas objetivas do que mudou em cada versao.",
+    "Regra 4: para correcao obrigatoria, preencher type='bugfix' e mandatory=true.",
   ]);
   const THEME_LABEL_WHEN_DARK = "Modo Claro";
   const THEME_LABEL_WHEN_LIGHT = "Modo Escuro";
@@ -99,6 +100,9 @@
   const UPDATE_CHECK_REMOTE_VERSION_LS_KEY = "hs2025-update-remote-version";
   const UPDATE_CHECK_REMOTE_URL_LS_KEY = "hs2025-update-remote-url";
   const UPDATE_CHECK_HAS_UPDATE_LS_KEY = "hs2025-update-has-update";
+  const UPDATE_CHECK_MANDATORY_LS_KEY = "hs2025-update-mandatory";
+  const UPDATE_CHECK_MANDATORY_VERSION_LS_KEY = "hs2025-update-mandatory-version";
+  const UPDATE_CHECK_MANDATORY_REASON_LS_KEY = "hs2025-update-mandatory-reason";
   const UPDATE_POPUP_LAST_VERSION_LS_KEY = "hs2025-update-popup-last-version";
   const UPDATE_INSTALL_BRIDGE_BASE_URL = "https://www.tampermonkey.net/script_installation.php#url=";
   const MANUAL_UPDATE_SOURCE_URL = "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js";
@@ -146,7 +150,20 @@ Equipe de Suporte.`;
   const RECENT_UPDATES = Object.freeze([
     {
       date: "2026-03-09",
+      version: "2.15.54",
+      type: "bugfix",
+      mandatory: true,
+      notes: [
+        "Sistema de update agora diferencia release rotineira de correcao de erro (type/mandatory).",
+        "Quando houver correcao obrigatoria pendente, o script abre automaticamente o modal de codigo de update.",
+        "Modal obrigatorio ganhou bloqueio de fechamento por Escape/backdrop para reforcar instalacao imediata.",
+      ],
+    },
+    {
+      date: "2026-03-09",
       version: "2.15.53",
+      type: "bugfix",
+      mandatory: true,
       notes: [
         "Correcao critica no bloco de anexos: selecao voltou a aceitar varios arquivos sem truncar para apenas 1.",
         "Fluxo de preview local passou a refletir a quantidade real de arquivos selecionados no campo.",
@@ -436,6 +453,7 @@ Equipe de Suporte.`;
 Atenciosamente.`;
   let hsScriptUpdateCheckPromise = null;
   let hsScriptUpdateLastResult = null;
+  let hsMandatoryUpdatePromptVersion = "";
   let hsUpdateHistoryValidated = false;
   let hsUpdateHistoryValidatedList = [];
   let hsLatestCommitMeta = null;
@@ -1071,6 +1089,27 @@ Atenciosamente.`;
     padding:2px 10px!important;
     border-radius:8px!important;
     cursor:pointer;
+  }
+  .hs-update-modal .hs-force-hide{
+    display:none!important;
+  }
+  .hs-update-modal.hs-update-modal-mandatory .hs-update-modal-card{
+    border:2px solid #b91c1c!important;
+    box-shadow:0 24px 64px rgba(127, 29, 29, .45)!important;
+  }
+  .hs-update-modal.hs-update-modal-mandatory .hs-update-modal-head{
+    background:linear-gradient(180deg, #7f1d1d, #450a0a)!important;
+    color:#fff4f4!important;
+    border-bottom-color:#991b1b!important;
+  }
+  .hs-update-modal.hs-update-modal-mandatory .hs-update-modal-status{
+    color:#ffd7d7!important;
+    font-weight:800!important;
+  }
+  .hs-update-modal.hs-update-modal-mandatory .hs-update-modal-actions button.is-main{
+    background:linear-gradient(180deg, #ef4444, #b91c1c)!important;
+    border-color:#7f1d1d!important;
+    color:#fff7f7!important;
   }
   .hs-update-modal-body{
     padding:12px;
@@ -4609,6 +4648,112 @@ Atenciosamente.`;
     }
   }
   /**
+   * Objetivo: Normaliza classificacao de release para um conjunto padrao.
+   *
+   * Contexto: usado para diferenciar release rotineira de correcao obrigatoria.
+   * Parametros:
+   * - value: classificacao bruta vinda do historico.
+   * Retorno: string.
+   */
+  function normalizeUpdateKindTag(value) {
+    const raw = norm(String(value || ""));
+    if (!raw) return "";
+    if (/(security|seguranca|vulnerab|cve)/.test(raw)) return "security";
+    if (/(bug|fix|hotfix|correc|erro|critical|critica|incidente)/.test(raw)) return "bugfix";
+    if (/(feature|melhoria|routine|rotina|ui|refactor|perf|manutencao|maintenance|ajuste)/.test(raw)) {
+      return "routine";
+    }
+    return "";
+  }
+  /**
+   * Objetivo: Converte entradas boolean-like em boolean.
+   *
+   * Contexto: aceita true/false, 1/0 e strings usuais.
+   * Parametros:
+   * - value: entrada usada por esta rotina.
+   * Retorno: boolean.
+   */
+  function parseBooleanLike(value) {
+    if (value === true || value === false) return !!value;
+    const raw = norm(String(value || ""));
+    if (!raw) return false;
+    return /^(1|true|sim|yes|obrigatorio|obrigatoria|mandatory)$/i.test(raw);
+  }
+  /**
+   * Objetivo: Detecta palavras-chave de atualizacao obrigatoria dentro das notas.
+   *
+   * Contexto: fallback para historicos antigos sem campo "mandatory".
+   * Parametros:
+   * - notes: array de textos da release.
+   * Retorno: boolean.
+   */
+  function hasMandatoryUpdateKeywords(notes) {
+    const text = norm((Array.isArray(notes) ? notes : []).map((n) => String(n || "")).join(" "));
+    if (!text) return false;
+    return /(obrigatori|correcao\s+critica|erro\s+grave|erro\s+grotesco|bug\s+critic|hotfix|falha\s+critica)/.test(text);
+  }
+  /**
+   * Objetivo: Define se uma entrada de release deve ser tratada como obrigatoria.
+   *
+   * Contexto: regra pedida para releases de correcao de erro.
+   * Parametros:
+   * - entry: item do historico de atualizacoes.
+   * Retorno: boolean.
+   */
+  function isMandatoryUpdateEntry(entry) {
+    if (!entry || typeof entry !== "object") return false;
+    if (parseBooleanLike(entry.mandatory)) return true;
+    const kind = normalizeUpdateKindTag(entry.kind || entry.type || entry.updateType || entry.category || "");
+    if (kind === "bugfix" || kind === "security") return true;
+    if (hasMandatoryUpdateKeywords(entry.notes)) return true;
+    return false;
+  }
+  /**
+   * Objetivo: Localiza release obrigatoria dentro do intervalo local->remoto.
+   *
+   * Contexto: usado para sinalizar/forcar fluxo de update obrigatorio.
+   * Parametros:
+   * - list: historico de atualizacoes.
+   * - remoteVersion: versao remota detectada.
+   * - localVersion: versao local atual.
+   * Retorno: object|null.
+   */
+  function findMandatoryPendingUpdate(list, remoteVersion, localVersion = SCRIPT_VERSION) {
+    const remote = String(remoteVersion || "").trim();
+    const local = String(localVersion || SCRIPT_VERSION).trim();
+    if (!remote) return null;
+    if (compareVersionTexts(remote, local) <= 0) return null;
+
+    const ordered = (Array.isArray(list) ? list : [])
+      .map((entry) => normalizeUpdateHistoryEntry(entry))
+      .filter(Boolean)
+      .sort((a, b) => compareVersionTexts(String(b.version || ""), String(a.version || "")));
+    for (const entry of ordered) {
+      const version = String(entry?.version || "").trim();
+      if (!version) continue;
+      if (compareVersionTexts(version, local) <= 0) continue;
+      if (compareVersionTexts(version, remote) > 0) continue;
+      if (isMandatoryUpdateEntry(entry)) return entry;
+    }
+    return null;
+  }
+  /**
+   * Objetivo: Monta justificativa curta da obrigatoriedade de update.
+   *
+   * Contexto: exibido nos modais/toasts de atualizacao obrigatoria.
+   * Parametros:
+   * - entry: release marcada como obrigatoria.
+   * Retorno: string.
+   */
+  function buildMandatoryUpdateReason(entry) {
+    const notes = Array.isArray(entry?.notes) ? entry.notes : [];
+    const highlighted =
+      notes.find((note) =>
+        /(obrigatori|correcao|erro|bug|hotfix|critic|falha)/i.test(String(note || ""))
+      ) || notes[0];
+    return String(highlighted || "Correcao de erro obrigatoria para estabilidade do sistema.").trim();
+  }
+  /**
    * Objetivo: Normaliza item do historico de atualizacoes para formato consistente.
    *
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
@@ -4621,6 +4766,7 @@ Atenciosamente.`;
     if (!entry || typeof entry !== "object") return null;
     const version = String(entry.version || "").trim();
     const date = String(entry.date || "").trim();
+    const kind = normalizeUpdateKindTag(entry.kind || entry.type || entry.updateType || entry.category || "");
     const notesRaw = Array.isArray(entry.notes) ? entry.notes : [];
     const notes = Array.from(
       new Set(
@@ -4629,8 +4775,9 @@ Atenciosamente.`;
           .filter(Boolean)
       )
     );
-    if (!version && !date && !notes.length) return null;
-    return { version, date, notes };
+    const mandatory = isMandatoryUpdateEntry({ ...entry, notes, kind });
+    if (!version && !date && !notes.length && !kind) return null;
+    return { version, date, notes, kind, mandatory };
   }
   /**
    * Objetivo: Mescla historicos no modo append-only (nunca remove entradas existentes).
@@ -4657,10 +4804,17 @@ Atenciosamente.`;
         return;
       }
       const mergedNotes = Array.from(new Set([...(current.notes || []), ...(normalized.notes || [])]));
+      const mergedMandatory = !!current.mandatory || !!normalized.mandatory;
+      const mergedKind =
+        normalizeUpdateKindTag(current.kind) ||
+        normalizeUpdateKindTag(normalized.kind) ||
+        (mergedMandatory ? "bugfix" : "");
       map.set(key, {
         version: current.version || normalized.version,
         date: current.date || normalized.date,
         notes: mergedNotes,
+        kind: mergedKind,
+        mandatory: mergedMandatory,
       });
     };
 
@@ -4724,6 +4878,8 @@ Atenciosamente.`;
         version: SCRIPT_VERSION,
         date: new Date().toISOString().slice(0, 10),
         notes: ["Atualizacao registrada automaticamente nesta versao."],
+        kind: "routine",
+        mandatory: false,
       });
     }
 
@@ -4822,6 +4978,9 @@ Atenciosamente.`;
           remoteUrl: String(payload.remoteUrl || ""),
           highlightVersion: String(payload.highlightVersion || ""),
           checkedAt: Number(payload.checkedAt || Date.now()),
+          mandatoryUpdate: payload.mandatoryUpdate ? true : false,
+          mandatoryVersion: String(payload.mandatoryVersion || ""),
+          mandatoryReason: String(payload.mandatoryReason || ""),
         })
           .catch(() => toast("Nao foi possivel recarregar o historico agora.", "err", 2800))
           .finally(() => {
@@ -4861,6 +5020,24 @@ Atenciosamente.`;
     const hasUpdate = compareVersionTexts(remoteVersion, SCRIPT_VERSION) > 0;
     const checkedAt = Number(payload?.checkedAt || Date.now());
     const highlightVersion = String(payload?.highlightVersion || "").trim();
+    const mandatoryFromPayload = parseBooleanLike(payload?.mandatoryUpdate);
+    const mandatoryEntry =
+      findMandatoryPendingUpdate(list, remoteVersion, SCRIPT_VERSION) ||
+      (mandatoryFromPayload
+        ? {
+            version: String(payload?.mandatoryVersion || remoteVersion).trim(),
+            notes: [String(payload?.mandatoryReason || "").trim()].filter(Boolean),
+            mandatory: true,
+            kind: "bugfix",
+          }
+        : null);
+    const mandatoryUpdate = !!mandatoryEntry;
+    const mandatoryVersion = String(
+      payload?.mandatoryVersion || mandatoryEntry?.version || remoteVersion || ""
+    ).trim();
+    const mandatoryReason = mandatoryUpdate
+      ? String(payload?.mandatoryReason || buildMandatoryUpdateReason(mandatoryEntry)).trim()
+      : "";
     const metaEl = modal.querySelector(".hs-updates-log-meta");
     const rulesEl = modal.querySelector(".hs-updates-log-rules");
     const listEl = modal.querySelector(".hs-updates-log-list");
@@ -4868,9 +5045,15 @@ Atenciosamente.`;
     const installBtn = modal.querySelector('button[data-action="install"]');
 
     if (metaEl instanceof HTMLElement) {
-      const headline = hasUpdate
-        ? `Nova versao v${remoteVersion} disponivel (atual: v${SCRIPT_VERSION}).`
-        : `Versao atual: v${SCRIPT_VERSION}.`;
+      let headline = `Versao atual: v${SCRIPT_VERSION}.`;
+      if (hasUpdate && mandatoryUpdate) {
+        headline = `ATUALIZACAO OBRIGATORIA: v${remoteVersion} (atual: v${SCRIPT_VERSION}).`;
+      } else if (hasUpdate) {
+        headline = `Nova versao v${remoteVersion} disponivel (atual: v${SCRIPT_VERSION}).`;
+      }
+      if (hasUpdate && mandatoryUpdate && mandatoryReason) {
+        headline = `${headline} Motivo: ${mandatoryReason}`;
+      }
       metaEl.textContent = `${headline} Fonte: ${sourceLabel}.`;
     }
     if (rulesEl instanceof HTMLElement) {
@@ -4893,13 +5076,15 @@ Atenciosamente.`;
           const article = document.createElement("article");
           article.className = "hs-updates-log-item";
           const version = String(item?.version || "").trim();
+          const itemMandatory = isMandatoryUpdateEntry(item);
           if (highlightVersion && version === highlightVersion) article.classList.add("is-highlight");
+          if (itemMandatory) article.classList.add("is-highlight");
 
           const head = document.createElement("header");
           head.className = "hs-updates-log-item-head";
           const versionEl = document.createElement("span");
           versionEl.className = "version";
-          versionEl.textContent = version ? `v${version}` : "v?";
+          versionEl.textContent = version ? `v${version}${itemMandatory ? " (obrigatoria)" : ""}` : "v?";
           const dateEl = document.createElement("span");
           dateEl.className = "date";
           dateEl.textContent = String(item?.date || "").trim() || "sem data";
@@ -4927,9 +5112,17 @@ Atenciosamente.`;
     if (installBtn instanceof HTMLButtonElement) {
       const canInstall = hasUpdate;
       installBtn.style.display = canInstall ? "inline-flex" : "none";
-      installBtn.textContent = canInstall ? `Atualizar para v${remoteVersion}` : "Atualizar agora";
+      installBtn.textContent = canInstall
+        ? mandatoryUpdate
+          ? `Atualizar obrigatorio v${remoteVersion}`
+          : `Atualizar para v${remoteVersion}`
+        : "Atualizar agora";
       installBtn.disabled = !canInstall;
-      installBtn.title = canInstall ? "Abrir instalacao da nova versao" : "";
+      installBtn.title = canInstall
+        ? mandatoryUpdate
+          ? "Atualizacao obrigatoria de correcao de erro"
+          : "Abrir instalacao da nova versao"
+        : "";
     }
 
     hsUpdatesLogPayload = {
@@ -4938,6 +5131,9 @@ Atenciosamente.`;
       remoteVersion,
       remoteUrl,
       hasUpdate,
+      mandatoryUpdate,
+      mandatoryVersion,
+      mandatoryReason,
       highlightVersion,
       checkedAt,
     };
@@ -4971,12 +5167,33 @@ Atenciosamente.`;
       String(MANUAL_UPDATE_SOURCE_URL || "").trim();
     const highlightVersion = String(opts.highlightVersion || remoteVersion || "").trim();
     const checkedAt = Number(opts.checkedAt || Date.now());
+    const mandatoryFromOptions = parseBooleanLike(opts.mandatoryUpdate);
+    const pendingMandatoryEntry =
+      findMandatoryPendingUpdate(displayList, remoteVersion, SCRIPT_VERSION) ||
+      (mandatoryFromOptions
+        ? {
+            version: String(opts.mandatoryVersion || remoteVersion).trim(),
+            notes: [String(opts.mandatoryReason || "").trim()].filter(Boolean),
+            mandatory: true,
+            kind: "bugfix",
+          }
+        : null);
+    const mandatoryUpdate = !!pendingMandatoryEntry;
+    const mandatoryVersion = String(
+      opts.mandatoryVersion || pendingMandatoryEntry?.version || remoteVersion || ""
+    ).trim();
+    const mandatoryReason = mandatoryUpdate
+      ? String(opts.mandatoryReason || buildMandatoryUpdateReason(pendingMandatoryEntry)).trim()
+      : "";
 
     renderUpdatesLogModal({
       list: displayList,
       source: String(remotePayload?.source || (remoteUpdates.length ? "remote" : "local-fallback")),
       remoteVersion,
       remoteUrl,
+      mandatoryUpdate,
+      mandatoryVersion,
+      mandatoryReason,
       highlightVersion,
       checkedAt,
     });
@@ -5412,7 +5629,20 @@ Atenciosamente.`;
       const remoteUrl = String(localStorage.getItem(UPDATE_CHECK_REMOTE_URL_LS_KEY) || "").trim();
       const hasUpdateComputed = remoteVersion ? compareVersionTexts(remoteVersion, SCRIPT_VERSION) > 0 : false;
       const hasUpdate = hasUpdateComputed;
-      return { ok: true, checkedAt, remoteVersion, remoteUrl, hasUpdate };
+      const mandatoryStored = parseBooleanLike(localStorage.getItem(UPDATE_CHECK_MANDATORY_LS_KEY));
+      const mandatoryVersion = String(localStorage.getItem(UPDATE_CHECK_MANDATORY_VERSION_LS_KEY) || "").trim();
+      const mandatoryReason = String(localStorage.getItem(UPDATE_CHECK_MANDATORY_REASON_LS_KEY) || "").trim();
+      const mandatoryUpdate = hasUpdate && mandatoryStored;
+      return {
+        ok: true,
+        checkedAt,
+        remoteVersion,
+        remoteUrl,
+        hasUpdate,
+        mandatoryUpdate,
+        mandatoryVersion: mandatoryUpdate ? mandatoryVersion || remoteVersion : "",
+        mandatoryReason: mandatoryUpdate ? mandatoryReason : "",
+      };
     } catch {
       return null;
     }
@@ -5429,12 +5659,20 @@ Atenciosamente.`;
   function persistUpdateCheckResult(result) {
     const remoteVersion = String(result?.remoteVersion || "").trim();
     const hasUpdateComputed = remoteVersion ? compareVersionTexts(remoteVersion, SCRIPT_VERSION) > 0 : false;
+    const mandatoryUpdate = hasUpdateComputed && (parseBooleanLike(result?.mandatoryUpdate) || parseBooleanLike(result?.mandatory));
+    const mandatoryVersion = mandatoryUpdate
+      ? String(result?.mandatoryVersion || remoteVersion).trim() || remoteVersion
+      : "";
+    const mandatoryReason = mandatoryUpdate ? String(result?.mandatoryReason || "").trim() : "";
     const next = {
       ok: !!result?.ok,
       checkedAt: Number(result?.checkedAt || Date.now()),
       remoteVersion,
       remoteUrl: String(result?.remoteUrl || "").trim(),
       hasUpdate: hasUpdateComputed,
+      mandatoryUpdate,
+      mandatoryVersion,
+      mandatoryReason,
       error: String(result?.error || "").trim(),
     };
     hsScriptUpdateLastResult = next;
@@ -5443,6 +5681,9 @@ Atenciosamente.`;
       localStorage.setItem(UPDATE_CHECK_REMOTE_VERSION_LS_KEY, next.remoteVersion);
       localStorage.setItem(UPDATE_CHECK_REMOTE_URL_LS_KEY, next.remoteUrl);
       localStorage.setItem(UPDATE_CHECK_HAS_UPDATE_LS_KEY, next.hasUpdate ? "1" : "0");
+      localStorage.setItem(UPDATE_CHECK_MANDATORY_LS_KEY, next.mandatoryUpdate ? "1" : "0");
+      localStorage.setItem(UPDATE_CHECK_MANDATORY_VERSION_LS_KEY, next.mandatoryVersion || "");
+      localStorage.setItem(UPDATE_CHECK_MANDATORY_REASON_LS_KEY, next.mandatoryReason || "");
     } catch {}
     return next;
   }
@@ -5521,12 +5762,30 @@ Atenciosamente.`;
 
       if (bestRemote) {
         const hasUpdate = compareVersionTexts(bestRemote.remoteVersion, SCRIPT_VERSION) > 0;
+        let mandatoryUpdate = false;
+        let mandatoryVersion = "";
+        let mandatoryReason = "";
+        if (hasUpdate) {
+          try {
+            const logPayload = await fetchUpdatesLog(false);
+            const logList = normalizeUpdatesLogList(logPayload?.list || []);
+            const mandatoryEntry = findMandatoryPendingUpdate(logList, bestRemote.remoteVersion, SCRIPT_VERSION);
+            if (mandatoryEntry) {
+              mandatoryUpdate = true;
+              mandatoryVersion = String(mandatoryEntry.version || bestRemote.remoteVersion).trim() || bestRemote.remoteVersion;
+              mandatoryReason = buildMandatoryUpdateReason(mandatoryEntry);
+            }
+          } catch (_err) {}
+        }
         return persistUpdateCheckResult({
           ok: true,
           checkedAt: Date.now(),
           remoteVersion: bestRemote.remoteVersion,
           remoteUrl: bestRemote.remoteUrl,
           hasUpdate,
+          mandatoryUpdate,
+          mandatoryVersion,
+          mandatoryReason,
         });
       }
 
@@ -5769,23 +6028,36 @@ Atenciosamente.`;
    * Contexto: evita escrita manual de versao em toda release.
    * Parametros:
    * - version: versao remota detectada.
+   * - options: flags de obrigatoriedade da atualizacao.
    * Retorno: string.
    */
-  function buildManualUpdateStatusText(version) {
+  function buildManualUpdateStatusText(version, options = {}) {
     const v = String(version || "").trim().replace(/^v/i, "");
     const resolvedVersion = v ? `v${v}` : "v?";
+    const mandatory = parseBooleanLike(options?.mandatory);
+    const reason = String(options?.mandatoryReason || "").trim();
+    if (mandatory) {
+      const reasonText = reason || "Correcao de erro obrigatoria para evitar falhas no chamado.";
+      return `ATUALIZACAO OBRIGATORIA detectada (${resolvedVersion}). ${reasonText} Atualize agora em \"Instalar direto\".`;
+    }
     return `Versao remota detectada: ${resolvedVersion} Codigo ja foi copiado para a area de transferencia. Se instalar direto falhar, use: Baixar .user.js ou Mostrar codigo.`;
   }
   /**
    * Objetivo: Fecha modal de atualizacao manual.
    *
    * Contexto: reutilizado por backdrop, botao fechar e tecla ESC.
-   * Parametros: nenhum.
+   * Parametros:
+   * - force: quando true ignora trava de obrigatoriedade.
    * Retorno: void.
    */
-  function closeManualUpdateModal() {
+  function closeManualUpdateModal(force = false) {
     if (!hsManualUpdateModal) hsManualUpdateModal = document.getElementById("hs-update-modal");
     if (!(hsManualUpdateModal instanceof HTMLElement)) return;
+    const mandatoryLock = hsManualUpdateModal.dataset.hsMandatory === "1";
+    if (!force && mandatoryLock) {
+      toast("Atualizacao obrigatoria pendente. Instale a correcao para liberar.", "err", 3200);
+      return;
+    }
     hsManualUpdateModal.classList.remove("open");
   }
   /**
@@ -5870,7 +6142,8 @@ Atenciosamente.`;
           const statusEl = modal.querySelector(".hs-update-modal-status");
           if (statusEl instanceof HTMLElement) {
             statusEl.textContent = buildManualUpdateStatusText(
-              String(hsManualUpdatePayload.version || "")
+              String(hsManualUpdatePayload.version || ""),
+              hsManualUpdatePayload
             );
           }
         }
@@ -5929,7 +6202,8 @@ Atenciosamente.`;
             const statusEl = modal.querySelector(".hs-update-modal-status");
             if (statusEl instanceof HTMLElement) {
               statusEl.textContent = buildManualUpdateStatusText(
-                String(hsManualUpdatePayload.version || "")
+                String(hsManualUpdatePayload.version || ""),
+                hsManualUpdatePayload
               );
             }
           }
@@ -5975,24 +6249,37 @@ Atenciosamente.`;
    * Parametros:
    * - source: objeto do userscript remoto.
    * - copied: informa se copia automatica inicial funcionou.
+   * - options: define se o fluxo e obrigatorio e qual motivo exibir.
    * Retorno: void.
    */
-  function showManualUpdateModal(source, copied = false) {
+  function showManualUpdateModal(source, copied = false, options = {}) {
     const modal = ensureManualUpdateModal();
     if (!(modal instanceof HTMLElement)) return;
     const normalized = normalizeManualUpdateSource(source);
+    const mandatory = parseBooleanLike(options?.mandatory);
+    const mandatoryReason = String(options?.mandatoryReason || "").trim();
+    const mandatoryVersion = String(options?.mandatoryVersion || normalized.version || "").trim();
     hsManualUpdatePayload = {
       ...normalized,
       copied: !!copied,
+      mandatory,
+      mandatoryReason,
+      mandatoryVersion,
     };
 
     const statusEl = modal.querySelector(".hs-update-modal-status");
     const urlInput = modal.querySelector(".hs-update-modal-url");
     const details = modal.querySelector(".hs-update-modal-code-details");
     const ta = modal.querySelector(".hs-update-modal-code-text");
+    modal.dataset.hsMandatory = mandatory ? "1" : "0";
+    modal.classList.toggle("hs-update-modal-mandatory", mandatory);
+    modal
+      .querySelectorAll('[data-action="close"]')
+      .forEach((btn) => btn.classList.toggle("hs-force-hide", mandatory));
     if (statusEl instanceof HTMLElement) {
       statusEl.textContent = buildManualUpdateStatusText(
-        String(hsManualUpdatePayload.version || "")
+        String(hsManualUpdatePayload.version || ""),
+        hsManualUpdatePayload
       );
     }
     if (urlInput instanceof HTMLInputElement) {
@@ -6011,14 +6298,15 @@ Atenciosamente.`;
    * Objetivo: Facilita atualizacao manual (modal com copiar/baixar/abrir).
    *
    * Contexto: Fluxo alternativo quando o install automatico do Tampermonkey falha.
-   * Parametros: nenhum.
+   * Parametros:
+   * - options: metadados de obrigatoriedade para o modal.
    * Retorno: Promise<void>.
    * Efeitos colaterais: chamadas de rede, clipboard, download e abertura de nova aba.
    */
-  async function openManualUpdateGuide() {
+  async function openManualUpdateGuide(options = {}) {
     const source = await fetchLatestUserscriptSource();
     const copied = await copyTextToClipboard(String(source.content || ""));
-    showManualUpdateModal(source, copied);
+    showManualUpdateModal(source, copied, options);
   }
   /**
    * Objetivo: Le ultima versao remota ja notificada em popup.
@@ -6050,6 +6338,66 @@ Atenciosamente.`;
     } catch {}
   }
   /**
+   * Objetivo: Determina se o resultado de update representa correcao obrigatoria.
+   *
+   * Contexto: usado para forcar abertura do modal de update em casos criticos.
+   * Parametros:
+   * - result: payload do checker de atualizacao.
+   * Retorno: boolean.
+   */
+  function isMandatoryUpdateResult(result) {
+    const hasUpdate = !!result?.hasUpdate && !!String(result?.remoteVersion || "").trim();
+    if (!hasUpdate) return false;
+    if (parseBooleanLike(result?.mandatoryUpdate)) return true;
+    const reason = norm(String(result?.mandatoryReason || ""));
+    if (!reason) return false;
+    return /(obrigatori|correcao|erro|bug|hotfix|critic|falha)/.test(reason);
+  }
+  /**
+   * Objetivo: Dispara fluxo de atualizacao obrigatoria (modal + codigo imediato).
+   *
+   * Contexto: aplicado quando release de correcao obrigatoria estiver pendente.
+   * Parametros:
+   * - result: payload do checker de atualizacao.
+   * Retorno: void.
+   */
+  function showMandatoryUpdatePrompt(result) {
+    const remoteVersion = String(result?.remoteVersion || "").trim();
+    if (!remoteVersion) return;
+    if (hsMandatoryUpdatePromptVersion === remoteVersion) return;
+    hsMandatoryUpdatePromptVersion = remoteVersion;
+    setLastUpdatePopupVersion(remoteVersion);
+
+    const mandatoryVersion = String(result?.mandatoryVersion || remoteVersion).trim() || remoteVersion;
+    const mandatoryReason = String(result?.mandatoryReason || "").trim();
+    setTimeout(() => {
+      showRecentUpdatesDialog({
+        forceRefresh: true,
+        remoteVersion,
+        remoteUrl: String(result?.remoteUrl || ""),
+        highlightVersion: mandatoryVersion,
+        checkedAt: Number(result?.checkedAt || Date.now()),
+        mandatoryUpdate: true,
+        mandatoryVersion,
+        mandatoryReason,
+      }).catch(() => {});
+
+      openManualUpdateGuide({
+        mandatory: true,
+        mandatoryVersion,
+        mandatoryReason:
+          mandatoryReason || "Correcao de erro obrigatoria para evitar falhas no envio/atendimento.",
+      }).catch(() => {
+        toast(
+          `Atualizacao obrigatoria v${remoteVersion} detectada. Abrindo pagina de instalacao...`,
+          "err",
+          4200
+        );
+        openScriptUpdatePage(String(result?.remoteUrl || ""));
+      });
+    }, 120);
+  }
+  /**
    * Objetivo: Exibe popup de update apenas uma vez por versao remota detectada.
    *
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
@@ -6063,6 +6411,10 @@ Atenciosamente.`;
     if (!hasUpdate) return;
     const remoteVersion = String(result.remoteVersion || "").trim();
     if (!remoteVersion) return;
+    if (isMandatoryUpdateResult(result)) {
+      showMandatoryUpdatePrompt(result);
+      return;
+    }
 
     const lastPopup = getLastUpdatePopupVersion();
     if (lastPopup === remoteVersion) return;
@@ -7525,13 +7877,17 @@ Atenciosamente.`;
     const refreshSettingsNotification = (result = null) => {
       const state = result || hsScriptUpdateLastResult || readCachedUpdateCheckResult();
       const hasUpdate = !!state?.hasUpdate && compareVersionTexts(String(state?.remoteVersion || ""), SCRIPT_VERSION) > 0;
+      const mandatoryUpdate = isMandatoryUpdateResult(state);
       const latestInfoVersion = getLatestKnownSettingsInfoVersion();
       const seenVersion = readSettingsNoticeSeenVersion();
       const hasUnreadInfo = compareVersionTexts(latestInfoVersion, seenVersion) > 0;
       const showNotice = hasUpdate || hasUnreadInfo;
       settingsBtn.classList.toggle("has-notification", showNotice);
       if (hasUpdate) {
-        settingsBtn.title = `Configuracoes: nova versao ${String(state?.remoteVersion || "").trim()} disponivel.`;
+        const remoteVersion = String(state?.remoteVersion || "").trim();
+        settingsBtn.title = mandatoryUpdate
+          ? `Configuracoes: correcao obrigatoria ${remoteVersion} pendente.`
+          : `Configuracoes: nova versao ${remoteVersion} disponivel.`;
         return;
       }
       if (hasUnreadInfo) {
@@ -7546,13 +7902,26 @@ Atenciosamente.`;
       if (!hasUpdate) {
         alertBtn.style.setProperty("display", "none", "important");
         delete alertBtn.dataset.hsRemoteUrl;
+        delete alertBtn.dataset.hsRemoteVersion;
+        delete alertBtn.dataset.hsMandatory;
+        delete alertBtn.dataset.hsMandatoryVersion;
+        delete alertBtn.dataset.hsMandatoryReason;
         refreshSettingsNotification(result);
         return;
       }
       const remoteVersion = String(result.remoteVersion || "").trim();
-      alertBtn.value = `Nova versao ${remoteVersion}`;
-      alertBtn.title = `Existe atualizacao disponivel (${remoteVersion}). Clique para ver detalhes e atualizar.`;
+      const mandatoryUpdate = isMandatoryUpdateResult(result);
+      const mandatoryVersion = String(result?.mandatoryVersion || remoteVersion).trim() || remoteVersion;
+      const mandatoryReason = String(result?.mandatoryReason || "").trim();
+      alertBtn.value = mandatoryUpdate ? `Correcao obrigatoria ${remoteVersion}` : `Nova versao ${remoteVersion}`;
+      alertBtn.title = mandatoryUpdate
+        ? `Correcao obrigatoria detectada (${remoteVersion}). Atualizacao necessaria.`
+        : `Existe atualizacao disponivel (${remoteVersion}). Clique para ver detalhes e atualizar.`;
       alertBtn.dataset.hsRemoteUrl = String(result?.remoteUrl || "").trim();
+      alertBtn.dataset.hsRemoteVersion = remoteVersion;
+      alertBtn.dataset.hsMandatory = mandatoryUpdate ? "1" : "0";
+      alertBtn.dataset.hsMandatoryVersion = mandatoryVersion;
+      alertBtn.dataset.hsMandatoryReason = mandatoryReason;
       alertBtn.style.setProperty("display", "block", "important");
       showUpdatePopupOnce(result);
       refreshSettingsNotification(result);
@@ -7634,7 +8003,11 @@ Atenciosamente.`;
         const result = await checkScriptUpdateAvailability(true);
         applyUpdateState(result);
         if (result?.hasUpdate) {
-          toast(`Nova versao ${result.remoteVersion} disponivel.`, "info", 3000);
+          if (isMandatoryUpdateResult(result)) {
+            toast(`Correcao obrigatoria ${result.remoteVersion} detectada.`, "err", 3600);
+          } else {
+            toast(`Nova versao ${result.remoteVersion} disponivel.`, "info", 3000);
+          }
         } else if (result?.ok) {
           toast("Voce ja esta na versao mais recente.", "ok", 2500);
         } else {
@@ -7658,7 +8031,17 @@ Atenciosamente.`;
       manualBtn.value = "Preparando...";
       manualBtn.disabled = true;
       try {
-        await openManualUpdateGuide();
+        const state = hsScriptUpdateLastResult || readCachedUpdateCheckResult() || {};
+        const mandatory = isMandatoryUpdateResult(state);
+        await openManualUpdateGuide(
+          mandatory
+            ? {
+                mandatory: true,
+                mandatoryVersion: String(state?.mandatoryVersion || state?.remoteVersion || "").trim(),
+                mandatoryReason: String(state?.mandatoryReason || "").trim(),
+              }
+            : {}
+        );
       } catch (err) {
         toast("Nao foi possivel abrir o codigo remoto agora.", "err", 3200);
       } finally {
@@ -7671,12 +8054,19 @@ Atenciosamente.`;
     alertBtn.onclick = (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
+      const remoteVersion = String(alertBtn.dataset.hsRemoteVersion || "").trim();
+      const mandatoryUpdate = parseBooleanLike(alertBtn.dataset.hsMandatory);
+      const mandatoryVersion = String(alertBtn.dataset.hsMandatoryVersion || remoteVersion).trim();
+      const mandatoryReason = String(alertBtn.dataset.hsMandatoryReason || "").trim();
       showRecentUpdatesDialog({
         forceRefresh: true,
-        remoteVersion: String(alertBtn.value || "").replace(/^Nova versao\s*/i, "").trim(),
+        remoteVersion,
         remoteUrl: String(alertBtn.dataset.hsRemoteUrl || ""),
-        highlightVersion: String(alertBtn.value || "").replace(/^Nova versao\s*/i, "").trim(),
+        highlightVersion: mandatoryVersion || remoteVersion,
         checkedAt: Date.now(),
+        mandatoryUpdate,
+        mandatoryVersion,
+        mandatoryReason,
       }).catch(() => {
         openScriptUpdatePage(alertBtn.dataset.hsRemoteUrl || "");
       });

@@ -1,7 +1,20 @@
 ﻿[
     {
         "date":  "2026-03-09",
+        "version":  "2.15.54",
+        "type":  "bugfix",
+        "mandatory":  true,
+        "notes":  [
+                      "Sistema de update agora diferencia release rotineira de correcao de erro (type/mandatory).",
+                      "Quando houver correcao obrigatoria pendente, o script abre automaticamente o modal de codigo de update.",
+                      "Modal obrigatorio ganhou bloqueio de fechamento por Escape/backdrop para reforcar instalacao imediata."
+                  ]
+    },
+    {
+        "date":  "2026-03-09",
         "version":  "2.15.53",
+        "type":  "bugfix",
+        "mandatory":  true,
         "notes":  [
                       "Correcao critica no bloco de anexos: selecao voltou a aceitar varios arquivos sem truncar para apenas 1.",
                       "Fluxo de preview local passou a refletir a quantidade real de arquivos selecionados no campo.",
@@ -278,6 +291,9 @@
                   ]
     }
 ]
+
+
+
 
 
 
