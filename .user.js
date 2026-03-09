@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.45
+// @version      2.15.46
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -48,7 +48,10 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
-  const SCRIPT_VERSION_FALLBACK = "2.15.45";
+  const ATTACH_IMAGE_PREVIEW_DEFAULT = true;
+  const ATTACH_IMAGE_PREVIEW_LS_KEY = "hs2025-attach-image-preview";
+  const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
+  const SCRIPT_VERSION_FALLBACK = "2.15.46";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -118,6 +121,15 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-09",
+      version: "2.15.46",
+      notes: [
+        "Anexos recebidos no chamado voltaram a abrir em nova guia, sem forcar modal de preview.",
+        "Preview em modal dos anexos locais agora permite apenas arquivos PNG/JPG e ganhou toggle dedicado.",
+        "Barra de acoes do dashboard foi reorganizada em menu de Configuracoes (engrenagem) com indicador de notificacao.",
+      ],
+    },
     {
       date: "2026-03-06",
       version: "2.15.45",
@@ -3341,7 +3353,71 @@ Atenciosamente.`;
     margin-top:6px!important;
     display:flex!important;
     justify-content:flex-end!important;
+    position:relative!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle{
+    min-height:26px!important;
+    height:26px!important;
+    border-radius:10px!important;
+    padding:2px 10px!important;
+    font-size:11px!important;
+    font-weight:800!important;
+    line-height:1!important;
+    cursor:pointer!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:7px!important;
+    position:relative!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle .hs-settings-gear{
+    font-size:14px!important;
+    line-height:1!important;
+    transform:translateY(-.5px)!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle .hs-settings-label{
+    white-space:nowrap!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-settings-notice-dot{
+    width:9px!important;
+    height:9px!important;
+    border-radius:50%!important;
+    background:#ff5f56!important;
+    box-shadow:0 0 0 1px rgba(255,95,86,.45), 0 0 0 4px rgba(255,95,86,.18)!important;
+    display:none!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle.has-notification .hs-settings-notice-dot{
+    display:inline-block!important;
+    animation:hs-settings-dot-pulse 1.6s ease-in-out infinite!important;
+  }
+  @keyframes hs-settings-dot-pulse{
+    0%{ transform:scale(1); box-shadow:0 0 0 1px rgba(255,95,86,.45), 0 0 0 4px rgba(255,95,86,.18); }
+    50%{ transform:scale(1.12); box-shadow:0 0 0 1px rgba(255,95,86,.6), 0 0 0 7px rgba(255,95,86,.2); }
+    100%{ transform:scale(1); box-shadow:0 0 0 1px rgba(255,95,86,.45), 0 0 0 4px rgba(255,95,86,.18); }
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-settings-menu{
+    position:absolute!important;
+    top:calc(100% + 7px)!important;
+    right:0!important;
+    z-index:9!important;
+    min-width:250px!important;
+    border-radius:12px!important;
+    border:1px solid rgba(154, 174, 200, .36)!important;
+    background:linear-gradient(180deg, rgba(13,27,49,.98), rgba(8,18,35,.98))!important;
+    box-shadow:0 16px 34px rgba(0,0,0,.28)!important;
+    padding:8px!important;
+    display:none!important;
+    flex-direction:column!important;
     gap:6px!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-wrap.open .hs-settings-menu{
+    display:flex!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-settings-menu-title{
+    margin:0 0 2px!important;
+    padding:0 2px!important;
+    font-size:11px!important;
+    font-weight:800!important;
+    opacity:.9!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-btn{
     min-height:24px!important;
@@ -3352,6 +3428,11 @@ Atenciosamente.`;
     font-weight:700!important;
     line-height:1!important;
     cursor:pointer!important;
+    width:100%!important;
+    text-align:left!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-settings-menu .hs-preview-mode-btn{
+    justify-content:flex-start!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-update-available-btn{
     color:#1f2b18!important;
@@ -3692,6 +3773,119 @@ Atenciosamente.`;
     try {
       localStorage.setItem(PREVIEW_ONLY_MODE_LS_KEY, enabled ? "1" : "0");
     } catch {}
+  }
+  /**
+   * Objetivo: Le preferencia de preview de anexos (modal local PNG/JPG).
+   *
+   * Contexto: usado nas miniaturas do novo acompanhamento.
+   * Parametros: nenhum.
+   * Retorno: boolean.
+   * Efeitos colaterais: leitura opcional de localStorage.
+   */
+  function isAttachmentImagePreviewEnabled() {
+    try {
+      const raw = String(localStorage.getItem(ATTACH_IMAGE_PREVIEW_LS_KEY) || "").trim().toLowerCase();
+      if (raw === "1" || raw === "true" || raw === "on") return true;
+      if (raw === "0" || raw === "false" || raw === "off") return false;
+    } catch {}
+    return ATTACH_IMAGE_PREVIEW_DEFAULT;
+  }
+  /**
+   * Objetivo: Persiste preferencia do preview de anexos (modal local PNG/JPG).
+   *
+   * Contexto: acionado pelo menu de configuracoes.
+   * Parametros:
+   * - enabled: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: grava valor em localStorage quando disponivel.
+   */
+  function setAttachmentImagePreviewEnabled(enabled) {
+    try {
+      localStorage.setItem(ATTACH_IMAGE_PREVIEW_LS_KEY, enabled ? "1" : "0");
+    } catch {}
+  }
+  /**
+   * Objetivo: Valida se arquivo/URL e elegivel para modal (somente PNG/JPG).
+   *
+   * Contexto: restringe preview modal dos anexos para formatos suportados.
+   * Parametros:
+   * - source: URL/data URL do arquivo.
+   * - fileName: nome opcional.
+   * - fileType: MIME opcional.
+   * Retorno: boolean.
+   * Efeitos colaterais: nenhum.
+   */
+  function isPngOrJpgPreviewCandidate(source, fileName = "", fileType = "") {
+    const mime = String(fileType || "").trim().toLowerCase();
+    if (/^image\/(?:png|jpeg|jpg)$/.test(mime)) return true;
+
+    const name = String(fileName || "").trim().toLowerCase();
+    if (/\.(png|jpe?g)$/.test(name)) return true;
+
+    const src = String(source || "").trim().toLowerCase();
+    if (!src) return false;
+    if (/^data:image\/(?:png|jpeg|jpg)(?:;|,)/.test(src)) return true;
+    return /\.(png|jpe?g)(?:[?#].*)?$/.test(src);
+  }
+  /**
+   * Objetivo: Informa se modal local de anexo pode ser usado para o arquivo.
+   *
+   * Contexto: combina toggle do usuario com filtro PNG/JPG.
+   * Parametros:
+   * - source: URL/data URL do arquivo.
+   * - fileName: nome opcional.
+   * - fileType: MIME opcional.
+   * Retorno: boolean.
+   * Efeitos colaterais: leitura opcional de localStorage.
+   */
+  function isAttachmentModalPreviewAllowed(source, fileName = "", fileType = "") {
+    if (!isAttachmentImagePreviewEnabled()) return false;
+    return isPngOrJpgPreviewCandidate(source, fileName, fileType);
+  }
+  /**
+   * Objetivo: Le versao de notificacao ja vista no menu de configuracoes.
+   *
+   * Contexto: controla bolinha de alerta no icone de engrenagem.
+   * Parametros: nenhum.
+   * Retorno: string.
+   * Efeitos colaterais: leitura opcional de localStorage.
+   */
+  function readSettingsNoticeSeenVersion() {
+    try {
+      const raw = String(localStorage.getItem(SETTINGS_NOTICE_LAST_SEEN_LS_KEY) || "").trim();
+      return raw;
+    } catch {
+      return "";
+    }
+  }
+  /**
+   * Objetivo: Persiste versao marcada como "ja vista" no menu de configuracoes.
+   *
+   * Contexto: usado ao abrir historico de atualizacoes.
+   * Parametros:
+   * - version: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: escrita opcional em localStorage.
+   */
+  function writeSettingsNoticeSeenVersion(version) {
+    const next = String(version || "").trim() || SCRIPT_VERSION;
+    try {
+      localStorage.setItem(SETTINGS_NOTICE_LAST_SEEN_LS_KEY, next);
+    } catch {}
+  }
+  /**
+   * Objetivo: Obtem versao mais recente conhecida para sinalizar informacoes.
+   *
+   * Contexto: usa cache remoto (quando existir) com fallback no catalogo local.
+   * Parametros: nenhum.
+   * Retorno: string.
+   * Efeitos colaterais: leitura opcional de localStorage.
+   */
+  function getLatestKnownSettingsInfoVersion() {
+    const cachedList = readUpdatesLogCache().list;
+    const source = Array.isArray(cachedList) && cachedList.length ? cachedList : RECENT_UPDATES;
+    const top = (Array.isArray(source) ? source : []).find((entry) => String(entry?.version || "").trim());
+    return String(top?.version || SCRIPT_VERSION).trim() || SCRIPT_VERSION;
   }
   /**
    * Objetivo: Normaliza lista de historico de atualizacoes.
@@ -6234,76 +6428,154 @@ Atenciosamente.`;
     }
     host.querySelector("#hs-versions-btn")?.remove();
 
-    let btn = host.querySelector("#hs-preview-mode-toggle");
-    if (!(btn instanceof HTMLInputElement)) {
-      btn = document.createElement("input");
-      btn.type = "button";
-      btn.id = "hs-preview-mode-toggle";
-      btn.className = "hs-preview-mode-btn";
-      host.appendChild(btn);
-    }
-    let updatesBtn = host.querySelector("#hs-updates-log-btn");
-    if (!(updatesBtn instanceof HTMLInputElement)) {
-      updatesBtn = document.createElement("input");
-      updatesBtn.type = "button";
-      updatesBtn.id = "hs-updates-log-btn";
-      updatesBtn.className = "hs-preview-mode-btn";
-      host.appendChild(updatesBtn);
-    }
-    let checkBtn = host.querySelector("#hs-update-check-btn");
-    if (!(checkBtn instanceof HTMLInputElement)) {
-      checkBtn = document.createElement("input");
-      checkBtn.type = "button";
-      checkBtn.id = "hs-update-check-btn";
-      checkBtn.className = "hs-preview-mode-btn";
-      host.appendChild(checkBtn);
-    }
-    let manualBtn = host.querySelector("#hs-update-manual-btn");
-    if (!(manualBtn instanceof HTMLInputElement)) {
-      manualBtn = document.createElement("input");
-      manualBtn.type = "button";
-      manualBtn.id = "hs-update-manual-btn";
-      manualBtn.className = "hs-preview-mode-btn";
-      host.appendChild(manualBtn);
-    }
-    let alertBtn = host.querySelector("#hs-update-available-btn");
-    if (!(alertBtn instanceof HTMLInputElement)) {
-      alertBtn = document.createElement("input");
-      alertBtn.type = "button";
-      alertBtn.id = "hs-update-available-btn";
-      alertBtn.className = "hs-preview-mode-btn hs-update-available-btn";
-      host.appendChild(alertBtn);
+    let settingsBtn = host.querySelector("#hs-settings-menu-btn");
+    if (!(settingsBtn instanceof HTMLButtonElement)) {
+      settingsBtn = document.createElement("button");
+      settingsBtn.type = "button";
+      settingsBtn.id = "hs-settings-menu-btn";
+      settingsBtn.className = "hs-settings-toggle";
+      settingsBtn.innerHTML = `
+        <span class="hs-settings-gear" aria-hidden="true">⚙</span>
+        <span class="hs-settings-label">Configuracoes</span>
+        <span class="hs-settings-notice-dot" aria-hidden="true"></span>
+      `;
+      host.appendChild(settingsBtn);
     }
 
-    const syncLabel = () => {
+    let menu = host.querySelector(".hs-settings-menu");
+    if (!(menu instanceof HTMLElement)) {
+      menu = document.createElement("div");
+      menu.className = "hs-settings-menu";
+      host.appendChild(menu);
+    }
+    let menuTitle = menu.querySelector(".hs-settings-menu-title");
+    if (!(menuTitle instanceof HTMLElement)) {
+      menuTitle = document.createElement("p");
+      menuTitle.className = "hs-settings-menu-title";
+      menuTitle.textContent = "Configuracoes";
+      menu.appendChild(menuTitle);
+    }
+
+    const ensureMenuButton = (id) => {
+      let button = menu.querySelector(`#${id}`);
+      if (!(button instanceof HTMLInputElement)) {
+        button = document.createElement("input");
+        button.type = "button";
+        button.id = id;
+        button.className = "hs-preview-mode-btn";
+        menu.appendChild(button);
+      }
+      return button;
+    };
+
+    const gridPreviewBtn = ensureMenuButton("hs-preview-mode-toggle");
+    const attachPreviewBtn = ensureMenuButton("hs-attach-preview-toggle");
+    const updatesBtn = ensureMenuButton("hs-updates-log-btn");
+    const checkBtn = ensureMenuButton("hs-update-check-btn");
+    const manualBtn = ensureMenuButton("hs-update-manual-btn");
+    const alertBtn = ensureMenuButton("hs-update-available-btn");
+    alertBtn.classList.add("hs-update-available-btn");
+
+    const setMenuOpen = (open) => {
+      host.classList.toggle("open", !!open);
+      settingsBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    };
+    if (host.dataset.hsSettingsBind !== "1") {
+      host.dataset.hsSettingsBind = "1";
+      settingsBtn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        setMenuOpen(!host.classList.contains("open"));
+      });
+      document.addEventListener(
+        "click",
+        (ev) => {
+          const target = ev.target instanceof Node ? ev.target : null;
+          if (target && host.contains(target)) return;
+          setMenuOpen(false);
+        },
+        true
+      );
+      document.addEventListener("keydown", (ev) => {
+        if (String(ev.key || "").toLowerCase() !== "escape") return;
+        setMenuOpen(false);
+      });
+    }
+    settingsBtn.title = "Abrir configuracoes do script";
+
+    const syncGridPreviewLabel = () => {
       const enabled = isPreviewOnlyModeEnabled();
-      btn.value = enabled ? "Preview ON" : "Preview OFF";
-      btn.title = enabled
+      gridPreviewBtn.value = enabled ? "Preview chamados ON" : "Preview chamados OFF";
+      gridPreviewBtn.title = enabled
         ? "Modo preview ativo: clique abre em popup."
         : "Modo preview desativado: clique abre em nova guia.";
     };
+    const syncAttachmentPreviewLabel = () => {
+      const enabled = isAttachmentImagePreviewEnabled();
+      attachPreviewBtn.value = enabled ? "Preview PNG/JPG ON" : "Preview PNG/JPG OFF";
+      attachPreviewBtn.title = enabled
+        ? "Preview local de anexos ativo para PNG/JPG."
+        : "Preview local de anexos desativado. Clique abre em nova guia.";
+    };
+    const refreshSettingsNotification = (result = null) => {
+      const state = result || hsScriptUpdateLastResult || readCachedUpdateCheckResult();
+      const hasUpdate = !!state?.hasUpdate && compareVersionTexts(String(state?.remoteVersion || ""), SCRIPT_VERSION) > 0;
+      const latestInfoVersion = getLatestKnownSettingsInfoVersion();
+      const seenVersion = readSettingsNoticeSeenVersion();
+      const hasUnreadInfo = compareVersionTexts(latestInfoVersion, seenVersion) > 0;
+      const showNotice = hasUpdate || hasUnreadInfo;
+      settingsBtn.classList.toggle("has-notification", showNotice);
+      if (hasUpdate) {
+        settingsBtn.title = `Configuracoes: nova versao ${String(state?.remoteVersion || "").trim()} disponivel.`;
+        return;
+      }
+      if (hasUnreadInfo) {
+        settingsBtn.title = `Configuracoes: novidades da versao ${latestInfoVersion}.`;
+        return;
+      }
+      settingsBtn.title = "Abrir configuracoes do script";
+    };
+
     const applyUpdateState = (result) => {
       const hasUpdate = !!result?.hasUpdate && !!String(result?.remoteVersion || "").trim();
       if (!hasUpdate) {
         alertBtn.style.setProperty("display", "none", "important");
         delete alertBtn.dataset.hsRemoteUrl;
+        refreshSettingsNotification(result);
         return;
       }
       const remoteVersion = String(result.remoteVersion || "").trim();
       alertBtn.value = `Nova versao ${remoteVersion}`;
       alertBtn.title = `Existe atualizacao disponivel (${remoteVersion}). Clique para ver detalhes e atualizar.`;
       alertBtn.dataset.hsRemoteUrl = String(result?.remoteUrl || "").trim();
-      alertBtn.style.setProperty("display", "inline-flex", "important");
+      alertBtn.style.setProperty("display", "block", "important");
       showUpdatePopupOnce(result);
+      refreshSettingsNotification(result);
     };
 
-    btn.onclick = (ev) => {
+    gridPreviewBtn.onclick = (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
       const next = !isPreviewOnlyModeEnabled();
       setPreviewOnlyModeEnabled(next);
-      syncLabel();
+      syncGridPreviewLabel();
       toast(next ? "Modo preview ativado." : "Modo preview desativado.", "ok", 2200);
+      setMenuOpen(false);
+    };
+    attachPreviewBtn.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const next = !isAttachmentImagePreviewEnabled();
+      setAttachmentImagePreviewEnabled(next);
+      syncAttachmentPreviewLabel();
+      toast(
+        next
+          ? "Preview local de anexos ativado para PNG/JPG."
+          : "Preview local de anexos desativado. Arquivos abrem em nova guia.",
+        "ok",
+        2600
+      );
+      setMenuOpen(false);
     };
     updatesBtn.value = "Atualizacoes";
     updatesBtn.title = "Ver ultimas atualizacoes do script";
@@ -6312,9 +6584,12 @@ Atenciosamente.`;
       ev.stopPropagation();
       try {
         await showRecentUpdatesDialog();
+        writeSettingsNoticeSeenVersion(getLatestKnownSettingsInfoVersion());
+        refreshSettingsNotification();
       } catch {
         toast("Nao foi possivel abrir o historico de atualizacoes agora.", "err", 3000);
       }
+      setMenuOpen(false);
     };
     checkBtn.value = "Verificar update";
     checkBtn.title = "Verifica no GitHub se existe nova versao do script";
@@ -6341,6 +6616,7 @@ Atenciosamente.`;
         checkBtn.value = oldLabel;
         delete checkBtn.dataset.hsBusy;
       }
+      setMenuOpen(false);
     };
     manualBtn.value = "Codigo update";
     manualBtn.title = "Abrir e copiar codigo para colar manualmente no Tampermonkey";
@@ -6361,6 +6637,7 @@ Atenciosamente.`;
         manualBtn.value = oldLabel;
         delete manualBtn.dataset.hsBusy;
       }
+      setMenuOpen(false);
     };
     alertBtn.onclick = (ev) => {
       ev.preventDefault();
@@ -6374,6 +6651,7 @@ Atenciosamente.`;
       }).catch(() => {
         openScriptUpdatePage(alertBtn.dataset.hsRemoteUrl || "");
       });
+      setMenuOpen(false);
     };
     const cached = hsScriptUpdateLastResult || readCachedUpdateCheckResult();
     applyUpdateState(cached);
@@ -6386,7 +6664,9 @@ Atenciosamente.`;
         .catch(() => {});
     }
 
-    syncLabel();
+    syncGridPreviewLabel();
+    syncAttachmentPreviewLabel();
+    refreshSettingsNotification(cached);
   }
   /**
    * Objetivo: Persiste credenciais da tela de login para reduzir relogins.
@@ -7812,15 +8092,19 @@ Atenciosamente.`;
   /**
    * Objetivo: Abre modal de preview para URL de imagem.
    *
-   * Contexto: acionado por clique nas miniaturas e links de anexos.
+   * Contexto: acionado por clique nas miniaturas locais dos anexos.
    * Parametros:
    * - imageUrl: URL da imagem.
    * - label: titulo opcional.
    * Retorno: void.
    */
-  function openImagePreviewModal(imageUrl, label = "") {
+  function openImagePreviewModal(imageUrl, label = "", fileType = "") {
     const src = String(imageUrl || "").trim();
     if (!src) return;
+    if (!isAttachmentModalPreviewAllowed(src, label, fileType)) {
+      window.open(src, "_blank", "noopener,noreferrer");
+      return;
+    }
     const modal = ensureImagePreviewModal();
     if (!(modal instanceof HTMLElement)) return;
     const titleEl = modal.querySelector(".hs-image-viewer-title");
@@ -7835,19 +8119,17 @@ Atenciosamente.`;
     modal.classList.add("open");
   }
   /**
-   * Objetivo: Habilita selecao multipla de imagens no campo de anexos.
+   * Objetivo: Ajusta anexos para selecao unica por campo com preview local.
    *
    * Contexto: Tela "Visualizar requisicao" no bloco de novo acompanhamento.
    * Parametros: nenhum.
    * Retorno: void.
    * Efeitos colaterais: ajusta atributos de inputs file e observa clique em "Novo".
    */
-  function ensureMultipleImageAttachments() {
+  function ensureSingleImageAttachments() {
     if (!isRequestVisualizarPage()) return;
     const root = document.getElementById("interno") || document.body;
     if (!(root instanceof HTMLElement)) return;
-    const imageUrlRx = /\.(avif|bmp|gif|heic|heif|jpe?g|png|svg|tiff?|webp)(?:[?#].*)?$/i;
-    const hasImageExtension = (value) => imageUrlRx.test(String(value || "").trim());
     const toAbsoluteUrl = (value) => {
       const raw = String(value || "").trim();
       if (!raw) return "";
@@ -7857,41 +8139,31 @@ Atenciosamente.`;
         return raw;
       }
     };
-    const bindClickableImagePreview = (target, imageUrl, label = "") => {
-      if (!(target instanceof HTMLElement)) return;
+    const openAttachmentThumb = (file, imageUrl) => {
       const resolvedUrl = toAbsoluteUrl(imageUrl);
-      if (!resolvedUrl) return;
-      if (/^javascript:/i.test(resolvedUrl)) return;
-      if (target.dataset.hsImgPreviewUrl === resolvedUrl) return;
-      target.dataset.hsImgPreviewUrl = resolvedUrl;
-      target.style.setProperty("cursor", "zoom-in", "important");
-      target.addEventListener(
-        "click",
-        (ev) => {
-          if (ev.target instanceof Element && ev.target.closest(".hs-attach-thumb-remove")) return;
-          if (ev.defaultPrevented) return;
-          if ("button" in ev && ev.button !== 0) return;
-          if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return;
-          ev.preventDefault();
-          ev.stopPropagation();
-          openImagePreviewModal(resolvedUrl, label);
-        },
-        true
-      );
+      if (!resolvedUrl || /^javascript:/i.test(resolvedUrl)) return;
+      const fileName = String(file?.name || "").trim();
+      const fileType = String(file?.type || "").trim();
+      if (isAttachmentModalPreviewAllowed(resolvedUrl, fileName, fileType)) {
+        openImagePreviewModal(resolvedUrl, fileName, fileType);
+        return;
+      }
+      window.open(resolvedUrl, "_blank", "noopener,noreferrer");
     };
 
-    const setInputMulti = (input) => {
+    const setInputSingle = (input) => {
       if (!(input instanceof HTMLInputElement)) return;
       if ((input.type || "").toLowerCase() !== "file") return;
 
-      input.multiple = true;
+      input.multiple = false;
+      input.removeAttribute("multiple");
       const acceptNow = String(input.getAttribute("accept") || "").trim();
       if (!acceptNow) {
         input.setAttribute("accept", "image/*");
       } else if (!/(^|,)\s*image\/\*/i.test(acceptNow)) {
         input.setAttribute("accept", `${acceptNow},image/*`);
       }
-      input.dataset.hsMultiAnexo = "1";
+      input.dataset.hsSingleAnexo = "1";
     };
     const decorateInputPreview = (input) => {
       if (!(input instanceof HTMLInputElement)) return;
@@ -7909,7 +8181,7 @@ Atenciosamente.`;
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "hs-attach-btn";
-      btn.textContent = "Selecionar imagens";
+      btn.textContent = "Selecionar imagem";
 
       const clearBtn = document.createElement("button");
       clearBtn.type = "button";
@@ -7998,17 +8270,14 @@ Atenciosamente.`;
       const renderPreview = async () => {
         const seq = ++renderSeq;
         preview.innerHTML = "";
-        const files = Array.from(input.files || []);
+        const files = Array.from(input.files || []).slice(0, 1);
         clearBtn.disabled = files.length === 0;
         const images = files
           .map((file, fileIndex) => ({ file, fileIndex }))
           .filter((item) => isImageLike(item.file));
-        status.textContent = images.length
-          ? `${images.length} ${images.length > 1 ? "imagens" : "imagem"} selecionada${images.length > 1 ? "s" : ""}`
-          : "Nenhuma imagem selecionada";
+        status.textContent = images.length ? "1 imagem selecionada" : "Nenhuma imagem selecionada";
 
-        const thumbs = images.slice(0, 8);
-        for (const item of thumbs) {
+        for (const item of images) {
           const file = item.file;
           const fileIndex = item.fileIndex;
           if (seq !== renderSeq) return;
@@ -8019,8 +8288,18 @@ Atenciosamente.`;
           fig.className = "hs-attach-thumb";
           fig.tabIndex = 0;
           fig.setAttribute("role", "button");
-          fig.setAttribute("aria-label", `Abrir preview de ${String(file.name || "imagem")}`);
-          fig.title = "Clique para ampliar";
+          const refreshThumbHint = () => {
+            const allowModal = isAttachmentModalPreviewAllowed(src, String(file.name || ""), String(file.type || ""));
+            fig.setAttribute(
+              "aria-label",
+              allowModal
+                ? `Abrir preview de ${String(file.name || "imagem")}`
+                : `Abrir ${String(file.name || "arquivo")} em nova guia`
+            );
+            fig.title = allowModal ? "Clique para ampliar (PNG/JPG)" : "Clique para abrir em nova guia";
+            fig.style.setProperty("cursor", allowModal ? "zoom-in" : "pointer", "important");
+          };
+          refreshThumbHint();
 
           const img = document.createElement("img");
           img.alt = String(file.name || "imagem");
@@ -8042,7 +8321,22 @@ Atenciosamente.`;
           fig.appendChild(removeBtn);
           fig.appendChild(caption);
           preview.appendChild(fig);
-          if (src) bindClickableImagePreview(fig, src, String(file.name || "imagem"));
+          fig.addEventListener("mouseenter", refreshThumbHint);
+          fig.addEventListener("focus", refreshThumbHint);
+          fig.addEventListener(
+            "click",
+            (ev) => {
+              if (!src) return;
+              if (ev.target instanceof Element && ev.target.closest(".hs-attach-thumb-remove")) return;
+              if (ev.defaultPrevented) return;
+              if ("button" in ev && ev.button !== 0) return;
+              if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return;
+              ev.preventDefault();
+              ev.stopPropagation();
+              openAttachmentThumb(file, src);
+            },
+            true
+          );
           removeBtn.addEventListener("click", (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
@@ -8053,7 +8347,7 @@ Atenciosamente.`;
             const key = String(ev.key || "").toLowerCase();
             if (key !== "enter" && key !== " ") return;
             ev.preventDefault();
-            if (src) openImagePreviewModal(src, String(file.name || "imagem"));
+            if (src) openAttachmentThumb(file, src);
           });
         }
       };
@@ -8076,7 +8370,7 @@ Atenciosamente.`;
     fileInputs.forEach((input) => {
       const nearForm = input.closest("#Novo_Acompanhamento, #acompanhamento_form");
       if (nearForm) {
-        setInputMulti(input);
+        setInputSingle(input);
         decorateInputPreview(input);
         return;
       }
@@ -8084,7 +8378,7 @@ Atenciosamente.`;
       const row = input.closest("tr,td,div,label");
       const rowText = norm(row?.textContent || "");
       if (/anex/.test(rowText)) {
-        setInputMulti(input);
+        setInputSingle(input);
         decorateInputPreview(input);
       }
     });
@@ -8105,22 +8399,15 @@ Atenciosamente.`;
       });
     const uniqueBlocks = Array.from(new Set(attachmentBlocks));
     uniqueBlocks.forEach((scope) => {
-      scope.querySelectorAll("a[href], img[src]").forEach((el) => {
-        let url = "";
-        let label = "";
-        if (el instanceof HTMLAnchorElement) {
-          url = String(el.getAttribute("href") || "").trim();
-          label = String(el.textContent || el.getAttribute("title") || "").trim();
-        } else if (el instanceof HTMLImageElement) {
-          url = String(el.currentSrc || el.src || "").trim();
-          label = String(el.getAttribute("alt") || el.getAttribute("title") || "").trim();
-        } else {
-          return;
-        }
-        const probe = norm(`${url} ${label}`);
-        const isLikelyImage = hasImageExtension(url) || /^data:image\//i.test(url) || /imagem|image|anex|upload/.test(probe);
-        if (!isLikelyImage) return;
-        bindClickableImagePreview(el, url, label);
+      scope.querySelectorAll("a[href]").forEach((el) => {
+        if (!(el instanceof HTMLAnchorElement)) return;
+        const href = String(el.getAttribute("href") || "").trim();
+        if (!href || /^javascript:/i.test(href)) return;
+        const rel = new Set(String(el.getAttribute("rel") || "").split(/\s+/).filter(Boolean));
+        rel.add("noopener");
+        rel.add("noreferrer");
+        el.setAttribute("target", "_blank");
+        el.setAttribute("rel", Array.from(rel).join(" "));
       });
     });
 
@@ -8148,8 +8435,8 @@ Atenciosamente.`;
         const ctxText = norm(ctx?.textContent || "");
         if (!/anex/.test(ctxText) && !trigger.closest("#Novo_Acompanhamento, #acompanhamento_form")) return;
 
-        setTimeout(() => ensureMultipleImageAttachments(), 80);
-        setTimeout(() => ensureMultipleImageAttachments(), 260);
+        setTimeout(() => ensureSingleImageAttachments(), 80);
+        setTimeout(() => ensureSingleImageAttachments(), 260);
       },
       true
     );
@@ -11075,7 +11362,7 @@ Atenciosamente.`;
     runStep(ensureConsultaPrimeiroAtendimentoButtons, "ensureConsultaPrimeiroAtendimentoButtons");
     runStep(bindRowAndLogoClicks, "bindRowAndLogoClicks");
     runStep(runAutoConcluirIfPending, "runAutoConcluirIfPending");
-    runStep(ensureMultipleImageAttachments, "ensureMultipleImageAttachments");
+    runStep(ensureSingleImageAttachments, "ensureSingleImageAttachments");
     runStep(ensureRequestQuickActions, "ensureRequestQuickActions");
     runStep(layoutRequestCalendarAndConsumption, "layoutRequestCalendarAndConsumption");
     runStep(highlightAcompanhamentosResponsavelEspecial, "highlightAcompanhamentosResponsavelEspecial");

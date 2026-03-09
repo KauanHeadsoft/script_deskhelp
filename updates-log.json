@@ -1,5 +1,14 @@
 ﻿[
     {
+        "date":  "2026-03-09",
+        "version":  "2.15.46",
+        "notes":  [
+                      "Anexos recebidos no chamado agora abrem em nova guia sem acionar modal.",
+                      "Preview em modal dos anexos locais foi limitado a PNG/JPG e ganhou toggle para ativar/desativar.",
+                      "Acoes do dashboard foram movidas para menu de Configuracoes com icone de engrenagem e notificacao de novidades/updates."
+                  ]
+    },
+    {
         "date":  "2026-03-06",
         "version":  "2.15.45",
         "notes":  [
@@ -206,3 +215,6 @@
                   ]
     }
 ]
+
+
+
