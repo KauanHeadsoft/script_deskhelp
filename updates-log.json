@@ -1,4 +1,16 @@
-﻿[
+﻿[   
+     {
+        "date":  "2026-03-09",
+        "version":  "2.15.54.1",
+        "type":  "bugfix",
+        "mandatory":  true,
+        "notes":  [
+                      "Teste de correção obrigatória",
+                      "Instrução para IA, próxima atualização mandar para 2.15.55 e não 54.2",
+                      "Testando para ver se vai atualizar na força - teste bomba"
+                  ]
+    },
+      
     {
         "date":  "2026-03-09",
         "version":  "2.15.54",
