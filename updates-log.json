@@ -1,6 +1,15 @@
 ﻿[
     {
         "date":  "2026-03-09",
+        "version":  "2.15.47",
+        "notes":  [
+                      "Menu de Configuracoes agora aplica fundo com desfoque ao abrir, melhorando foco visual.",
+                      "Clique no fundo desfocado fecha o menu de Configuracoes com comportamento consistente.",
+                      "Camadas visuais do menu foram ajustadas para manter leitura acima do backdrop."
+                  ]
+    },
+    {
+        "date":  "2026-03-09",
         "version":  "2.15.46",
         "notes":  [
                       "Anexos recebidos no chamado agora abrem em nova guia sem acionar modal.",
@@ -215,6 +224,8 @@
                   ]
     }
 ]
+
+
 
 
 

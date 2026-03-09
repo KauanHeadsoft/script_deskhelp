@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.46
+// @version      2.15.47
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -51,7 +51,7 @@
   const ATTACH_IMAGE_PREVIEW_DEFAULT = true;
   const ATTACH_IMAGE_PREVIEW_LS_KEY = "hs2025-attach-image-preview";
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.46";
+  const SCRIPT_VERSION_FALLBACK = "2.15.47";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -121,6 +121,15 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-09",
+      version: "2.15.47",
+      notes: [
+        "Menu de Configuracoes agora aplica fundo com desfoque ao abrir, melhorando foco visual.",
+        "Clique no fundo desfocado fecha o menu de Configuracoes com comportamento consistente.",
+        "Camadas (z-index) do menu foram ajustadas para manter boa leitura acima do backdrop.",
+      ],
+    },
     {
       date: "2026-03-09",
       version: "2.15.46",
@@ -3355,6 +3364,24 @@ Atenciosamente.`;
     justify-content:flex-end!important;
     position:relative!important;
   }
+  body.hs-dashboard-page form[name="filtros"] .hs-preview-mode-wrap.open{
+    z-index:1000005!important;
+  }
+  body.hs-dashboard-page .hs-settings-backdrop{
+    position:fixed!important;
+    inset:0!important;
+    z-index:1000002!important;
+    background:rgba(4,12,24,.30)!important;
+    backdrop-filter:blur(4px)!important;
+    -webkit-backdrop-filter:blur(4px)!important;
+    opacity:0!important;
+    pointer-events:none!important;
+    transition:opacity .14s ease!important;
+  }
+  body.hs-dashboard-page .hs-settings-backdrop.open{
+    opacity:1!important;
+    pointer-events:auto!important;
+  }
   body.hs-dashboard-page form[name="filtros"] .hs-settings-toggle{
     min-height:26px!important;
     height:26px!important;
@@ -3398,7 +3425,7 @@ Atenciosamente.`;
     position:absolute!important;
     top:calc(100% + 7px)!important;
     right:0!important;
-    z-index:9!important;
+    z-index:1000006!important;
     min-width:250px!important;
     border-radius:12px!important;
     border:1px solid rgba(154, 174, 200, .36)!important;
@@ -6455,6 +6482,16 @@ Atenciosamente.`;
       menuTitle.textContent = "Configuracoes";
       menu.appendChild(menuTitle);
     }
+    let backdrop = document.getElementById("hs-settings-backdrop");
+    if (!(backdrop instanceof HTMLElement)) {
+      backdrop = document.createElement("div");
+      backdrop.id = "hs-settings-backdrop";
+      backdrop.className = "hs-settings-backdrop";
+      backdrop.setAttribute("aria-hidden", "true");
+      document.body.appendChild(backdrop);
+    } else if (!backdrop.isConnected) {
+      document.body.appendChild(backdrop);
+    }
 
     const ensureMenuButton = (id) => {
       let button = menu.querySelector(`#${id}`);
@@ -6479,6 +6516,10 @@ Atenciosamente.`;
     const setMenuOpen = (open) => {
       host.classList.toggle("open", !!open);
       settingsBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      if (backdrop instanceof HTMLElement) {
+        backdrop.classList.toggle("open", !!open);
+        backdrop.setAttribute("aria-hidden", open ? "false" : "true");
+      }
     };
     if (host.dataset.hsSettingsBind !== "1") {
       host.dataset.hsSettingsBind = "1";
@@ -6500,6 +6541,18 @@ Atenciosamente.`;
         if (String(ev.key || "").toLowerCase() !== "escape") return;
         setMenuOpen(false);
       });
+    }
+    if (backdrop instanceof HTMLElement && backdrop.dataset.hsBackdropBind !== "1") {
+      backdrop.dataset.hsBackdropBind = "1";
+      backdrop.addEventListener(
+        "click",
+        (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          setMenuOpen(false);
+        },
+        true
+      );
     }
     settingsBtn.title = "Abrir configuracoes do script";
 
