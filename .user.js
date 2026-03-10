@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.59
+// @version      2.15.60
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -92,7 +92,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.59";
+  const SCRIPT_VERSION_FALLBACK = "2.15.60";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -339,6 +339,16 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-10",
+      version: "2.15.60",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Notificacao do botao Configuracoes agora aparece somente quando existe update real disponivel.",
+        "Removido gatilho de aviso continuo por novidades internas para evitar ponto vermelho permanente.",
+      ],
+    },
     {
       date: "2026-03-10",
       version: "2.15.59",
@@ -8679,20 +8689,12 @@ Atenciosamente.`;
       const state = result || hsScriptUpdateLastResult || readCachedUpdateCheckResult();
       const hasUpdate = !!state?.hasUpdate && compareVersionTexts(String(state?.remoteVersion || ""), SCRIPT_VERSION) > 0;
       const mandatoryUpdate = isMandatoryUpdateResult(state);
-      const latestInfoVersion = getLatestKnownSettingsInfoVersion();
-      const seenVersion = readSettingsNoticeSeenVersion();
-      const hasUnreadInfo = compareVersionTexts(latestInfoVersion, seenVersion) > 0;
-      const showNotice = hasUpdate || hasUnreadInfo;
-      settingsBtn.classList.toggle("has-notification", showNotice);
+      settingsBtn.classList.toggle("has-notification", hasUpdate);
       if (hasUpdate) {
         const remoteVersion = String(state?.remoteVersion || "").trim();
         settingsBtn.title = mandatoryUpdate
           ? `Configuracoes: correcao obrigatoria ${remoteVersion} pendente.`
           : `Configuracoes: nova versao ${remoteVersion} disponivel.`;
-        return;
-      }
-      if (hasUnreadInfo) {
-        settingsBtn.title = `Configuracoes: novidades da versao ${latestInfoVersion}.`;
         return;
       }
       settingsBtn.title = "Abrir configuracoes do script";

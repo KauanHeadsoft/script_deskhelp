@@ -2,6 +2,16 @@
     
         {
         "date":  "2026-03-10",
+        "version":  "2.15.60",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Notificacao do botao Configuracoes agora aparece somente quando existe update real disponivel.",
+                      "Removido gatilho de aviso continuo por novidades internas para evitar ponto vermelho permanente."
+                  ]
+    },
+    {
+        "date":  "2026-03-10",
         "version":  "2.15.59",
         "type":  "routine",
         "mandatory":  false,
