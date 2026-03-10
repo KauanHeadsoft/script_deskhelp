@@ -1,5 +1,17 @@
 ﻿[   
     
+        {
+        "date":  "2026-03-10",
+        "version":  "2.15.58",
+        "type":  "bugfix",
+        "mandatory":  true,
+        "notes":  [
+                      "Correcao urgente no preview TXT/SQL: fluxo agora segue automaticamente o iframe interno de anexo e carrega o conteudo real do arquivo no modal.",
+                      "Novo toggle dedicado no menu de Configuracoes para ativar/desativar preview de anexos TXT/SQL sem afetar o comportamento padrao.",
+                      "Modal de preview de imagem agora ajusta largura/altura ao tamanho real da imagem carregada.",
+                      "Bloco \"Anexo: Novo\" voltou ao fluxo original da pagina; mantido apenas preview de imagens selecionadas antes do envio."
+                  ]
+    },
     {
         "date":  "2026-03-10",
         "version":  "2.15.57",
@@ -327,6 +339,9 @@
                   ]
     }
 ]
+
+
+
 
 
 

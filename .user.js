@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.57
+// @version      2.15.58
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -51,6 +51,8 @@
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
   const ATTACH_IMAGE_PREVIEW_DEFAULT = true;
   const ATTACH_IMAGE_PREVIEW_LS_KEY = "hs2025-attach-image-preview";
+  const ATTACH_TEXT_PREVIEW_DEFAULT = true;
+  const ATTACH_TEXT_PREVIEW_LS_KEY = "hs2025-attach-text-preview";
   const HIDE_SUGGESTION_FILTER_DEFAULT = true;
   const HIDE_SUGGESTION_FILTER_LS_KEY = "hs2025-hide-suggestion-filter";
   const APPEARANCE_SETTINGS_LS_KEY = "hs2025-appearance-settings";
@@ -90,7 +92,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.57";
+  const SCRIPT_VERSION_FALLBACK = "2.15.58";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -711,6 +713,7 @@ Atenciosamente.`;
    *   - hs2025-appearance-settings (legado para migracao automatica)
    *   - hs2025-preview-only-mode
    *   - hs2025-attach-image-preview
+   *   - hs2025-attach-text-preview
    *   - hs2025-hide-suggestion-filter
    *   - hs2025-openai-api-key
    *   - hs2025-gemini-api-key
@@ -1540,7 +1543,7 @@ Atenciosamente.`;
     top:4vh;
     left:50%;
     transform:translateX(-50%);
-    width:min(980px, 96vw);
+    width:min(var(--hs-image-viewer-card-width, 980px), 96vw);
     max-height:92vh;
     display:flex;
     flex-direction:column;
@@ -1576,8 +1579,8 @@ Atenciosamente.`;
     align-items:center;
     padding:10px;
     overflow:auto;
-    min-height:180px;
-    max-height:calc(92vh - 42px);
+    min-height:80px;
+    max-height:var(--hs-image-viewer-body-max-height, calc(92vh - 42px));
     gap:10px;
   }
   .hs-image-viewer-state{
@@ -1589,22 +1592,14 @@ Atenciosamente.`;
     display:none;
   }
   .hs-image-viewer-body img{
-    max-width:100%;
-    max-height:100%;
+    max-width:var(--hs-image-viewer-img-max-width, 100%);
+    max-height:var(--hs-image-viewer-img-max-height, calc(92vh - 90px));
     width:auto;
     height:auto;
     object-fit:contain;
     border-radius:var(--hs-radius-control);
     border:1px solid var(--border);
     background:rgba(2,8,18,.45);
-  }
-  .hs-image-viewer-body .hs-image-viewer-frame{
-    width:100%;
-    min-height:56vh;
-    border:1px solid var(--border);
-    border-radius:var(--hs-radius-control);
-    background:#0a1320;
-    display:none;
   }
   .hs-text-viewer{
     position:fixed;
@@ -2247,51 +2242,6 @@ Atenciosamente.`;
     outline:none!important;
     box-shadow:none!important;
   }
-  body.hs-request-page #interno .hs-attach-picker{
-    display:flex!important;
-    flex-wrap:wrap!important;
-    align-items:center!important;
-    gap:8px!important;
-    width:100%!important;
-    position:relative!important;
-    min-height:30px!important;
-  }
-  body.hs-request-page #interno .hs-attach-native{
-    position:absolute!important;
-    width:1px!important;
-    height:1px!important;
-    opacity:0!important;
-    overflow:hidden!important;
-    pointer-events:none!important;
-  }
-  body.hs-request-page #interno .hs-attach-btn,
-  body.hs-request-page #interno .hs-attach-clear-btn{
-    min-height:24px!important;
-    border-radius:var(--hs-radius-control)!important;
-    padding:3px 10px!important;
-    font-size:11px!important;
-    line-height:1!important;
-    font-weight:700!important;
-    border:var(--hs-border-width) solid var(--border)!important;
-    background:var(--panel2)!important;
-    color:var(--fg)!important;
-    cursor:pointer!important;
-  }
-  body.hs-request-page #interno .hs-attach-btn:hover,
-  body.hs-request-page #interno .hs-attach-clear-btn:hover{
-    filter:brightness(1.06)!important;
-  }
-  body.hs-request-page #interno .hs-attach-clear-btn{
-    opacity:.9!important;
-  }
-  body.hs-request-page #interno .hs-attach-clear-btn[disabled]{
-    opacity:.55!important;
-    cursor:not-allowed!important;
-  }
-  body.hs-request-page #interno .hs-attach-status{
-    font-size:11px!important;
-    opacity:.9!important;
-  }
   body.hs-request-page #interno .hs-attach-preview{
     display:flex!important;
     flex-wrap:wrap!important;
@@ -2326,47 +2276,6 @@ Atenciosamente.`;
   }
   body.hs-request-page #interno .hs-attach-thumb figcaption{
     display:none!important;
-  }
-  body.hs-request-page #interno .hs-attach-thumb.hs-attach-thumb-text{
-    display:flex!important;
-    align-items:center!important;
-    justify-content:center!important;
-    background:linear-gradient(180deg, #13243a, #0f1d31)!important;
-    color:#d5e4f6!important;
-    cursor:pointer!important;
-    text-transform:uppercase!important;
-  }
-  body.hs-request-page #interno .hs-attach-thumb.hs-attach-thumb-text .hs-attach-thumb-text-ext{
-    font-family:Consolas, "Courier New", monospace!important;
-    font-size:11px!important;
-    font-weight:800!important;
-    letter-spacing:.08em!important;
-  }
-  body.hs-request-page #interno .hs-attach-thumb .hs-attach-thumb-remove{
-    position:absolute!important;
-    top:4px!important;
-    right:4px!important;
-    width:18px!important;
-    min-width:18px!important;
-    max-width:18px!important;
-    min-height:18px!important;
-    height:18px!important;
-    padding:0!important;
-    border-radius:999px!important;
-    border:1px solid rgba(255,255,255,.65)!important;
-    background:rgba(0,0,0,.52)!important;
-    color:#fff!important;
-    display:flex!important;
-    align-items:center!important;
-    justify-content:center!important;
-    font-size:12px!important;
-    font-weight:800!important;
-    line-height:1!important;
-    cursor:pointer!important;
-    z-index:2!important;
-  }
-  body.hs-request-page #interno .hs-attach-thumb .hs-attach-thumb-remove:hover{
-    background:rgba(0,0,0,.68)!important;
   }
   body.hs-request-page #interno input[type="button"],
   body.hs-request-page #interno input[type="submit"],
@@ -4620,6 +4529,36 @@ Atenciosamente.`;
     } catch {}
   }
   /**
+   * Objetivo: Le preferencia de preview de anexos TXT/SQL (modal textual).
+   *
+   * Contexto: usado ao clicar em anexos de texto na tela da requisicao.
+   * Parametros: nenhum.
+   * Retorno: boolean.
+   * Efeitos colaterais: leitura opcional de localStorage.
+   */
+  function isAttachmentTextPreviewEnabled() {
+    try {
+      const raw = String(localStorage.getItem(ATTACH_TEXT_PREVIEW_LS_KEY) || "").trim().toLowerCase();
+      if (raw === "1" || raw === "true" || raw === "on") return true;
+      if (raw === "0" || raw === "false" || raw === "off") return false;
+    } catch {}
+    return ATTACH_TEXT_PREVIEW_DEFAULT;
+  }
+  /**
+   * Objetivo: Persiste preferencia do preview de anexos TXT/SQL.
+   *
+   * Contexto: acionado pelo menu de configuracoes.
+   * Parametros:
+   * - enabled: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: grava valor em localStorage quando disponivel.
+   */
+  function setAttachmentTextPreviewEnabled(enabled) {
+    try {
+      localStorage.setItem(ATTACH_TEXT_PREVIEW_LS_KEY, enabled ? "1" : "0");
+    } catch {}
+  }
+  /**
    * Objetivo: Le preferencia para ocultar linha "Sugestao de melhoria" nos filtros.
    *
    * Contexto: acionado na tela de dashboard e no menu de configuracoes.
@@ -5131,6 +5070,21 @@ Atenciosamente.`;
   function isAttachmentModalPreviewAllowed(source, fileName = "", fileType = "") {
     if (!isAttachmentImagePreviewEnabled()) return false;
     return isPngOrJpgPreviewCandidate(source, fileName, fileType);
+  }
+  /**
+   * Objetivo: Informa se preview textual de anexo pode ser usado para o arquivo.
+   *
+   * Contexto: combina toggle do usuario com filtro TXT/SQL.
+   * Parametros:
+   * - source: URL/data URL do arquivo.
+   * - fileName: nome opcional.
+   * - fileType: MIME opcional.
+   * Retorno: boolean.
+   * Efeitos colaterais: leitura opcional de localStorage.
+   */
+  function isAttachmentTextModalPreviewAllowed(source, fileName = "", fileType = "") {
+    if (!isAttachmentTextPreviewEnabled()) return false;
+    return isTextOrSqlPreviewCandidate(source, fileName, fileType);
   }
   /**
    * Objetivo: Le versao de notificacao ja vista no menu de configuracoes.
@@ -8544,6 +8498,7 @@ Atenciosamente.`;
 
     const gridPreviewBtn = ensureMenuButton("hs-preview-mode-toggle", visualGroup);
     const attachPreviewBtn = ensureMenuButton("hs-attach-preview-toggle", visualGroup);
+    const attachTextPreviewBtn = ensureMenuButton("hs-attach-text-preview-toggle", visualGroup);
     const suggestionFilterBtn = ensureMenuButton("hs-suggestion-filter-toggle", visualGroup);
     const appearanceBtn = ensureMenuButton("hs-appearance-toggle", styleGroup);
     const versionCard = ensureMenuCard("hs-settings-version-card", scriptGroup);
@@ -8658,6 +8613,13 @@ Atenciosamente.`;
         ? "Preview de anexos PNG/JPG (locais e recebidos) ativo."
         : "Preview de anexos desativado. Clique abre em nova guia.";
     };
+    const syncTextAttachmentPreviewLabel = () => {
+      const enabled = isAttachmentTextPreviewEnabled();
+      attachTextPreviewBtn.value = enabled ? "Preview TXT/SQL ON" : "Preview TXT/SQL OFF";
+      attachTextPreviewBtn.title = enabled
+        ? "Preview de anexos TXT/SQL ativo."
+        : "Preview TXT/SQL desativado. Arquivos abrem no fluxo original.";
+    };
     const syncSuggestionFilterLabel = () => {
       const enabled = isHideSuggestionFilterEnabled();
       suggestionFilterBtn.value = enabled ? "Ocultar sugestao ON" : "Ocultar sugestao OFF";
@@ -8737,6 +8699,21 @@ Atenciosamente.`;
         next
           ? "Preview de anexos PNG/JPG ativado."
           : "Preview de anexos desativado. Arquivos abrem em nova guia.",
+        "ok",
+        2600
+      );
+      setMenuOpen(false);
+    };
+    attachTextPreviewBtn.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const next = !isAttachmentTextPreviewEnabled();
+      setAttachmentTextPreviewEnabled(next);
+      syncTextAttachmentPreviewLabel();
+      toast(
+        next
+          ? "Preview TXT/SQL ativado."
+          : "Preview TXT/SQL desativado. Arquivos voltam ao comportamento original.",
         "ok",
         2600
       );
@@ -8876,6 +8853,7 @@ Atenciosamente.`;
 
     syncGridPreviewLabel();
     syncAttachmentPreviewLabel();
+    syncTextAttachmentPreviewLabel();
     syncSuggestionFilterLabel();
     refreshSettingsNotification(cached);
   }
@@ -10467,6 +10445,65 @@ Atenciosamente.`;
     }
   }
   /**
+   * Objetivo: Extrai URL real de download quando endpoint retorna HTML com iframe.
+   *
+   * Contexto: corrige preview de anexos que chegam encapsulados por pagina intermediaria.
+   * Parametros:
+   * - html: conteudo HTML bruto.
+   * - baseUrl: URL de base para resolver caminhos relativos.
+   * Retorno: string.
+   */
+  function extractEmbeddedAttachmentUrl(html, baseUrl = "") {
+    const raw = String(html || "");
+    if (!raw) return "";
+    const toAbs = (value) => {
+      const txt = String(value || "").trim();
+      if (!txt || /^javascript:/i.test(txt)) return "";
+      try {
+        return new URL(txt, baseUrl || location.href).toString();
+      } catch {
+        return txt;
+      }
+    };
+    try {
+      const doc = new DOMParser().parseFromString(raw, "text/html");
+      const iframe = doc.querySelector("iframe[src], frame[src], embed[src]");
+      if (iframe instanceof HTMLElement) {
+        const src =
+          iframe.getAttribute("src") ||
+          iframe.getAttribute("data-src") ||
+          iframe.getAttribute("data-url") ||
+          "";
+        const abs = toAbs(src);
+        if (abs) return abs;
+      }
+      const objectEl = doc.querySelector("object[data]");
+      if (objectEl instanceof HTMLElement) {
+        const abs = toAbs(objectEl.getAttribute("data") || "");
+        if (abs) return abs;
+      }
+      const metaRefresh = doc.querySelector('meta[http-equiv="refresh"][content]');
+      if (metaRefresh instanceof HTMLElement) {
+        const content = String(metaRefresh.getAttribute("content") || "");
+        const m = content.match(/url\s*=\s*(['"]?)([^'";]+)\1/i);
+        const abs = toAbs(m?.[2] || "");
+        if (abs) return abs;
+      }
+      const anchor = doc.querySelector("a[href][download], a[href*='blob.core.windows.net'], a[href]");
+      if (anchor instanceof HTMLAnchorElement) {
+        const abs = toAbs(anchor.getAttribute("href") || "");
+        if (abs) return abs;
+      }
+    } catch {}
+    const rx = /\b(?:src|href)\s*=\s*["']([^"']+)["']/gi;
+    let match = null;
+    while ((match = rx.exec(raw))) {
+      const abs = toAbs(match[1] || "");
+      if (abs) return abs;
+    }
+    return "";
+  }
+  /**
    * Objetivo: Deduz MIME de imagem com base em metadados de anexo.
    *
    * Contexto: corrige casos em que endpoint retorna blob sem tipo.
@@ -10505,9 +10542,10 @@ Atenciosamente.`;
    * - fileType: entrada usada por esta rotina.
    * Retorno: Promise<object>.
    */
-  async function resolvePreviewImageSource(imageUrl, label = "", fileType = "") {
+  async function resolvePreviewImageSource(imageUrl, label = "", fileType = "", depth = 0) {
     const raw = String(imageUrl || "").trim();
     if (!raw) return { previewSrc: "", fallbackSrc: "", revoke: null };
+    if (depth > 4) return { previewSrc: "", fallbackSrc: "", revoke: null };
     let absolute = raw;
     try {
       absolute = new URL(raw, location.href).toString();
@@ -10527,10 +10565,20 @@ Atenciosamente.`;
         cache: "no-store",
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
       const blob = await response.blob();
+      const headerType = String(response.headers?.get("content-type") || "").trim().toLowerCase();
       const mimeHint = inferImageMime(label, fileType, absolute);
       const blobMime = String(blob.type || "").trim().toLowerCase();
+      const likelyHtmlPayload =
+        /(?:text\/html|application\/xhtml\+xml)/i.test(headerType) ||
+        /(?:text\/html|application\/xhtml\+xml|text\/plain|application\/json|application\/xml)/i.test(blobMime);
+      if (likelyHtmlPayload) {
+        const asText = await blob.text();
+        const embeddedUrl = extractEmbeddedAttachmentUrl(asText, absolute);
+        if (embeddedUrl && embeddedUrl !== absolute) {
+          return resolvePreviewImageSource(embeddedUrl, label, fileType, depth + 1);
+        }
+      }
       const normalizedBlob =
         /^image\/(?:png|jpeg|jpg|webp|gif|bmp|svg\+xml|avif)$/i.test(blobMime) || !mimeHint
           ? blob
@@ -10675,21 +10723,39 @@ Atenciosamente.`;
     modal.classList.add("open");
   }
   /**
-   * Objetivo: Abre preview textual a partir de arquivo local selecionado.
+   * Objetivo: Baixa conteudo textual real de anexo, seguindo wrappers HTML quando existir.
    *
-   * Contexto: bloco de anexos do novo acompanhamento.
+   * Contexto: corrige retorno intermediario do endpoint de anexo que encapsula arquivo em iframe.
    * Parametros:
-   * - file: arquivo local.
-   * Retorno: Promise<void>.
+   * - fileUrl: URL inicial do anexo.
+   * - depth: nivel interno de recursao.
+   * Retorno: Promise<string>.
    */
-  async function openTextAttachmentPreviewFromFile(file) {
-    if (!(file instanceof File)) return;
+  async function fetchAttachmentTextPreviewContent(fileUrl, depth = 0) {
+    const raw = String(fileUrl || "").trim();
+    if (!raw) return "";
+    if (depth > 4) throw new Error("Limite de redirecionamento atingido.");
+    let absolute = raw;
     try {
-      const text = await file.text();
-      openTextPreviewModalWithContent(String(file.name || "anexo.txt"), text);
-    } catch {
-      toast("Nao foi possivel ler o arquivo selecionado.", "err", 2400);
+      absolute = new URL(raw, location.href).toString();
+    } catch {}
+    const response = await fetch(absolute, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const text = await response.text();
+    const headerType = String(response.headers?.get("content-type") || "").toLowerCase();
+    const looksLikeHtml = /<(?:!doctype|html|head|body|iframe|frame|meta|script)\b/i.test(text);
+    if (/(?:text\/html|application\/xhtml\+xml)/i.test(headerType) || looksLikeHtml) {
+      const embeddedUrl = extractEmbeddedAttachmentUrl(text, absolute);
+      if (embeddedUrl && embeddedUrl !== absolute) {
+        return fetchAttachmentTextPreviewContent(embeddedUrl, depth + 1);
+      }
     }
+    if (/\u0000/.test(text)) throw new Error("Conteudo binario.");
+    return text;
   }
   /**
    * Objetivo: Abre preview textual de anexo remoto (TXT/SQL) com sessao autenticada.
@@ -10701,6 +10767,11 @@ Atenciosamente.`;
    * Retorno: Promise<void>.
    */
   async function openTextAttachmentPreviewFromUrl(fileUrl, label = "") {
+    if (!isAttachmentTextPreviewEnabled()) {
+      const rawDirect = String(fileUrl || "").trim();
+      if (rawDirect) window.open(rawDirect, "_blank", "noopener,noreferrer");
+      return;
+    }
     const raw = String(fileUrl || "").trim();
     if (!raw) return;
     let absolute = raw;
@@ -10726,14 +10797,7 @@ Atenciosamente.`;
     modal.classList.add("open");
 
     try {
-      const response = await fetch(absolute, {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const text = await response.text();
-      if (/\u0000/.test(text)) throw new Error("Conteudo binario.");
+      const text = await fetchAttachmentTextPreviewContent(absolute, 0);
       codeEl.textContent = normalizeTextPreviewContent(text) || "// arquivo vazio";
       if (stateEl instanceof HTMLElement) {
         stateEl.style.display = "none";
@@ -10760,8 +10824,9 @@ Atenciosamente.`;
     if (!hsImagePreviewModal) hsImagePreviewModal = document.getElementById("hs-image-viewer");
     if (!(hsImagePreviewModal instanceof HTMLElement)) return;
     const img = hsImagePreviewModal.querySelector(".hs-image-viewer-body img");
-    const frame = hsImagePreviewModal.querySelector(".hs-image-viewer-frame");
     const state = hsImagePreviewModal.querySelector(".hs-image-viewer-state");
+    const card = hsImagePreviewModal.querySelector(".hs-image-viewer-card");
+    const body = hsImagePreviewModal.querySelector(".hs-image-viewer-body");
     if (img instanceof HTMLImageElement) {
       delete img.dataset.hsPreviewRequest;
       delete img.dataset.hsFallbackSrc;
@@ -10770,20 +10835,51 @@ Atenciosamente.`;
       img.onerror = null;
       img.onload = null;
       img.style.display = "none";
-    }
-    if (frame instanceof HTMLIFrameElement) {
-      frame.onerror = null;
-      frame.onload = null;
-      frame.style.display = "none";
-      frame.removeAttribute("src");
-      frame.src = "about:blank";
+      img.style.removeProperty("max-width");
+      img.style.removeProperty("max-height");
     }
     if (state instanceof HTMLElement) {
       state.style.display = "none";
       state.textContent = "";
     }
+    if (card instanceof HTMLElement) card.style.removeProperty("--hs-image-viewer-card-width");
+    if (body instanceof HTMLElement) body.style.removeProperty("--hs-image-viewer-body-max-height");
     releaseImagePreviewObjectUrl();
     hsImagePreviewModal.classList.remove("open");
+  }
+  /**
+   * Objetivo: Ajusta dimensoes do modal de imagem para refletir o tamanho real da imagem.
+   *
+   * Contexto: executado apos carregar imagem no preview.
+   * Parametros:
+   * - modal: container do modal.
+   * - img: elemento de imagem carregado.
+   * Retorno: void.
+   */
+  function fitImagePreviewModalToImage(modal, img) {
+    if (!(modal instanceof HTMLElement) || !(img instanceof HTMLImageElement)) return;
+    if (!img.naturalWidth || !img.naturalHeight) return;
+    const card = modal.querySelector(".hs-image-viewer-card");
+    const body = modal.querySelector(".hs-image-viewer-body");
+    const head = modal.querySelector(".hs-image-viewer-head");
+    if (!(card instanceof HTMLElement) || !(body instanceof HTMLElement)) return;
+    const bodyStyle = window.getComputedStyle(body);
+    const padX = (parseFloat(bodyStyle.paddingLeft) || 0) + (parseFloat(bodyStyle.paddingRight) || 0);
+    const padY = (parseFloat(bodyStyle.paddingTop) || 0) + (parseFloat(bodyStyle.paddingBottom) || 0);
+    const headHeight = head instanceof HTMLElement ? head.offsetHeight : 42;
+    const maxCardWidth = Math.max(240, Math.floor(window.innerWidth * 0.96));
+    const maxBodyHeight = Math.max(120, Math.floor(window.innerHeight * 0.92) - headHeight - 2);
+    const maxImageWidth = Math.max(120, maxCardWidth - padX - 2);
+    const maxImageHeight = Math.max(80, maxBodyHeight - padY);
+    const scale = Math.min(1, maxImageWidth / img.naturalWidth, maxImageHeight / img.naturalHeight);
+    const renderedWidth = Math.max(1, Math.floor(img.naturalWidth * scale));
+    const renderedHeight = Math.max(1, Math.floor(img.naturalHeight * scale));
+    img.style.maxWidth = `${renderedWidth}px`;
+    img.style.maxHeight = `${renderedHeight}px`;
+    const nextCardWidth = Math.max(240, Math.min(maxCardWidth, renderedWidth + padX + 2));
+    const nextBodyHeight = Math.max(120, Math.min(maxBodyHeight, renderedHeight + padY));
+    card.style.setProperty("--hs-image-viewer-card-width", `${Math.round(nextCardWidth)}px`);
+    body.style.setProperty("--hs-image-viewer-body-max-height", `${Math.round(nextBodyHeight)}px`);
   }
   /**
    * Objetivo: Garante modal para visualizar imagem ampliada.
@@ -10809,7 +10905,6 @@ Atenciosamente.`;
           <div class="hs-image-viewer-body">
             <p class="hs-image-viewer-state" aria-live="polite"></p>
             <img alt="Preview do anexo" />
-            <iframe class="hs-image-viewer-frame" title="Preview do anexo" loading="eager"></iframe>
           </div>
         </section>
       `;
@@ -10820,6 +10915,13 @@ Atenciosamente.`;
     modal.dataset.hsBound = "1";
     modal.querySelector(".hs-image-viewer-backdrop")?.addEventListener("click", closeImagePreviewModal);
     modal.querySelector('[data-action="close"]')?.addEventListener("click", closeImagePreviewModal);
+    window.addEventListener("resize", () => {
+      if (!modal.classList.contains("open")) return;
+      const img = modal.querySelector(".hs-image-viewer-body img");
+      if (img instanceof HTMLImageElement && img.naturalWidth > 0 && img.style.display !== "none") {
+        fitImagePreviewModalToImage(modal, img);
+      }
+    });
     return modal;
   }
   /**
@@ -10843,7 +10945,8 @@ Atenciosamente.`;
     const titleEl = modal.querySelector(".hs-image-viewer-title");
     const stateEl = modal.querySelector(".hs-image-viewer-state");
     const img = modal.querySelector(".hs-image-viewer-body img");
-    const frame = modal.querySelector(".hs-image-viewer-frame");
+    const card = modal.querySelector(".hs-image-viewer-card");
+    const body = modal.querySelector(".hs-image-viewer-body");
     if (!(img instanceof HTMLImageElement)) return;
     if (titleEl instanceof HTMLElement) {
       const title = String(label || "").trim();
@@ -10857,70 +10960,67 @@ Atenciosamente.`;
     delete img.dataset.hsTriedFallback;
     img.removeAttribute("src");
     img.style.display = "none";
-    if (frame instanceof HTMLIFrameElement) {
-      frame.onerror = null;
-      frame.onload = null;
-      frame.style.display = "none";
-      frame.removeAttribute("src");
-      frame.src = "about:blank";
-    }
+    img.style.removeProperty("max-width");
+    img.style.removeProperty("max-height");
+    if (card instanceof HTMLElement) card.style.removeProperty("--hs-image-viewer-card-width");
+    if (body instanceof HTMLElement) body.style.removeProperty("--hs-image-viewer-body-max-height");
     if (stateEl instanceof HTMLElement) {
       stateEl.style.display = "block";
       stateEl.textContent = "Carregando imagem...";
     }
     modal.classList.add("open");
-    const absoluteSrc = (() => {
-      try {
-        return new URL(src, location.href).toString();
-      } catch {
-        return src;
-      }
-    })();
-    const useIframe = /^https?:/i.test(absoluteSrc);
-
-    if (useIframe && frame instanceof HTMLIFrameElement) {
-      frame.style.display = "block";
-      frame.onload = () => {
+    const previewRequestId = String(Date.now()) + String(Math.random()).slice(2);
+    img.dataset.hsPreviewRequest = previewRequestId;
+    (async () => {
+      const resolved = await resolvePreviewImageSource(src, String(label || ""), String(fileType || ""), 0);
+      if (img.dataset.hsPreviewRequest !== previewRequestId) return;
+      const previewSrc = String(resolved?.previewSrc || "").trim();
+      const fallbackSrc = String(resolved?.fallbackSrc || "").trim() || src;
+      if (typeof resolved?.revoke === "function") hsImagePreviewObjectUrlRevoke = resolved.revoke;
+      img.dataset.hsFallbackSrc = fallbackSrc;
+      img.dataset.hsTriedFallback = "0";
+      img.style.display = "";
+      img.onload = () => {
+        if (img.dataset.hsPreviewRequest !== previewRequestId) return;
+        fitImagePreviewModalToImage(modal, img);
         if (stateEl instanceof HTMLElement) {
           stateEl.style.display = "none";
           stateEl.textContent = "";
         }
       };
-      frame.onerror = () => {
+      img.onerror = () => {
+        if (img.dataset.hsPreviewRequest !== previewRequestId) return;
+        const hasTriedFallback = img.dataset.hsTriedFallback === "1";
+        const fallback = String(img.dataset.hsFallbackSrc || "").trim();
+        if (!hasTriedFallback && fallback && img.src !== fallback) {
+          img.dataset.hsTriedFallback = "1";
+          img.src = fallback;
+          return;
+        }
         if (stateEl instanceof HTMLElement) {
           stateEl.style.display = "block";
           stateEl.textContent = "Nao foi possivel carregar esta imagem no modal.";
         }
-        toast("Falha no preview interno. Abrindo em nova guia.", "err", 2600);
-        window.open(absoluteSrc, "_blank", "noopener,noreferrer");
+        toast("Imagem indisponivel para preview no momento.", "err", 2800);
       };
-      frame.src = absoluteSrc;
-      return;
-    }
-
-    img.style.display = "";
-    img.onload = () => {
-      if (stateEl instanceof HTMLElement) {
-        stateEl.style.display = "none";
-        stateEl.textContent = "";
-      }
-    };
-    img.onerror = () => {
+      img.src = previewSrc || fallbackSrc;
+    })().catch(() => {
+      if (img.dataset.hsPreviewRequest !== previewRequestId) return;
       if (stateEl instanceof HTMLElement) {
         stateEl.style.display = "block";
         stateEl.textContent = "Nao foi possivel carregar esta imagem no modal.";
       }
-      toast("Imagem indisponivel para preview no momento.", "err", 2800);
-    };
-    img.src = absoluteSrc;
+      toast("Falha no preview interno. Abrindo em nova guia.", "err", 2600);
+      window.open(src, "_blank", "noopener,noreferrer");
+    });
   }
   /**
-   * Objetivo: Ajusta anexos com preview local sem limitar quantidade de arquivos.
+   * Objetivo: Mantem o bloco "Anexo: Novo" original e adiciona apenas preview de imagem selecionada.
    *
    * Contexto: Tela "Visualizar requisicao" no bloco de novo acompanhamento.
    * Parametros: nenhum.
    * Retorno: void.
-   * Efeitos colaterais: ajusta atributos de inputs file e observa clique em "Novo".
+   * Efeitos colaterais: cria miniaturas clicaveis somente para arquivos de imagem.
    */
   function ensureSingleImageAttachments() {
     if (!isRequestVisualizarPage()) return;
@@ -10935,483 +11035,214 @@ Atenciosamente.`;
         return raw;
       }
     };
-    const openAttachmentThumb = (file, imageUrl) => {
-      const resolvedUrl = toAbsoluteUrl(imageUrl);
-      const fileName = String(file?.name || "").trim();
-      const fileType = String(file?.type || "").trim();
-      if (isTextOrSqlPreviewCandidate(resolvedUrl, fileName, fileType)) {
-        if (file instanceof File) {
-          openTextAttachmentPreviewFromFile(file);
+    const imageNameRx = /\.(avif|bmp|gif|heic|heif|jpe?g|png|svg|tiff?|webp)$/i;
+    const isImageLike = (file) => {
+      if (!(file instanceof File)) return false;
+      const mime = String(file.type || "").trim();
+      if (/^image\//i.test(mime)) return true;
+      return imageNameRx.test(String(file.name || ""));
+    };
+    const readFileAsDataUrl = (file) =>
+      new Promise((resolve) => {
+        if (!(file instanceof Blob)) {
+          resolve("");
           return;
         }
-        if (resolvedUrl && !/^javascript:/i.test(resolvedUrl)) {
-          openTextAttachmentPreviewFromUrl(resolvedUrl, fileName || "anexo.txt");
+        let done = false;
+        const finish = (value) => {
+          if (done) return;
+          done = true;
+          resolve(typeof value === "string" ? value : "");
+        };
+        try {
+          const reader = new FileReader();
+          reader.onload = () => finish(reader.result);
+          reader.onerror = () => finish("");
+          reader.onabort = () => finish("");
+          reader.readAsDataURL(file);
+        } catch {
+          finish("");
         }
-        return;
-      }
+      });
+    const openAttachmentThumb = (file, imageUrl) => {
+      const resolvedUrl = toAbsoluteUrl(imageUrl);
       if (!resolvedUrl || /^javascript:/i.test(resolvedUrl)) return;
+      const fileName = String(file?.name || "").trim();
+      const fileType = String(file?.type || "").trim();
       if (isAttachmentModalPreviewAllowed(resolvedUrl, fileName, fileType)) {
         openImagePreviewModal(resolvedUrl, fileName, fileType);
         return;
       }
       window.open(resolvedUrl, "_blank", "noopener,noreferrer");
     };
-
-    const setInputMulti = (input) => {
-      if (!(input instanceof HTMLInputElement)) return;
-      if ((input.type || "").toLowerCase() !== "file") return;
-
-      input.multiple = true;
-      input.setAttribute("multiple", "multiple");
-      input.dataset.hsMultiAnexo = "1";
-    };
-    const decorateInputPreview = (input) => {
-      if (!(input instanceof HTMLInputElement)) return;
-      if ((input.type || "").toLowerCase() !== "file") return;
-      if (input.dataset.hsAttachUi === "1") return;
-
-      input.dataset.hsAttachUi = "1";
-      input.classList.add("hs-attach-native");
-
-      const picker = document.createElement("div");
-      picker.className = "hs-attach-picker";
-      input.parentElement?.insertBefore(picker, input);
-      picker.appendChild(input);
-
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "hs-attach-btn";
-      btn.textContent = "Selecionar arquivos";
-
-      const clearBtn = document.createElement("button");
-      clearBtn.type = "button";
-      clearBtn.className = "hs-attach-clear-btn";
-      clearBtn.textContent = "Limpar";
-      clearBtn.disabled = true;
-
-      const status = document.createElement("span");
-      status.className = "hs-attach-status";
-      status.textContent = "Nenhum arquivo selecionado";
-
-      const preview = document.createElement("div");
-      preview.className = "hs-attach-preview";
-
-      picker.insertBefore(btn, input);
-      picker.insertBefore(clearBtn, input);
-      picker.appendChild(status);
-      picker.appendChild(preview);
-
-      let renderSeq = 0;
-      const imageNameRx = /\.(avif|bmp|gif|heic|heif|jpe?g|png|svg|tiff?|webp)$/i;
-      const textNameRx = /\.(txt|sql)$/i;
-      const isImageLike = (file) => {
-        if (!(file instanceof File)) return false;
-        const mime = String(file.type || "").trim();
-        if (/^image\//i.test(mime)) return true;
-        return imageNameRx.test(String(file.name || ""));
-      };
-      const isTextLike = (file) => {
-        if (!(file instanceof File)) return false;
-        const mime = String(file.type || "").trim();
-        const name = String(file.name || "").trim();
-        if (isTextOrSqlPreviewCandidate("", name, mime)) return true;
-        return textNameRx.test(name);
-      };
-      const readFileAsDataUrl = (file) =>
-        new Promise((resolve) => {
-          if (!(file instanceof Blob)) {
-            resolve("");
-            return;
-          }
-          let done = false;
-          const finish = (value) => {
-            if (done) return;
-            done = true;
-            resolve(typeof value === "string" ? value : "");
-          };
-          try {
-            const reader = new FileReader();
-            reader.onload = () => finish(reader.result);
-            reader.onerror = () => finish("");
-            reader.onabort = () => finish("");
-            reader.readAsDataURL(file);
-          } catch (_err) {
-            finish("");
-          }
-        });
-
-      const assignSelectedFiles = (nextFiles) => {
-        const list = Array.from(nextFiles || []).filter((file) => file instanceof File);
-        if (!list.length) {
-          input.value = "";
-          return true;
-        }
-        try {
-          if (typeof DataTransfer === "function") {
-            const dt = new DataTransfer();
-            list.forEach((file) => dt.items.add(file));
-            input.files = dt.files;
-            return true;
-          }
-        } catch (_err) {}
-        return false;
-      };
-      const clearSelectedImages = () => {
-        input.value = "";
-        renderPreview();
-      };
-      const removeSelectedImageByIndex = (index) => {
-        const currentFiles = Array.from(input.files || []);
-        if (!Number.isInteger(index) || index < 0 || index >= currentFiles.length) return;
-        currentFiles.splice(index, 1);
-        if (currentFiles.length) {
-          if (!assignSelectedFiles(currentFiles)) {
-            input.value = "";
-            status.textContent = "Nao foi possivel remover somente um arquivo. Selecione novamente.";
-          }
-        } else {
-          input.value = "";
-        }
-        renderPreview();
-      };
-
-      const renderPreview = async () => {
-        const seq = ++renderSeq;
-        preview.innerHTML = "";
-        const files = Array.from(input.files || []);
-        clearBtn.disabled = files.length === 0;
-        const previewables = files
-          .map((file, fileIndex) => ({ file, fileIndex }))
-          .filter((item) => isImageLike(item.file) || isTextLike(item.file));
-        if (!files.length) {
-          status.textContent = "Nenhum arquivo selecionado";
-        } else if (previewables.length === files.length) {
-          status.textContent = `${files.length} ${files.length === 1 ? "arquivo selecionado" : "arquivos selecionados"}`;
-        } else {
-          const previewLabel = `${previewables.length} ${previewables.length === 1 ? "arquivo" : "arquivos"}`;
-          status.textContent = `${files.length} arquivos selecionados (${previewLabel} com preview interno)`;
-        }
-
-        for (const item of previewables) {
-          const file = item.file;
-          const fileIndex = item.fileIndex;
-          const isTextFile = isTextLike(file);
-          if (seq !== renderSeq) return;
-          const src = isTextFile ? "" : await readFileAsDataUrl(file);
-          if (!isTextFile && seq !== renderSeq) return;
-
-          const fig = document.createElement("figure");
-          fig.className = "hs-attach-thumb";
-          if (isTextFile) fig.classList.add("hs-attach-thumb-text");
-          fig.tabIndex = 0;
-          fig.setAttribute("role", "button");
-          const refreshThumbHint = () => {
-            const allowImageModal =
-              !isTextFile && isAttachmentModalPreviewAllowed(src, String(file.name || ""), String(file.type || ""));
-            const allowTextModal = isTextFile;
-            fig.setAttribute(
-              "aria-label",
-              allowTextModal
-                ? `Abrir preview de texto de ${String(file.name || "arquivo")}`
-                : allowImageModal
-                ? `Abrir preview de ${String(file.name || "imagem")}`
-                : `Abrir ${String(file.name || "arquivo")} em nova guia`
-            );
-            fig.title = allowTextModal
-              ? "Clique para abrir preview TXT/SQL"
-              : allowImageModal
-              ? "Clique para ampliar (PNG/JPG)"
-              : "Clique para abrir em nova guia";
-            fig.style.setProperty("cursor", allowTextModal || allowImageModal ? "zoom-in" : "pointer", "important");
-          };
-          refreshThumbHint();
-
-          if (isTextFile) {
-            const ext = document.createElement("span");
-            ext.className = "hs-attach-thumb-text-ext";
-            ext.textContent = /\.sql$/i.test(String(file.name || "")) ? "SQL" : "TXT";
-            fig.appendChild(ext);
-          } else {
-            const img = document.createElement("img");
-            img.alt = String(file.name || "imagem");
-            img.loading = "lazy";
-            img.decoding = "async";
-            if (src) img.src = src;
-            fig.appendChild(img);
-          }
-
-          const caption = document.createElement("figcaption");
-          caption.textContent = String(file.name || "imagem");
-
-          const removeBtn = document.createElement("button");
-          removeBtn.type = "button";
-          removeBtn.className = "hs-attach-thumb-remove";
-          removeBtn.textContent = "x";
-          removeBtn.title = "Remover arquivo";
-          removeBtn.setAttribute("aria-label", `Remover ${String(file.name || "arquivo")}`);
-
-          fig.appendChild(removeBtn);
-          fig.appendChild(caption);
-          preview.appendChild(fig);
-          fig.addEventListener("mouseenter", refreshThumbHint);
-          fig.addEventListener("focus", refreshThumbHint);
-          fig.addEventListener(
-            "click",
-            (ev) => {
-              if (ev.target instanceof Element && ev.target.closest(".hs-attach-thumb-remove")) return;
-              if (ev.defaultPrevented) return;
-              if ("button" in ev && ev.button !== 0) return;
-              if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return;
-              ev.preventDefault();
-              ev.stopPropagation();
-              if (isTextFile) {
-                openTextAttachmentPreviewFromFile(file);
-                return;
-              }
-              if (!src) return;
-              openAttachmentThumb(file, src);
-            },
-            true
-          );
-          removeBtn.addEventListener("click", (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            ev.stopImmediatePropagation();
-            removeSelectedImageByIndex(fileIndex);
-          });
-          fig.addEventListener("keydown", (ev) => {
-            const key = String(ev.key || "").toLowerCase();
-            if (key !== "enter" && key !== " ") return;
-            ev.preventDefault();
-            if (isTextFile) {
-              openTextAttachmentPreviewFromFile(file);
-              return;
-            }
-            if (src) openAttachmentThumb(file, src);
-          });
-        }
-      };
-
-      btn.addEventListener("click", () => input.click());
-      clearBtn.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        clearSelectedImages();
-      });
-      input.addEventListener("change", renderPreview);
-      renderPreview();
-    };
-
     const isAttachmentInput = (input) => {
       if (!(input instanceof HTMLInputElement)) return false;
       if ((input.type || "").toLowerCase() !== "file") return false;
-      if (input.closest("#Novo_Acompanhamento, #acompanhamento_form, .hs-attach-picker")) return true;
+      if (input.closest("#Novo_Acompanhamento, #acompanhamento_form")) return true;
       const row = input.closest("tr,td,div,label");
       const rowText = norm(row?.textContent || "");
       return /anex/.test(rowText);
     };
-    const mergeAttachmentInputsByName = (scope) => {
-      if (typeof DataTransfer !== "function") return;
-      const rootScope =
-        scope instanceof HTMLElement || scope instanceof HTMLFormElement || scope instanceof Document
-          ? scope
-          : root;
-      const allInputs = Array.from(rootScope.querySelectorAll("input[type='file']")).filter((input) =>
-        isAttachmentInput(input)
+    const ensureInputPreviewContainer = (input) => {
+      if (!(input instanceof HTMLInputElement)) return null;
+      if (!input.dataset.hsAttachPreviewId) {
+        input.dataset.hsAttachPreviewId = `hs-prev-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      }
+      const previewId = String(input.dataset.hsAttachPreviewId || "").trim();
+      if (!previewId) return null;
+      let preview =
+        input.parentElement?.querySelector(`.hs-attach-preview[data-hs-attach-for="${previewId}"]`) || null;
+      if (!(preview instanceof HTMLElement)) {
+        preview = document.createElement("div");
+        preview.className = "hs-attach-preview";
+        preview.setAttribute("data-hs-attach-for", previewId);
+        input.insertAdjacentElement("afterend", preview);
+      }
+      return preview;
+    };
+    const bindInputImagePreview = (input) => {
+      if (!(input instanceof HTMLInputElement)) return;
+      if ((input.type || "").toLowerCase() !== "file") return;
+      if (input.dataset.hsAttachImageBound === "1") return;
+      const preview = ensureInputPreviewContainer(input);
+      if (!(preview instanceof HTMLElement)) return;
+      input.dataset.hsAttachImageBound = "1";
+      let renderSeq = 0;
+      const renderPreview = async () => {
+        const seq = ++renderSeq;
+        preview.innerHTML = "";
+        const files = Array.from(input.files || []).filter((file) => isImageLike(file));
+        if (!files.length) return;
+        for (const file of files) {
+          const src = await readFileAsDataUrl(file);
+          if (seq !== renderSeq) return;
+          if (!src) continue;
+          const fig = document.createElement("figure");
+          fig.className = "hs-attach-thumb";
+          fig.tabIndex = 0;
+          fig.setAttribute("role", "button");
+          fig.setAttribute("aria-label", `Abrir preview de ${String(file.name || "imagem")}`);
+          fig.title = "Clique para ampliar imagem";
+          const img = document.createElement("img");
+          img.alt = String(file.name || "imagem");
+          img.loading = "lazy";
+          img.decoding = "async";
+          img.src = src;
+          fig.appendChild(img);
+          const caption = document.createElement("figcaption");
+          caption.textContent = String(file.name || "imagem");
+          fig.appendChild(caption);
+          const openThumb = (ev) => {
+            if (ev) {
+              ev.preventDefault();
+              ev.stopPropagation();
+            }
+            openAttachmentThumb(file, src);
+          };
+          fig.addEventListener("click", (ev) => {
+            if ("button" in ev && ev.button !== 0) return;
+            if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return;
+            openThumb(ev);
+          });
+          fig.addEventListener("keydown", (ev) => {
+            const key = String(ev.key || "").toLowerCase();
+            if (key !== "enter" && key !== " ") return;
+            openThumb(ev);
+          });
+          preview.appendChild(fig);
+        }
+      };
+      input.addEventListener("change", renderPreview);
+      renderPreview();
+    };
+    const bindAttachmentInputs = () => {
+      const fileInputs = Array.from(
+        root.querySelectorAll(
+          "#Novo_Acompanhamento input[type='file'], #acompanhamento_form input[type='file'], input[type='file']"
+        )
       );
-      if (!allInputs.length) return;
-
-      const grouped = new Map();
-      allInputs.forEach((input) => {
-        const key = String(input.getAttribute("name") || "__hs_attach_no_name__").trim() || "__hs_attach_no_name__";
-        if (!grouped.has(key)) grouped.set(key, []);
-        grouped.get(key).push(input);
-      });
-
-      grouped.forEach((inputs) => {
-        if (!Array.isArray(inputs) || inputs.length < 2) return;
-        const mergedFiles = [];
-        inputs.forEach((input) => {
-          Array.from(input.files || []).forEach((file) => {
-            if (file instanceof File) mergedFiles.push(file);
-          });
-        });
-        if (mergedFiles.length <= 1) return;
-
-        const targetInput = inputs.find((input) => (input.files?.length || 0) > 0) || inputs[0];
-        if (!(targetInput instanceof HTMLInputElement)) return;
-        try {
-          const dt = new DataTransfer();
-          mergedFiles.forEach((file) => dt.items.add(file));
-          targetInput.files = dt.files;
-          inputs.forEach((input) => {
-            if (input !== targetInput) input.value = "";
-          });
-          targetInput.dispatchEvent(new Event("change", { bubbles: true }));
-        } catch (_err) {}
+      fileInputs.forEach((input) => {
+        if (!isAttachmentInput(input)) return;
+        bindInputImagePreview(input);
       });
     };
 
-    const fileInputs = Array.from(
-      root.querySelectorAll(
-        "#Novo_Acompanhamento input[type='file'], #acompanhamento_form input[type='file'], input[type='file']"
-      )
-    );
-    fileInputs.forEach((input) => {
-      if (!isAttachmentInput(input)) return;
-      setInputMulti(input);
-      decorateInputPreview(input);
-    });
-    if (root.dataset.hsAttachMergeBind !== "1") {
-      root.dataset.hsAttachMergeBind = "1";
-      root.addEventListener(
-        "submit",
-        (ev) => {
-          const form = ev.target instanceof HTMLFormElement ? ev.target : null;
-          mergeAttachmentInputsByName(form || root);
-        },
-        true
-      );
+    bindAttachmentInputs();
+
+    if (root.dataset.hsAttachPreviewClickBind !== "1") {
+      root.dataset.hsAttachPreviewClickBind = "1";
       root.addEventListener(
         "click",
         (ev) => {
           const target = ev.target instanceof Element ? ev.target : null;
           if (!target) return;
-          const submitter = target.closest("button, input[type='submit'], input[type='image']");
-          if (!submitter) return;
-          const form =
-            submitter instanceof HTMLInputElement || submitter instanceof HTMLButtonElement
-              ? submitter.form || submitter.closest("form")
-              : submitter.closest("form");
-          mergeAttachmentInputsByName(form || root);
-        },
-        true
-      );
-      root.addEventListener(
-        "keydown",
-        (ev) => {
-          const key = String(ev.key || "").toLowerCase();
-          if (key !== "enter") return;
-          const target = ev.target instanceof HTMLElement ? ev.target : null;
-          if (!target) return;
-          const form = target.closest("form");
-          if (!form) return;
-          mergeAttachmentInputsByName(form);
+          const trigger = target.closest("a,button,input[type='button'],input[type='submit'],img");
+          if (!trigger) return;
+          const txt = norm(
+            [
+              trigger.textContent || "",
+              trigger.getAttribute("value") || "",
+              trigger.getAttribute("title") || "",
+              trigger.getAttribute("alt") || "",
+            ].join(" ")
+          );
+          if (!/(^|\s)(novo|adicionar)(\s|$)/i.test(txt)) return;
+          const ctx = trigger.closest("tr,td,div,table,form");
+          const ctxText = norm(ctx?.textContent || "");
+          if (!/anex/.test(ctxText) && !trigger.closest("#Novo_Acompanhamento, #acompanhamento_form")) return;
+          setTimeout(bindAttachmentInputs, 80);
+          setTimeout(bindAttachmentInputs, 260);
         },
         true
       );
     }
-    setTimeout(() => mergeAttachmentInputsByName(root), 0);
-    setTimeout(() => mergeAttachmentInputsByName(root), 140);
 
-    const attachmentBlocks = [];
-    const detailRows = Array.from(root.querySelectorAll("table:not(.sortable) tr")).filter((tr) => {
-      const cells = Array.from(tr.querySelectorAll("th,td"));
-      if (!cells.length) return false;
-      const firstLabel = norm(cells[0]?.textContent || "");
-      return /^anex/.test(firstLabel) || /\banex/.test(norm(tr.textContent || ""));
-    });
-    detailRows.forEach((row) => attachmentBlocks.push(row));
-    root
-      .querySelectorAll(
-        "[id*='anex'], [class*='anex'], [name*='anex']"
-      )
-      .forEach((el) => {
-        if (el instanceof HTMLElement) attachmentBlocks.push(el);
-      });
-    const uniqueBlocks = Array.from(new Set(attachmentBlocks));
-    uniqueBlocks.forEach((scope) => {
-      scope.querySelectorAll("a[href]").forEach((el) => {
-        if (!(el instanceof HTMLAnchorElement)) return;
-        const href = String(el.getAttribute("href") || "").trim();
-        if (!href || /^javascript:/i.test(href)) return;
-        const rel = new Set(String(el.getAttribute("rel") || "").split(/\s+/).filter(Boolean));
-        rel.add("noopener");
-        rel.add("noreferrer");
-        el.setAttribute("target", "_blank");
-        el.setAttribute("rel", Array.from(rel).join(" "));
-      });
-    });
-
-    if (root.dataset.hsMultiAnexoBind === "1") return;
-    root.dataset.hsMultiAnexoBind = "1";
+    if (root.dataset.hsAttachLinkPreviewBind === "1") return;
+    root.dataset.hsAttachLinkPreviewBind = "1";
     root.addEventListener(
       "click",
       (ev) => {
         const target = ev.target instanceof Element ? ev.target : null;
         if (!target) return;
-
         const anchor = target.closest("a[href]");
-        if (anchor instanceof HTMLAnchorElement) {
-          const hrefRaw = String(anchor.href || anchor.getAttribute("href") || "").trim();
-          const hrefLooksLikeAnexo =
-            /(?:^|\/)anexo(?:\.php)?(?:[?#]|$)/i.test(hrefRaw) ||
-            /[?&](?:anexo|arquivo|file|id_anexo)=/i.test(hrefRaw);
-          const inAttachmentContext = (() => {
-            if (anchor.closest("#Novo_Acompanhamento, #acompanhamento_form, .hs-attach-picker")) return true;
-            if (anchor.closest("[id*='anex'], [class*='anex'], [name*='anex']")) return true;
-            const tr = anchor.closest("tr");
-            if (tr && /anex/.test(norm(tr.textContent || ""))) return true;
-            if (hrefLooksLikeAnexo) return true;
-            return false;
-          })();
-          if (inAttachmentContext) {
-            const hrefAbs = toAbsoluteUrl(hrefRaw);
-            const label = String(
-              anchor.getAttribute("download") ||
-                anchor.getAttribute("title") ||
-                anchor.textContent ||
-                ""
-            ).trim();
-            const allowImageModal =
-              !!hrefAbs &&
-              !/^javascript:/i.test(hrefAbs) &&
-              isAttachmentModalPreviewAllowed(hrefAbs, label, "");
-            const allowTextModal =
-              !!hrefAbs &&
-              !/^javascript:/i.test(hrefAbs) &&
-              isTextOrSqlPreviewCandidate(hrefAbs, label, "");
-            const isPlainLeftClick =
-              !ev.defaultPrevented &&
-              (("button" in ev && ev.button === 0) || !("button" in ev)) &&
-              !ev.ctrlKey &&
-              !ev.metaKey &&
-              !ev.shiftKey &&
-              !ev.altKey;
-            if (allowImageModal && isPlainLeftClick) {
-              ev.preventDefault();
-              ev.stopPropagation();
-              openImagePreviewModal(hrefAbs, label, "");
-              return;
-            }
-            if (allowTextModal && isPlainLeftClick) {
-              ev.preventDefault();
-              ev.stopPropagation();
-              openTextAttachmentPreviewFromUrl(hrefAbs, label || "anexo.txt");
-              return;
-            }
-          }
+        if (!(anchor instanceof HTMLAnchorElement)) return;
+        const hrefRaw = String(anchor.href || anchor.getAttribute("href") || "").trim();
+        const hrefLooksLikeAnexo =
+          /(?:^|\/)anexo(?:\.php)?(?:[?#]|$)/i.test(hrefRaw) || /[?&](?:anexo|arquivo|file|id_anexo)=/i.test(hrefRaw);
+        const inAttachmentContext = (() => {
+          if (anchor.closest("#Novo_Acompanhamento, #acompanhamento_form")) return true;
+          if (anchor.closest("[id*='anex'], [class*='anex'], [name*='anex']")) return true;
+          const tr = anchor.closest("tr");
+          if (tr && /anex/.test(norm(tr.textContent || ""))) return true;
+          if (hrefLooksLikeAnexo) return true;
+          return false;
+        })();
+        if (!inAttachmentContext) return;
+        const isPlainLeftClick =
+          !ev.defaultPrevented &&
+          (("button" in ev && ev.button === 0) || !("button" in ev)) &&
+          !ev.ctrlKey &&
+          !ev.metaKey &&
+          !ev.shiftKey &&
+          !ev.altKey;
+        if (!isPlainLeftClick) return;
+        const hrefAbs = toAbsoluteUrl(hrefRaw);
+        if (!hrefAbs || /^javascript:/i.test(hrefAbs)) return;
+        const label = String(anchor.getAttribute("download") || anchor.getAttribute("title") || anchor.textContent || "")
+          .trim();
+        const allowImageModal = isAttachmentModalPreviewAllowed(hrefAbs, label, "");
+        const allowTextModal = isAttachmentTextModalPreviewAllowed(hrefAbs, label, "");
+        if (allowImageModal) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          openImagePreviewModal(hrefAbs, label, "");
+          return;
         }
-
-        const trigger = target.closest("a,button,input[type='button'],input[type='submit'],img");
-        if (!trigger) return;
-
-        const txt = norm(
-          [
-            trigger.textContent || "",
-            trigger.getAttribute("value") || "",
-            trigger.getAttribute("title") || "",
-            trigger.getAttribute("alt") || "",
-          ].join(" ")
-        );
-        if (!/(^|\s)(novo|adicionar)(\s|$)/i.test(txt)) return;
-
-        const ctx = trigger.closest("tr,td,div,table,form");
-        const ctxText = norm(ctx?.textContent || "");
-        if (!/anex/.test(ctxText) && !trigger.closest("#Novo_Acompanhamento, #acompanhamento_form")) return;
-
-        setTimeout(() => ensureSingleImageAttachments(), 80);
-        setTimeout(() => ensureSingleImageAttachments(), 260);
+        if (allowTextModal) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          openTextAttachmentPreviewFromUrl(hrefAbs, label || "anexo.txt");
+        }
       },
       true
     );
