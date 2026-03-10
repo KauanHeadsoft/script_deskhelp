@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.56
+// @version      2.15.57
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -45,6 +45,7 @@
   const LOGIN_REMEMBER_KEY = "hs2025-login-remember";
   const REQ_OPEN_DEBUG_LS_KEY = "hs2025-req-open-debug";
   const REQ_OPEN_DEBUG_QUERY = "hsdebugopen";
+  const REQ_POPUP_PREVIEW_QUERY_KEY = "hs_preview_popup";
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
@@ -89,7 +90,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.56";
+  const SCRIPT_VERSION_FALLBACK = "2.15.57";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -206,6 +207,15 @@
           : "light";
     }
     html.setAttribute("data-hs-theme", mode);
+    let popupPreviewMode = false;
+    try {
+      const rawPreviewMode = String(new URLSearchParams(location.search).get(REQ_POPUP_PREVIEW_QUERY_KEY) || "")
+        .trim()
+        .toLowerCase();
+      popupPreviewMode = rawPreviewMode === "1" || rawPreviewMode === "true" || rawPreviewMode === "yes";
+    } catch {}
+    if (popupPreviewMode) html.setAttribute("data-hs-popup-preview", "1");
+    else html.removeAttribute("data-hs-popup-preview");
 
     const defaults =
       mode === "light"
@@ -308,6 +318,14 @@
         background-position:center center!important;
         background-attachment:fixed!important;
       }
+      html[data-hs-popup-preview="1"] #cabecalho,
+      html[data-hs-popup-preview="1"] #cabecalho_logo,
+      html[data-hs-popup-preview="1"] #cabecalho_menu{
+        display:none!important;
+      }
+      html[data-hs-popup-preview="1"] #conteudo{
+        padding-top:8px!important;
+      }
     `;
   }
   bootstrapEarlyThemePaint();
@@ -319,6 +337,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-10",
+      version: "2.15.57",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Preview de requisicao em popup agora abre com modo dedicado, sem renderizar o cabecalho interno duplicado.",
+        "Visualizar requisicao recebeu deteccao de contexto do popup para ocultar #cabecalho/#cabecalho_logo/#cabecalho_menu apenas nesse fluxo.",
+        "Espacamento superior da tela de preview foi ajustado para aproveitar melhor a altura util dentro do iframe.",
+      ],
+    },
     {
       date: "2026-03-10",
       version: "2.15.56",
@@ -2105,6 +2134,14 @@ Atenciosamente.`;
     margin:0 auto!important;
     padding:calc(var(--hs-request-top-offset, 72px) + 8px) 10px 20px!important;
     box-sizing:border-box!important;
+  }
+  body.hs-request-page.hs-request-popup-preview{
+    --hs-request-top-offset:0px;
+  }
+  body.hs-request-page.hs-request-popup-preview #cabecalho,
+  body.hs-request-page.hs-request-popup-preview #cabecalho_logo,
+  body.hs-request-page.hs-request-popup-preview #cabecalho_menu{
+    display:none!important;
   }
   body.hs-request-page #interno{
     max-width:920px!important;
@@ -9024,6 +9061,8 @@ Atenciosamente.`;
     if (hasPassword) return;
     if (!/visualizar_requisicao\.php/i.test(location.pathname)) return;
     document.body.classList.add("hs-request-page");
+    if (isRequestPopupPreviewMode()) document.body.classList.add("hs-request-popup-preview");
+    else document.body.classList.remove("hs-request-popup-preview");
   }
   /**
    * Objetivo: Reestrutura visual e aÃ§Ãµes do formulÃ¡rio de usuÃ¡rio.
@@ -9553,6 +9592,10 @@ Atenciosamente.`;
    */
   function adjustRequestTopOffset() {
     if (!document.body.classList.contains("hs-request-page")) return;
+    if (document.body.classList.contains("hs-request-popup-preview")) {
+      document.body.style.setProperty("--hs-request-top-offset", "0px");
+      return;
+    }
 
     const candidates = Array.from(
       document.querySelectorAll("#cabecalho, #cabecalho_logo, #cabecalho_menu, header, .navbar, .topbar")
@@ -10364,6 +10407,26 @@ Atenciosamente.`;
    */
   function isRequestVisualizarPage() {
     return /visualizar_requisicao\.php/i.test(location.pathname);
+  }
+  /**
+   * Objetivo: Identifica quando visualizar requisicao esta aberto no popup interno.
+   *
+   * Contexto: fluxo de preview da grade usa querystring dedicada para ocultar cabecalho duplicado.
+   * Parametros: nenhum.
+   * Retorno: boolean.
+   */
+  function isRequestPopupPreviewMode() {
+    if (!isRequestVisualizarPage()) return false;
+    const html = document.documentElement;
+    if (html instanceof HTMLElement && html.getAttribute("data-hs-popup-preview") === "1") return true;
+    try {
+      const raw = String(new URLSearchParams(location.search).get(REQ_POPUP_PREVIEW_QUERY_KEY) || "")
+        .trim()
+        .toLowerCase();
+      return raw === "1" || raw === "true" || raw === "yes";
+    } catch {
+      return false;
+    }
   }
   /**
    * Objetivo: Libera URL temporaria (blob) usada no preview de imagem.
@@ -13109,7 +13172,10 @@ Atenciosamente.`;
     if (!pop) return;
     const frame = pop.querySelector(".hs-req-pop-frame");
     if (!frame) return;
-    frame.src = `${location.origin}/visualizar_requisicao.php?numero=${encodeURIComponent(numero)}`;
+    const popupUrl = new URL(`${location.origin}/visualizar_requisicao.php`);
+    popupUrl.searchParams.set("numero", String(numero));
+    popupUrl.searchParams.set(REQ_POPUP_PREVIEW_QUERY_KEY, "1");
+    frame.src = popupUrl.toString();
     pop.classList.add("open");
   }
   /**

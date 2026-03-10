@@ -2,6 +2,17 @@
     
     {
         "date":  "2026-03-10",
+        "version":  "2.15.57",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Preview de requisicao em popup agora abre com modo dedicado, sem renderizar o cabecalho interno duplicado.",
+                      "Visualizar requisicao recebeu deteccao de contexto do popup para ocultar #cabecalho/#cabecalho_logo/#cabecalho_menu apenas nesse fluxo.",
+                      "Espacamento superior da tela de preview foi ajustado para aproveitar melhor a altura util dentro do iframe."
+                  ]
+    },
+    {
+        "date":  "2026-03-10",
         "version":  "2.15.56",
         "type":  "routine",
         "mandatory":  false,
