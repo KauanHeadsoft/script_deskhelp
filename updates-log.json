@@ -1,6 +1,17 @@
 ﻿[   
     
-        {
+    {
+        "date":  "2026-03-10",
+        "version":  "2.15.63",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Modal de preview de imagem ganhou zoom profissional com indicador de escala e botoes dedicados (+, -, 100%).",
+                      "Navegacao da imagem ampliada agora permite arrastar para mover e duplo clique para alternar rapido entre 100% e zoom ampliado.",
+                      "Atalhos de teclado (+, -, 0) e suporte a roda do mouse foram adicionados para facilitar inspecao de detalhes no anexo."
+                  ]
+    },
+    {
         "date":  "2026-03-10",
         "version":  "2.15.62",
         "type":  "bugfix",

@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.62
+// @version      2.15.63
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -339,6 +339,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-10",
+      version: "2.15.63",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Modal de preview de imagem ganhou zoom profissional com indicador de escala e botoes dedicados (+, -, 100%).",
+        "Navegacao da imagem ampliada agora permite arrastar para mover e duplo clique para alternar rapido entre 100% e zoom ampliado.",
+        "Atalhos de teclado (+, -, 0) e suporte a roda do mouse foram adicionados para facilitar inspeccao de detalhes no anexo.",
+      ],
+    },
     {
       date: "2026-03-10",
       version: "2.15.62",
@@ -1607,12 +1618,29 @@ Atenciosamente.`;
     font-size:12px;
     font-weight:800;
   }
+  .hs-image-viewer-actions{
+    display:inline-flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .hs-image-viewer-zoom{
+    min-width:52px;
+    text-align:center;
+    font-size:11px;
+    font-weight:700;
+    opacity:.9;
+    font-variant-numeric:tabular-nums;
+  }
   .hs-image-viewer-head button{
     min-height:25px!important;
     height:25px!important;
     border-radius:var(--hs-radius-control)!important;
     padding:2px 10px!important;
     cursor:pointer;
+    font-size:11px!important;
+    font-weight:800!important;
   }
   .hs-image-viewer-body{
     display:flex;
@@ -1624,7 +1652,10 @@ Atenciosamente.`;
     min-height:80px;
     max-height:var(--hs-image-viewer-body-max-height, calc(92vh - 42px));
     gap:10px;
+    overscroll-behavior:contain;
   }
+  .hs-image-viewer-body.zoomed{ cursor:grab; }
+  .hs-image-viewer-body.dragging{ cursor:grabbing; }
   .hs-image-viewer-state{
     margin:0;
     font-size:12px;
@@ -1634,14 +1665,17 @@ Atenciosamente.`;
     display:none;
   }
   .hs-image-viewer-body img{
-    max-width:var(--hs-image-viewer-img-max-width, 100%);
-    max-height:var(--hs-image-viewer-img-max-height, calc(92vh - 90px));
+    max-width:none;
+    max-height:none;
     width:auto;
     height:auto;
     object-fit:contain;
     border-radius:var(--hs-radius-control);
     border:1px solid var(--border);
     background:rgba(2,8,18,.45);
+    user-select:none;
+    -webkit-user-drag:none;
+    cursor:inherit;
   }
   .hs-text-viewer{
     position:fixed;
@@ -1730,6 +1764,13 @@ Atenciosamente.`;
       top:2vh;
       max-height:96vh;
       width:min(98vw, 98vw);
+    }
+    .hs-image-viewer-head{
+      align-items:flex-start;
+      flex-direction:column;
+    }
+    .hs-image-viewer-actions{
+      width:100%;
     }
     .hs-image-viewer-body{
       max-height:calc(96vh - 42px);
@@ -10848,6 +10889,118 @@ Atenciosamente.`;
     }
   }
   /**
+   * Objetivo: Limita fator de zoom do preview de imagem para uma faixa segura.
+   *
+   * Contexto: usado pelos atalhos/roda do mouse e pelos botoes do modal.
+   * Parametros:
+   * - value: zoom solicitado.
+   * Retorno: number.
+   */
+  function clampImagePreviewZoom(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 1;
+    if (num < 0.25) return 0.25;
+    if (num > 8) return 8;
+    return num;
+  }
+  /**
+   * Objetivo: Atualiza o indicador visual de zoom no cabecalho do modal de imagem.
+   *
+   * Contexto: chamado apos alterar zoom ou resetar estado do preview.
+   * Parametros:
+   * - modal: container do modal.
+   * - zoomValue: zoom atual (opcional).
+   * Retorno: void.
+   */
+  function refreshImagePreviewZoomLabel(modal, zoomValue = null) {
+    if (!(modal instanceof HTMLElement)) return;
+    const img = modal.querySelector(".hs-image-viewer-body img");
+    const out = modal.querySelector(".hs-image-viewer-zoom");
+    const zoomOutBtn = modal.querySelector('[data-action="zoom-out"]');
+    const zoomInBtn = modal.querySelector('[data-action="zoom-in"]');
+    const zoom =
+      zoomValue == null
+        ? clampImagePreviewZoom(parseFloat(String(img instanceof HTMLImageElement ? img.dataset.hsZoom || "1" : "1")))
+        : clampImagePreviewZoom(zoomValue);
+    if (out instanceof HTMLElement) out.textContent = `${Math.round(zoom * 100)}%`;
+    if (zoomOutBtn instanceof HTMLButtonElement) zoomOutBtn.disabled = zoom <= 0.251;
+    if (zoomInBtn instanceof HTMLButtonElement) zoomInBtn.disabled = zoom >= 7.999;
+  }
+  /**
+   * Objetivo: Aplica zoom ao preview da imagem mantendo ancora visual quando possivel.
+   *
+   * Contexto: reutilizado por botoes, atalhos de teclado, roda do mouse e duplo clique.
+   * Parametros:
+   * - modal: container do modal.
+   * - zoomValue: zoom final solicitado.
+   * - options: ancora de cursor/centralizacao apos ajuste.
+   * Retorno: void.
+   */
+  function applyImagePreviewZoom(modal, zoomValue, options = {}) {
+    if (!(modal instanceof HTMLElement)) return;
+    const body = modal.querySelector(".hs-image-viewer-body");
+    const img = modal.querySelector(".hs-image-viewer-body img");
+    if (!(body instanceof HTMLElement) || !(img instanceof HTMLImageElement)) return;
+    const baseWidth = parseFloat(String(img.dataset.hsBaseWidth || ""));
+    const baseHeight = parseFloat(String(img.dataset.hsBaseHeight || ""));
+    if (!Number.isFinite(baseWidth) || baseWidth <= 0 || !Number.isFinite(baseHeight) || baseHeight <= 0) return;
+    const nextZoom = clampImagePreviewZoom(zoomValue);
+    const prevRect = img.getBoundingClientRect();
+    const anchorX = Number(options?.clientX);
+    const anchorY = Number(options?.clientY);
+    const hasAnchor = Number.isFinite(anchorX) && Number.isFinite(anchorY);
+    let ratioX = 0.5;
+    let ratioY = 0.5;
+    if (hasAnchor && prevRect.width > 0 && prevRect.height > 0) {
+      ratioX = Math.max(0, Math.min(1, (anchorX - prevRect.left) / prevRect.width));
+      ratioY = Math.max(0, Math.min(1, (anchorY - prevRect.top) / prevRect.height));
+    }
+    const nextWidth = Math.max(1, Math.round(baseWidth * nextZoom));
+    const nextHeight = Math.max(1, Math.round(baseHeight * nextZoom));
+    img.style.width = `${nextWidth}px`;
+    img.style.height = `${nextHeight}px`;
+    img.style.maxWidth = "none";
+    img.style.maxHeight = "none";
+    img.dataset.hsZoom = String(nextZoom);
+    body.classList.toggle("zoomed", nextZoom > 1.001);
+    refreshImagePreviewZoomLabel(modal, nextZoom);
+    if (options?.skipAdjust === true) return;
+    requestAnimationFrame(() => {
+      if (!modal.classList.contains("open")) return;
+      if (hasAnchor) {
+        const nextRect = img.getBoundingClientRect();
+        const targetX = nextRect.left + nextRect.width * ratioX;
+        const targetY = nextRect.top + nextRect.height * ratioY;
+        body.scrollLeft += targetX - anchorX;
+        body.scrollTop += targetY - anchorY;
+        return;
+      }
+      if (options?.center === true || nextZoom <= 1.001) {
+        body.scrollLeft = Math.max(0, Math.floor((body.scrollWidth - body.clientWidth) / 2));
+        body.scrollTop = Math.max(0, Math.floor((body.scrollHeight - body.clientHeight) / 2));
+      }
+    });
+  }
+  /**
+   * Objetivo: Faz ajuste incremental de zoom no preview de imagem.
+   *
+   * Contexto: utilitario para eventos de UI (botoes/atalhos/wheel).
+   * Parametros:
+   * - modal: container do modal.
+   * - factor: multiplicador (>1 amplia, <1 reduz).
+   * - options: ancora opcional para preservar foco.
+   * Retorno: void.
+   */
+  function zoomImagePreviewByFactor(modal, factor, options = {}) {
+    if (!(modal instanceof HTMLElement)) return;
+    const img = modal.querySelector(".hs-image-viewer-body img");
+    if (!(img instanceof HTMLImageElement)) return;
+    const current = clampImagePreviewZoom(parseFloat(String(img.dataset.hsZoom || "1")));
+    const safeFactor = Number(factor);
+    if (!Number.isFinite(safeFactor) || safeFactor <= 0) return;
+    applyImagePreviewZoom(modal, current * safeFactor, options);
+  }
+  /**
    * Objetivo: Fecha modal de preview de imagem.
    *
    * Contexto: usado nos previews de anexos locais/remotos.
@@ -10865,19 +11018,31 @@ Atenciosamente.`;
       delete img.dataset.hsPreviewRequest;
       delete img.dataset.hsFallbackSrc;
       delete img.dataset.hsTriedFallback;
+      delete img.dataset.hsBaseWidth;
+      delete img.dataset.hsBaseHeight;
+      delete img.dataset.hsZoom;
       img.removeAttribute("src");
       img.onerror = null;
       img.onload = null;
       img.style.display = "none";
       img.style.removeProperty("max-width");
       img.style.removeProperty("max-height");
+      img.style.removeProperty("width");
+      img.style.removeProperty("height");
     }
     if (state instanceof HTMLElement) {
       state.style.display = "none";
       state.textContent = "";
     }
     if (card instanceof HTMLElement) card.style.removeProperty("--hs-image-viewer-card-width");
-    if (body instanceof HTMLElement) body.style.removeProperty("--hs-image-viewer-body-max-height");
+    if (body instanceof HTMLElement) {
+      body.style.removeProperty("--hs-image-viewer-body-max-height");
+      body.classList.remove("zoomed", "dragging");
+      body.scrollLeft = 0;
+      body.scrollTop = 0;
+    }
+    if (hsImagePreviewDragState && hsImagePreviewDragState.modal === hsImagePreviewModal) hsImagePreviewDragState = null;
+    refreshImagePreviewZoomLabel(hsImagePreviewModal, 1);
     releaseImagePreviewObjectUrl();
     hsImagePreviewModal.classList.remove("open");
   }
@@ -10888,9 +11053,10 @@ Atenciosamente.`;
    * Parametros:
    * - modal: container do modal.
    * - img: elemento de imagem carregado.
+   * - preserveZoom: indica se deve tentar preservar o zoom atual.
    * Retorno: void.
    */
-  function fitImagePreviewModalToImage(modal, img) {
+  function fitImagePreviewModalToImage(modal, img, preserveZoom = false) {
     if (!(modal instanceof HTMLElement) || !(img instanceof HTMLImageElement)) return;
     if (!img.naturalWidth || !img.naturalHeight) return;
     const card = modal.querySelector(".hs-image-viewer-card");
@@ -10908,12 +11074,22 @@ Atenciosamente.`;
     const scale = Math.min(1, maxImageWidth / img.naturalWidth, maxImageHeight / img.naturalHeight);
     const renderedWidth = Math.max(1, Math.floor(img.naturalWidth * scale));
     const renderedHeight = Math.max(1, Math.floor(img.naturalHeight * scale));
-    img.style.maxWidth = `${renderedWidth}px`;
-    img.style.maxHeight = `${renderedHeight}px`;
     const nextCardWidth = Math.max(240, Math.min(maxCardWidth, renderedWidth + padX + 2));
     const nextBodyHeight = Math.max(120, Math.min(maxBodyHeight, renderedHeight + padY));
     card.style.setProperty("--hs-image-viewer-card-width", `${Math.round(nextCardWidth)}px`);
     body.style.setProperty("--hs-image-viewer-body-max-height", `${Math.round(nextBodyHeight)}px`);
+    img.dataset.hsBaseWidth = String(renderedWidth);
+    img.dataset.hsBaseHeight = String(renderedHeight);
+    if (!preserveZoom) img.dataset.hsZoom = "1";
+    const currentZoom = clampImagePreviewZoom(parseFloat(String(img.dataset.hsZoom || "1")));
+    if (preserveZoom) {
+      const bodyRect = body.getBoundingClientRect();
+      const centerX = bodyRect.left + body.clientWidth / 2;
+      const centerY = bodyRect.top + body.clientHeight / 2;
+      applyImagePreviewZoom(modal, currentZoom, { clientX: centerX, clientY: centerY });
+      return;
+    }
+    applyImagePreviewZoom(modal, currentZoom, { center: true });
   }
   /**
    * Objetivo: Garante modal para visualizar imagem ampliada.
@@ -10934,11 +11110,17 @@ Atenciosamente.`;
         <section class="hs-image-viewer-card" role="dialog" aria-modal="true" aria-label="Preview da imagem do anexo">
           <header class="hs-image-viewer-head">
             <span class="hs-image-viewer-title">Preview da imagem</span>
-            <button type="button" data-action="close">Fechar</button>
+            <div class="hs-image-viewer-actions">
+              <span class="hs-image-viewer-zoom" aria-live="polite">100%</span>
+              <button type="button" data-action="zoom-out" title="Reduzir zoom (-)">-</button>
+              <button type="button" data-action="zoom-reset" title="Ajustar para 100% (0)">100%</button>
+              <button type="button" data-action="zoom-in" title="Aumentar zoom (+)">+</button>
+              <button type="button" data-action="close">Fechar</button>
+            </div>
           </header>
           <div class="hs-image-viewer-body">
             <p class="hs-image-viewer-state" aria-live="polite"></p>
-            <img alt="Preview do anexo" />
+            <img alt="Preview do anexo" draggable="false" />
           </div>
         </section>
       `;
@@ -10947,15 +11129,153 @@ Atenciosamente.`;
     hsImagePreviewModal = modal;
     if (modal.dataset.hsBound === "1") return modal;
     modal.dataset.hsBound = "1";
+    const getBodyCenter = () => {
+      const body = modal.querySelector(".hs-image-viewer-body");
+      if (!(body instanceof HTMLElement)) return null;
+      const rect = body.getBoundingClientRect();
+      return {
+        x: rect.left + body.clientWidth / 2,
+        y: rect.top + body.clientHeight / 2,
+      };
+    };
+    const endImagePreviewDrag = () => {
+      if (!hsImagePreviewDragState || hsImagePreviewDragState.modal !== modal) return;
+      const body = modal.querySelector(".hs-image-viewer-body");
+      if (body instanceof HTMLElement) body.classList.remove("dragging");
+      hsImagePreviewDragState = null;
+    };
     modal.querySelector(".hs-image-viewer-backdrop")?.addEventListener("click", closeImagePreviewModal);
     modal.querySelector('[data-action="close"]')?.addEventListener("click", closeImagePreviewModal);
+    modal.querySelector('[data-action="zoom-in"]')?.addEventListener("click", () => {
+      if (!modal.classList.contains("open")) return;
+      const center = getBodyCenter();
+      if (!center) return;
+      zoomImagePreviewByFactor(modal, 1.2, { clientX: center.x, clientY: center.y });
+    });
+    modal.querySelector('[data-action="zoom-out"]')?.addEventListener("click", () => {
+      if (!modal.classList.contains("open")) return;
+      const center = getBodyCenter();
+      if (!center) return;
+      zoomImagePreviewByFactor(modal, 1 / 1.2, { clientX: center.x, clientY: center.y });
+    });
+    modal.querySelector('[data-action="zoom-reset"]')?.addEventListener("click", () => {
+      if (!modal.classList.contains("open")) return;
+      applyImagePreviewZoom(modal, 1, { center: true });
+    });
+    const bodyEl = modal.querySelector(".hs-image-viewer-body");
+    if (bodyEl instanceof HTMLElement) {
+      bodyEl.addEventListener(
+        "wheel",
+        (ev) => {
+          if (!modal.classList.contains("open")) return;
+          const img = modal.querySelector(".hs-image-viewer-body img");
+          if (!(img instanceof HTMLImageElement) || img.style.display === "none") return;
+          const canScroll =
+            bodyEl.scrollHeight > bodyEl.clientHeight + 1 || bodyEl.scrollWidth > bodyEl.clientWidth + 1;
+          const shouldZoom = ev.ctrlKey || ev.metaKey || !canScroll;
+          if (!shouldZoom) return;
+          ev.preventDefault();
+          const factor = ev.deltaY < 0 ? 1.16 : 1 / 1.16;
+          zoomImagePreviewByFactor(modal, factor, { clientX: ev.clientX, clientY: ev.clientY });
+        },
+        { passive: false }
+      );
+      bodyEl.addEventListener("dblclick", (ev) => {
+        if (!modal.classList.contains("open")) return;
+        const img = modal.querySelector(".hs-image-viewer-body img");
+        if (!(img instanceof HTMLImageElement) || img.style.display === "none") return;
+        const zoom = clampImagePreviewZoom(parseFloat(String(img.dataset.hsZoom || "1")));
+        if (zoom > 1.01) {
+          applyImagePreviewZoom(modal, 1, { center: true });
+          return;
+        }
+        zoomImagePreviewByFactor(modal, 2, { clientX: ev.clientX, clientY: ev.clientY });
+      });
+      bodyEl.addEventListener("mousedown", (ev) => {
+        if (!modal.classList.contains("open")) return;
+        if (ev.button !== 0) return;
+        const img = modal.querySelector(".hs-image-viewer-body img");
+        if (!(img instanceof HTMLImageElement) || img.style.display === "none") return;
+        if (!(ev.target instanceof Element) || !ev.target.closest("img")) return;
+        const zoom = clampImagePreviewZoom(parseFloat(String(img.dataset.hsZoom || "1")));
+        if (zoom <= 1.01) return;
+        ev.preventDefault();
+        bodyEl.classList.add("dragging");
+        hsImagePreviewDragState = {
+          modal,
+          startX: ev.clientX,
+          startY: ev.clientY,
+          scrollLeft: bodyEl.scrollLeft,
+          scrollTop: bodyEl.scrollTop,
+        };
+      });
+      document.addEventListener(
+        "mousemove",
+        (ev) => {
+          if (!hsImagePreviewDragState || hsImagePreviewDragState.modal !== modal) return;
+          if (!modal.classList.contains("open")) {
+            endImagePreviewDrag();
+            return;
+          }
+          const dragBody = modal.querySelector(".hs-image-viewer-body");
+          if (!(dragBody instanceof HTMLElement)) {
+            endImagePreviewDrag();
+            return;
+          }
+          ev.preventDefault();
+          dragBody.scrollLeft = hsImagePreviewDragState.scrollLeft - (ev.clientX - hsImagePreviewDragState.startX);
+          dragBody.scrollTop = hsImagePreviewDragState.scrollTop - (ev.clientY - hsImagePreviewDragState.startY);
+        },
+        true
+      );
+      document.addEventListener("mouseup", endImagePreviewDrag, true);
+      window.addEventListener("blur", endImagePreviewDrag);
+    }
+    if (document.documentElement.dataset.hsImagePreviewKeysBound !== "1") {
+      document.documentElement.dataset.hsImagePreviewKeysBound = "1";
+      document.addEventListener(
+        "keydown",
+        (ev) => {
+          if (!modal.classList.contains("open")) return;
+          const active = document.activeElement;
+          if (
+            active instanceof HTMLInputElement ||
+            active instanceof HTMLTextAreaElement ||
+            active instanceof HTMLSelectElement
+          ) {
+            return;
+          }
+          const key = String(ev.key || "").toLowerCase();
+          if (key === "+" || key === "=" || key === "add") {
+            const center = getBodyCenter();
+            if (!center) return;
+            ev.preventDefault();
+            zoomImagePreviewByFactor(modal, 1.2, { clientX: center.x, clientY: center.y });
+            return;
+          }
+          if (key === "-" || key === "_" || key === "subtract") {
+            const center = getBodyCenter();
+            if (!center) return;
+            ev.preventDefault();
+            zoomImagePreviewByFactor(modal, 1 / 1.2, { clientX: center.x, clientY: center.y });
+            return;
+          }
+          if (key === "0") {
+            ev.preventDefault();
+            applyImagePreviewZoom(modal, 1, { center: true });
+          }
+        },
+        true
+      );
+    }
     window.addEventListener("resize", () => {
       if (!modal.classList.contains("open")) return;
       const img = modal.querySelector(".hs-image-viewer-body img");
       if (img instanceof HTMLImageElement && img.naturalWidth > 0 && img.style.display !== "none") {
-        fitImagePreviewModalToImage(modal, img);
+        fitImagePreviewModalToImage(modal, img, true);
       }
     });
+    refreshImagePreviewZoomLabel(modal, 1);
     return modal;
   }
   /**
@@ -10987,17 +11307,29 @@ Atenciosamente.`;
       titleEl.textContent = title ? `Preview da imagem - ${title}` : "Preview da imagem";
     }
     img.alt = String(label || "Preview do anexo");
+    img.draggable = false;
 
     releaseImagePreviewObjectUrl();
     delete img.dataset.hsPreviewRequest;
     delete img.dataset.hsFallbackSrc;
     delete img.dataset.hsTriedFallback;
+    delete img.dataset.hsBaseWidth;
+    delete img.dataset.hsBaseHeight;
+    delete img.dataset.hsZoom;
     img.removeAttribute("src");
     img.style.display = "none";
     img.style.removeProperty("max-width");
     img.style.removeProperty("max-height");
+    img.style.removeProperty("width");
+    img.style.removeProperty("height");
     if (card instanceof HTMLElement) card.style.removeProperty("--hs-image-viewer-card-width");
-    if (body instanceof HTMLElement) body.style.removeProperty("--hs-image-viewer-body-max-height");
+    if (body instanceof HTMLElement) {
+      body.style.removeProperty("--hs-image-viewer-body-max-height");
+      body.classList.remove("zoomed", "dragging");
+      body.scrollLeft = 0;
+      body.scrollTop = 0;
+    }
+    refreshImagePreviewZoomLabel(modal, 1);
     if (stateEl instanceof HTMLElement) {
       stateEl.style.display = "block";
       stateEl.textContent = "Carregando imagem...";
@@ -11016,7 +11348,7 @@ Atenciosamente.`;
       img.style.display = "";
       img.onload = () => {
         if (img.dataset.hsPreviewRequest !== previewRequestId) return;
-        fitImagePreviewModalToImage(modal, img);
+        fitImagePreviewModalToImage(modal, img, false);
         if (stateEl instanceof HTMLElement) {
           stateEl.style.display = "none";
           stateEl.textContent = "";
@@ -12949,6 +13281,7 @@ Atenciosamente.`;
   let hsImagePreviewModal = null;
   let hsTextPreviewModal = null;
   let hsImagePreviewObjectUrlRevoke = null;
+  let hsImagePreviewDragState = null;
   let reqPopupEscBound = false;
   let hsReqClicksBound = false;
   let hsAjaxRefreshBusy = false;
