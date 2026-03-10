@@ -2,6 +2,17 @@
     
         {
         "date":  "2026-03-10",
+        "version":  "2.15.62",
+        "type":  "bugfix",
+        "mandatory":  false,
+        "notes":  [
+                      "Rollback do fluxo de update para o modelo manual/original com botao 'Codigo update' e copia de codigo.",
+                      "Removido o botao de atualizacao rapida para evitar falsos fluxos de instalacao e preservar estabilidade.",
+                      "Correcao obrigatoria continua com alerta e modal forcado quando houver release marcada como mandatory/bugfix."
+                  ]
+    },
+    {
+        "date":  "2026-03-10",
         "version":  "2.15.61",
         "type":  "bugfix",
         "mandatory":  false,

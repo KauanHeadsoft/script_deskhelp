@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.61
+// @version      2.15.62
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -92,7 +92,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.61";
+  const SCRIPT_VERSION_FALLBACK = "2.15.62";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -339,6 +339,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-10",
+      version: "2.15.62",
+      type: "bugfix",
+      mandatory: false,
+      notes: [
+        "Rollback do fluxo de update para o modelo manual/original com botao 'Codigo update' e copia de codigo.",
+        "Removido o botao de atualizacao rapida para evitar falsos fluxos de instalacao e preservar estabilidade.",
+        "Correcao obrigatoria continua com alerta e modal forcado quando houver release marcada como mandatory/bugfix.",
+      ],
+    },
     {
       date: "2026-03-10",
       version: "2.15.61",
@@ -5595,11 +5606,7 @@ Atenciosamente.`;
         return;
       }
       if (action === "install") {
-        const opened = openScriptUpdatePage(String(payload.remoteUrl || ""), {
-          remoteVersion: String(payload.remoteVersion || ""),
-          mandatory: payload.mandatoryUpdate ? true : false,
-        });
-        if (!opened) toast("Atualizacao cancelada.", "info", 2200);
+        openScriptUpdatePage(String(payload.remoteUrl || ""));
       }
     });
     return modal;
@@ -6576,12 +6583,10 @@ Atenciosamente.`;
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
    * Parametros:
    * - preferredUrl: entrada usada por esta rotina.
-   * - options: {remoteVersion, mandatory, requireConfirmation}.
-   * Retorno: boolean (true quando iniciou a navegacao; false quando cancelado/erro).
-   * Efeitos colaterais: confirma com o usuario e navega para instalacao no mesmo separador.
+   * Retorno: void.
+   * Efeitos colaterais: abre nova aba no navegador.
    */
-  function openScriptUpdatePage(preferredUrl = "", options = {}) {
-    const opts = options && typeof options === "object" ? options : {};
+  function openScriptUpdatePage(preferredUrl = "") {
     const cached = hsScriptUpdateLastResult || readCachedUpdateCheckResult();
     const target =
       String(preferredUrl || "").trim() ||
@@ -6589,54 +6594,14 @@ Atenciosamente.`;
       String(MANUAL_UPDATE_SOURCE_URL || "").trim() ||
       SCRIPT_REPO_URL;
     const safeTarget = String(target || "").trim();
-    const unwrapBridgeUrl = (value) => {
-      const raw = String(value || "").trim();
-      if (!raw) return "";
-      try {
-        const u = new URL(raw, location.href);
-        const host = String(u.hostname || "").toLowerCase();
-        const path = String(u.pathname || "").toLowerCase();
-        const isBridge = host.includes("tampermonkey.net") && /script_installation\.php$/.test(path);
-        if (!isBridge) return raw;
-        const hash = String(u.hash || "").replace(/^#/, "");
-        const fromHash = new URLSearchParams(hash).get("url");
-        const fromQuery = u.searchParams.get("url");
-        const extracted = String(fromHash || fromQuery || "").trim();
-        if (!extracted) return raw;
-        try {
-          return decodeURIComponent(extracted);
-        } catch {
-          return extracted;
-        }
-      } catch {
-        return raw;
-      }
-    };
-    const unwrappedTarget = unwrapBridgeUrl(safeTarget);
-    const isUserscript = /\.user\.js(?:[?#].*)?$/i.test(unwrappedTarget);
-    const destination = buildNoCacheUserscriptUrl(
-      isUserscript ? unwrappedTarget : String(MANUAL_UPDATE_SOURCE_URL || "").trim()
-    );
-    const remoteVersion = String(opts.remoteVersion || "").trim();
-    const mandatory = opts.mandatory ? true : false;
-    const requireConfirmation = opts.requireConfirmation !== false;
-    const targetLabel = remoteVersion ? `v${remoteVersion}` : "a versao mais recente";
-    const promptMessage = mandatory
-      ? `Atualizacao obrigatoria (${targetLabel}) detectada.\n\nDeseja iniciar a atualizacao agora no mesmo separador?`
-      : `Tem certeza que deseja atualizar para ${targetLabel}?\n\nA instalacao sera aberta no Tampermonkey no mesmo separador.`;
-    if (requireConfirmation && !window.confirm(promptMessage)) return false;
-
-    try {
-      window.location.assign(destination);
-      return true;
-    } catch {
-      try {
-        window.open(destination, "_self");
-        return true;
-      } catch {
-        return false;
-      }
+    const isUserscript = /\.user\.js(?:[?#].*)?$/i.test(safeTarget);
+    if (isUserscript) {
+      const directUrl = buildNoCacheUserscriptUrl(safeTarget);
+      window.open(directUrl, "_blank", "noopener");
+      return;
     }
+    const bridged = safeTarget ? `${UPDATE_INSTALL_BRIDGE_BASE_URL}${encodeURIComponent(safeTarget)}` : "";
+    window.open(bridged || safeTarget || SCRIPT_REPO_URL, "_blank", "noopener");
   }
   /**
    * Objetivo: Adiciona cache-buster na URL do userscript para evitar leitura antiga.
@@ -6964,11 +6929,7 @@ Atenciosamente.`;
         return;
       }
       if (action === "install") {
-        const opened = openScriptUpdatePage(scriptUrl || MANUAL_UPDATE_SOURCE_URL, {
-          remoteVersion: String(payload.version || ""),
-          mandatory: parseBooleanLike(payload.mandatory),
-        });
-        if (!opened) toast("Atualizacao cancelada.", "info", 2200);
+        openScriptUpdatePage(scriptUrl || MANUAL_UPDATE_SOURCE_URL);
         return;
       }
       if (action === "open-raw") {
@@ -7195,13 +7156,7 @@ Atenciosamente.`;
           "err",
           4200
         );
-        const opened = openScriptUpdatePage(String(result?.remoteUrl || ""), {
-          remoteVersion,
-          mandatory: true,
-        });
-        if (!opened) {
-          toast("Atualizacao obrigatoria cancelada. Reabra 'Codigo update' para atualizar.", "err", 3600);
-        }
+        openScriptUpdatePage(String(result?.remoteUrl || ""));
       });
     }, 120);
   }
@@ -7438,11 +7393,7 @@ Atenciosamente.`;
       toast("URL da versao selecionada indisponivel.", "err", 3200);
       return;
     }
-    const opened = openScriptUpdatePage(targetUrl, {
-      remoteVersion: String(selected?.version || "").trim(),
-      mandatory: false,
-    });
-    if (!opened) toast("Atualizacao cancelada.", "info", 2200);
+    openScriptUpdatePage(targetUrl);
   }
   /**
    * Objetivo: Garante helpers globais de diagnostico para abertura de requisicoes.
@@ -8595,7 +8546,6 @@ Atenciosamente.`;
     const versionCard = ensureMenuCard("hs-settings-version-card", scriptGroup);
     const updatesBtn = ensureMenuButton("hs-updates-log-btn", updateGroup);
     const checkBtn = ensureMenuButton("hs-update-check-btn", updateGroup);
-    const quickUpdateBtn = ensureMenuButton("hs-update-now-btn", updateGroup);
     const manualBtn = ensureMenuButton("hs-update-manual-btn", updateGroup);
     const alertBtn = ensureMenuButton("hs-update-available-btn", updateGroup);
     alertBtn.classList.add("hs-update-available-btn");
@@ -8872,40 +8822,6 @@ Atenciosamente.`;
       }
       setMenuOpen(false);
     };
-    quickUpdateBtn.value = "Atualizar script";
-    quickUpdateBtn.title = "Atualizacao com 1 clique (confirmacao + instalacao no mesmo separador)";
-    quickUpdateBtn.onclick = async (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (quickUpdateBtn.dataset.hsBusy === "1") return;
-      quickUpdateBtn.dataset.hsBusy = "1";
-      const oldLabel = quickUpdateBtn.value;
-      quickUpdateBtn.value = "Verificando...";
-      quickUpdateBtn.disabled = true;
-      try {
-        const result = await checkScriptUpdateAvailability(true);
-        applyUpdateState(result);
-        const remoteVersion = String(result?.remoteVersion || "").trim();
-        const hasUpdate = !!result?.hasUpdate && compareVersionTexts(remoteVersion, SCRIPT_VERSION) > 0;
-        if (hasUpdate) {
-          const opened = openScriptUpdatePage(String(result?.remoteUrl || ""), {
-            remoteVersion,
-            mandatory: isMandatoryUpdateResult(result),
-          });
-          if (!opened) toast("Atualizacao cancelada.", "info", 2200);
-        } else if (result?.ok) {
-          toast("Voce ja esta na versao mais recente.", "ok", 2500);
-        } else {
-          toast("Falha ao verificar update. Abrindo modo manual.", "err", 3200);
-          await openManualUpdateGuide({});
-        }
-      } finally {
-        quickUpdateBtn.disabled = false;
-        quickUpdateBtn.value = oldLabel;
-        delete quickUpdateBtn.dataset.hsBusy;
-      }
-      setMenuOpen(false);
-    };
     manualBtn.value = "Codigo update";
     manualBtn.title = "Abrir e copiar codigo para colar manualmente no Tampermonkey";
     manualBtn.onclick = async (ev) => {
@@ -8954,11 +8870,7 @@ Atenciosamente.`;
         mandatoryVersion,
         mandatoryReason,
       }).catch(() => {
-        const opened = openScriptUpdatePage(alertBtn.dataset.hsRemoteUrl || "", {
-          remoteVersion,
-          mandatory: mandatoryUpdate,
-        });
-        if (!opened) toast("Atualizacao cancelada.", "info", 2200);
+        openScriptUpdatePage(alertBtn.dataset.hsRemoteUrl || "");
       });
       setMenuOpen(false);
     };
