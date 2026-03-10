@@ -2,6 +2,17 @@
     
         {
         "date":  "2026-03-10",
+        "version":  "2.15.59",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Novo botao 'Atualizar script' no menu de Configuracoes para fluxo de update em 1 clique.",
+                      "Atualizacao agora pede confirmacao explicita e abre no mesmo separador (sem abrir nova guia).",
+                      "Acoes de instalar update passaram a exibir confirmacao padrao antes de iniciar a instalacao no Tampermonkey."
+                  ]
+    },
+    {
+        "date":  "2026-03-10",
         "version":  "2.15.58",
         "type":  "bugfix",
         "mandatory":  true,

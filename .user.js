@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.58
+// @version      2.15.59
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -92,7 +92,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.58";
+  const SCRIPT_VERSION_FALLBACK = "2.15.59";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -339,6 +339,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-10",
+      version: "2.15.59",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Novo botao 'Atualizar script' no menu de Configuracoes para fluxo de update em 1 clique.",
+        "Atualizacao agora pede confirmacao explicita e abre no mesmo separador (sem abrir nova guia).",
+        "Acoes de instalar update passaram a exibir confirmacao padrao antes de iniciar a instalacao no Tampermonkey.",
+      ],
+    },
     {
       date: "2026-03-10",
       version: "2.15.57",
@@ -5564,7 +5575,11 @@ Atenciosamente.`;
         return;
       }
       if (action === "install") {
-        openScriptUpdatePage(String(payload.remoteUrl || ""));
+        const opened = openScriptUpdatePage(String(payload.remoteUrl || ""), {
+          remoteVersion: String(payload.remoteVersion || ""),
+          mandatory: payload.mandatoryUpdate ? true : false,
+        });
+        if (!opened) toast("Atualizacao cancelada.", "info", 2200);
       }
     });
     return modal;
@@ -5806,7 +5821,7 @@ Atenciosamente.`;
    * Contexto: exibicao imediata de percentual/tamanho enquanto usuario ajusta.
    * Parametros:
    * - modal: entrada usada por esta rotina.
-   * Retorno: void.
+   * Retorno: boolean (true quando iniciou a navegacao; false quando cancelado/erro).
    */
   function refreshAppearanceLiveLabels(modal) {
     if (!(modal instanceof HTMLElement)) return;
@@ -6541,10 +6556,12 @@ Atenciosamente.`;
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
    * Parametros:
    * - preferredUrl: entrada usada por esta rotina.
-   * Retorno: void.
-   * Efeitos colaterais: abre nova aba no navegador.
+   * - options: {remoteVersion, mandatory, requireConfirmation}.
+   * Retorno: boolean (true quando iniciou a navegacao; false quando cancelado/erro).
+   * Efeitos colaterais: confirma com o usuario e navega para instalacao no mesmo separador.
    */
-  function openScriptUpdatePage(preferredUrl = "") {
+  function openScriptUpdatePage(preferredUrl = "", options = {}) {
+    const opts = options && typeof options === "object" ? options : {};
     const cached = hsScriptUpdateLastResult || readCachedUpdateCheckResult();
     const target =
       String(preferredUrl || "").trim() ||
@@ -6553,13 +6570,29 @@ Atenciosamente.`;
       SCRIPT_REPO_URL;
     const safeTarget = String(target || "").trim();
     const isUserscript = /\.user\.js(?:[?#].*)?$/i.test(safeTarget);
-    if (isUserscript) {
-      const directUrl = buildNoCacheUserscriptUrl(safeTarget);
-      window.open(directUrl, "_blank", "noopener");
-      return;
+    const directUrl = isUserscript ? buildNoCacheUserscriptUrl(safeTarget) : "";
+    const bridged = !isUserscript && safeTarget ? `${UPDATE_INSTALL_BRIDGE_BASE_URL}${encodeURIComponent(safeTarget)}` : "";
+    const destination = String(directUrl || bridged || safeTarget || SCRIPT_REPO_URL).trim() || SCRIPT_REPO_URL;
+    const remoteVersion = String(opts.remoteVersion || "").trim();
+    const mandatory = opts.mandatory ? true : false;
+    const requireConfirmation = opts.requireConfirmation !== false;
+    const targetLabel = remoteVersion ? `v${remoteVersion}` : "a versao mais recente";
+    const promptMessage = mandatory
+      ? `Atualizacao obrigatoria (${targetLabel}) detectada.\n\nDeseja iniciar a atualizacao agora no mesmo separador?`
+      : `Tem certeza que deseja atualizar para ${targetLabel}?\n\nA instalacao sera aberta no Tampermonkey no mesmo separador.`;
+    if (requireConfirmation && !window.confirm(promptMessage)) return false;
+
+    try {
+      window.location.assign(destination);
+      return true;
+    } catch {
+      try {
+        window.open(destination, "_self");
+        return true;
+      } catch {
+        return false;
+      }
     }
-    const bridged = safeTarget ? `${UPDATE_INSTALL_BRIDGE_BASE_URL}${encodeURIComponent(safeTarget)}` : "";
-    window.open(bridged || safeTarget || SCRIPT_REPO_URL, "_blank", "noopener");
   }
   /**
    * Objetivo: Adiciona cache-buster na URL do userscript para evitar leitura antiga.
@@ -6887,7 +6920,11 @@ Atenciosamente.`;
         return;
       }
       if (action === "install") {
-        openScriptUpdatePage(scriptUrl || MANUAL_UPDATE_SOURCE_URL);
+        const opened = openScriptUpdatePage(scriptUrl || MANUAL_UPDATE_SOURCE_URL, {
+          remoteVersion: String(payload.version || ""),
+          mandatory: parseBooleanLike(payload.mandatory),
+        });
+        if (!opened) toast("Atualizacao cancelada.", "info", 2200);
         return;
       }
       if (action === "open-raw") {
@@ -7114,7 +7151,13 @@ Atenciosamente.`;
           "err",
           4200
         );
-        openScriptUpdatePage(String(result?.remoteUrl || ""));
+        const opened = openScriptUpdatePage(String(result?.remoteUrl || ""), {
+          remoteVersion,
+          mandatory: true,
+        });
+        if (!opened) {
+          toast("Atualizacao obrigatoria cancelada. Reabra 'Codigo update' para atualizar.", "err", 3600);
+        }
       });
     }, 120);
   }
@@ -7351,7 +7394,11 @@ Atenciosamente.`;
       toast("URL da versao selecionada indisponivel.", "err", 3200);
       return;
     }
-    openScriptUpdatePage(targetUrl);
+    const opened = openScriptUpdatePage(targetUrl, {
+      remoteVersion: String(selected?.version || "").trim(),
+      mandatory: false,
+    });
+    if (!opened) toast("Atualizacao cancelada.", "info", 2200);
   }
   /**
    * Objetivo: Garante helpers globais de diagnostico para abertura de requisicoes.
@@ -8504,6 +8551,7 @@ Atenciosamente.`;
     const versionCard = ensureMenuCard("hs-settings-version-card", scriptGroup);
     const updatesBtn = ensureMenuButton("hs-updates-log-btn", updateGroup);
     const checkBtn = ensureMenuButton("hs-update-check-btn", updateGroup);
+    const quickUpdateBtn = ensureMenuButton("hs-update-now-btn", updateGroup);
     const manualBtn = ensureMenuButton("hs-update-manual-btn", updateGroup);
     const alertBtn = ensureMenuButton("hs-update-available-btn", updateGroup);
     alertBtn.classList.add("hs-update-available-btn");
@@ -8788,6 +8836,40 @@ Atenciosamente.`;
       }
       setMenuOpen(false);
     };
+    quickUpdateBtn.value = "Atualizar script";
+    quickUpdateBtn.title = "Atualizacao com 1 clique (confirmacao + instalacao no mesmo separador)";
+    quickUpdateBtn.onclick = async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (quickUpdateBtn.dataset.hsBusy === "1") return;
+      quickUpdateBtn.dataset.hsBusy = "1";
+      const oldLabel = quickUpdateBtn.value;
+      quickUpdateBtn.value = "Verificando...";
+      quickUpdateBtn.disabled = true;
+      try {
+        const result = await checkScriptUpdateAvailability(true);
+        applyUpdateState(result);
+        const remoteVersion = String(result?.remoteVersion || "").trim();
+        const hasUpdate = !!result?.hasUpdate && compareVersionTexts(remoteVersion, SCRIPT_VERSION) > 0;
+        if (hasUpdate) {
+          const opened = openScriptUpdatePage(String(result?.remoteUrl || ""), {
+            remoteVersion,
+            mandatory: isMandatoryUpdateResult(result),
+          });
+          if (!opened) toast("Atualizacao cancelada.", "info", 2200);
+        } else if (result?.ok) {
+          toast("Voce ja esta na versao mais recente.", "ok", 2500);
+        } else {
+          toast("Falha ao verificar update. Abrindo modo manual.", "err", 3200);
+          await openManualUpdateGuide({});
+        }
+      } finally {
+        quickUpdateBtn.disabled = false;
+        quickUpdateBtn.value = oldLabel;
+        delete quickUpdateBtn.dataset.hsBusy;
+      }
+      setMenuOpen(false);
+    };
     manualBtn.value = "Codigo update";
     manualBtn.title = "Abrir e copiar codigo para colar manualmente no Tampermonkey";
     manualBtn.onclick = async (ev) => {
@@ -8836,7 +8918,11 @@ Atenciosamente.`;
         mandatoryVersion,
         mandatoryReason,
       }).catch(() => {
-        openScriptUpdatePage(alertBtn.dataset.hsRemoteUrl || "");
+        const opened = openScriptUpdatePage(alertBtn.dataset.hsRemoteUrl || "", {
+          remoteVersion,
+          mandatory: mandatoryUpdate,
+        });
+        if (!opened) toast("Atualizacao cancelada.", "info", 2200);
       });
       setMenuOpen(false);
     };
