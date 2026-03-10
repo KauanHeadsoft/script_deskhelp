@@ -1,6 +1,17 @@
 ﻿[   
     
     {
+        "date":  "2026-03-10",
+        "version":  "2.15.55",
+        "type":  "bugfix",
+        "mandatory":  true,
+        "notes":  [
+                      "Correcao urgente na Aparencia visual: tema claro e tema escuro agora salvam configuracoes em chaves separadas.",
+                      "Ao trocar de tema, cada modo passa a carregar seu proprio conjunto de fonte/cores/papel de fundo sem misturar estados.",
+                      "Migracao segura incluida: configuracao antiga unica e movida automaticamente para o tema ativo, preservando o visual atual."
+                  ]
+    },
+    {
         "date":  "2026-03-09",
         "version":  "2.15.54",
         "type":  "bugfix",

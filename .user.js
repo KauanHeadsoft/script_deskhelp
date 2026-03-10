@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.54
+// @version      2.15.55
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -53,6 +53,8 @@
   const HIDE_SUGGESTION_FILTER_DEFAULT = true;
   const HIDE_SUGGESTION_FILTER_LS_KEY = "hs2025-hide-suggestion-filter";
   const APPEARANCE_SETTINGS_LS_KEY = "hs2025-appearance-settings";
+  const APPEARANCE_SETTINGS_LIGHT_LS_KEY = "hs2025-appearance-settings-light";
+  const APPEARANCE_SETTINGS_DARK_LS_KEY = "hs2025-appearance-settings-dark";
   const APPEARANCE_WALLPAPER_OPACITY_DEFAULT = 0.06;
   const APPEARANCE_WALLPAPER_OPACITY_MIN = 0;
   const APPEARANCE_WALLPAPER_OPACITY_MAX = 0.18;
@@ -74,7 +76,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.54";
+  const SCRIPT_VERSION_FALLBACK = "2.15.55";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -148,6 +150,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-10",
+      version: "2.15.55",
+      type: "bugfix",
+      mandatory: true,
+      notes: [
+        "Correcao urgente na Aparencia visual: tema claro e tema escuro agora salvam configuracoes em chaves separadas.",
+        "Ao trocar de tema, cada modo passa a carregar seu proprio conjunto de fonte/cores/papel de fundo sem misturar estados.",
+        "Migracao segura incluida: configuracao antiga unica e movida automaticamente para o tema ativo, preservando o visual atual.",
+      ],
+    },
     {
       date: "2026-03-09",
       version: "2.15.54",
@@ -482,7 +495,9 @@ Atenciosamente.`;
    * Persistencia local (browser storage):
    * - localStorage:
    *   - hs2025-theme
-   *   - hs2025-appearance-settings
+   *   - hs2025-appearance-settings-light
+   *   - hs2025-appearance-settings-dark
+   *   - hs2025-appearance-settings (legado para migracao automatica)
    *   - hs2025-preview-only-mode
    *   - hs2025-attach-image-preview
    *   - hs2025-hide-suggestion-filter
@@ -4374,17 +4389,78 @@ Atenciosamente.`;
     };
   }
   /**
+   * Objetivo: Resolve modo de tema valido (light/dark) para operacoes de aparencia.
+   *
+   * Contexto: garante leitura/escrita segregada por tema ativo.
+   * Parametros:
+   * - mode: entrada usada por esta rotina.
+   * Retorno: string.
+   */
+  function resolveAppearanceThemeMode(mode = "") {
+    const raw = String(mode || "").trim().toLowerCase();
+    if (raw === "light" || raw === "dark") return raw;
+    const attr = String(document.documentElement?.getAttribute("data-hs-theme") || "").trim().toLowerCase();
+    if (attr === "light" || attr === "dark") return attr;
+    return getTheme() === "light" ? "light" : "dark";
+  }
+  /**
+   * Objetivo: Retorna chave de localStorage da aparencia para o tema informado.
+   *
+   * Contexto: centraliza o mapeamento light/dark para persistencia separada.
+   * Parametros:
+   * - mode: entrada usada por esta rotina.
+   * Retorno: string.
+   */
+  function getAppearanceSettingsStorageKey(mode = "") {
+    return resolveAppearanceThemeMode(mode) === "light"
+      ? APPEARANCE_SETTINGS_LIGHT_LS_KEY
+      : APPEARANCE_SETTINGS_DARK_LS_KEY;
+  }
+  /**
+   * Objetivo: Migra chave legada unica de aparencia para o tema ativo.
+   *
+   * Contexto: evita perder configuracao antiga ao introduzir persistencia por tema.
+   * Parametros:
+   * - mode: entrada usada por esta rotina.
+   * Retorno: object|null.
+   * Efeitos colaterais: leitura/escrita opcional em localStorage.
+   */
+  function migrateLegacyAppearanceSettings(mode = "") {
+    try {
+      const legacyRaw = String(localStorage.getItem(APPEARANCE_SETTINGS_LS_KEY) || "").trim();
+      if (!legacyRaw) return null;
+      const hasLight = String(localStorage.getItem(APPEARANCE_SETTINGS_LIGHT_LS_KEY) || "").trim();
+      const hasDark = String(localStorage.getItem(APPEARANCE_SETTINGS_DARK_LS_KEY) || "").trim();
+      if (hasLight || hasDark) return null;
+
+      const parsed = JSON.parse(legacyRaw);
+      const normalized = normalizeAppearanceSettings(parsed);
+      const key = getAppearanceSettingsStorageKey(mode);
+      localStorage.setItem(key, JSON.stringify(normalized));
+      return normalized;
+    } catch {
+      return null;
+    }
+  }
+  /**
    * Objetivo: Le preferencias de aparencia no localStorage.
    *
    * Contexto: aplicado durante bootstrap e abertura do modal visual.
-   * Parametros: nenhum.
+   * Parametros:
+   * - mode: entrada usada por esta rotina.
    * Retorno: object.
    * Efeitos colaterais: leitura opcional de localStorage.
    */
-  function readAppearanceSettings() {
+  function readAppearanceSettings(mode = "") {
+    const scopedMode = resolveAppearanceThemeMode(mode);
     try {
-      const raw = String(localStorage.getItem(APPEARANCE_SETTINGS_LS_KEY) || "").trim();
-      if (!raw) return { ...APPEARANCE_DEFAULTS };
+      const key = getAppearanceSettingsStorageKey(scopedMode);
+      const raw = String(localStorage.getItem(key) || "").trim();
+      if (!raw) {
+        const migrated = migrateLegacyAppearanceSettings(scopedMode);
+        if (migrated) return migrated;
+        return { ...APPEARANCE_DEFAULTS };
+      }
       const parsed = JSON.parse(raw);
       return normalizeAppearanceSettings(parsed);
     } catch {
@@ -4397,13 +4473,15 @@ Atenciosamente.`;
    * Contexto: acionado pelos controles do modal de aparencia.
    * Parametros:
    * - value: entrada usada por esta rotina.
+   * - mode: entrada usada por esta rotina.
    * Retorno: object.
    * Efeitos colaterais: escrita opcional em localStorage.
    */
-  function writeAppearanceSettings(value) {
+  function writeAppearanceSettings(value, mode = "") {
     const normalized = normalizeAppearanceSettings(value);
+    const scopedMode = resolveAppearanceThemeMode(mode);
     try {
-      localStorage.setItem(APPEARANCE_SETTINGS_LS_KEY, JSON.stringify(normalized));
+      localStorage.setItem(getAppearanceSettingsStorageKey(scopedMode), JSON.stringify(normalized));
     } catch {}
     return normalized;
   }
@@ -4418,7 +4496,7 @@ Atenciosamente.`;
     const html = document.documentElement;
     if (!(html instanceof HTMLElement)) return { ...APPEARANCE_DEFAULTS };
     const mode = html.getAttribute("data-hs-theme") === "light" ? "light" : "dark";
-    const settings = readAppearanceSettings();
+    const settings = readAppearanceSettings(mode);
     const defaults =
       mode === "light"
         ? { bg: "#FFFFFF", fg: "#0F172A", accent: "#1F5FB4" }
@@ -5274,7 +5352,8 @@ Atenciosamente.`;
    */
   function collectAppearanceModalSettings(modal) {
     if (!(modal instanceof HTMLElement)) return null;
-    const base = readAppearanceSettings();
+    const mode = resolveAppearanceThemeMode();
+    const base = readAppearanceSettings(mode);
     const font = modal.querySelector("#hs-appearance-font");
     const bg = modal.querySelector("#hs-appearance-bg");
     const text = modal.querySelector("#hs-appearance-text");
@@ -5403,7 +5482,7 @@ Atenciosamente.`;
       if (action === "apply") {
         const payload = collectAppearanceModalSettings(modal);
         if (!payload) return;
-        writeAppearanceSettings(payload);
+        writeAppearanceSettings(payload, resolveAppearanceThemeMode());
         applyAppearanceSettings();
         fillAppearanceModalFields(modal, payload);
         toast("Aparencia aplicada com sucesso.", "ok", 2400);
@@ -5413,14 +5492,14 @@ Atenciosamente.`;
         const payload = collectAppearanceModalSettings(modal);
         if (!payload) return;
         payload.wallpaperUrl = "";
-        writeAppearanceSettings(payload);
+        writeAppearanceSettings(payload, resolveAppearanceThemeMode());
         applyAppearanceSettings();
         fillAppearanceModalFields(modal, payload);
         toast("Papel de fundo removido.", "ok", 2200);
         return;
       }
       if (action === "reset") {
-        writeAppearanceSettings(APPEARANCE_DEFAULTS);
+        writeAppearanceSettings(APPEARANCE_DEFAULTS, resolveAppearanceThemeMode());
         const fresh = applyAppearanceSettings();
         fillAppearanceModalFields(modal, fresh);
         toast("Aparencia restaurada para o padrao.", "ok", 2400);
@@ -5438,7 +5517,7 @@ Atenciosamente.`;
   function openAppearanceModal() {
     const modal = ensureAppearanceModal();
     if (!(modal instanceof HTMLElement)) return;
-    fillAppearanceModalFields(modal, readAppearanceSettings());
+    fillAppearanceModalFields(modal, readAppearanceSettings(resolveAppearanceThemeMode()));
     modal.classList.add("open");
   }
   /**
