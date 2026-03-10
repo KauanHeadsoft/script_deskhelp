@@ -2,6 +2,19 @@
     
     {
         "date":  "2026-03-10",
+        "version":  "2.15.56",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Campo de versao/commit saiu do cabecalho e foi movido para o menu de Configuracoes (sessao Script), com abertura direta do commit.",
+                      "Aparencia visual ganhou novos controles persistentes por tema: formato da borda (arredondada/quadrada), espessura da borda e largura da grade.",
+                      "Grade do dashboard agora pode ser redimensionada arrastando as laterais (estilo janela), com salvamento automatico da largura no navegador.",
+                      "Aplicacao de tema foi antecipada no bootstrap para reduzir atraso visual entre tema nativo e tema do script ao recarregar/abrir preview.",
+                      "Anexos .txt e .sql (locais e recebidos) agora abrem em preview estilo editor, com fonte mono e botao de copiar conteudo."
+                  ]
+    },
+    {
+        "date":  "2026-03-10",
         "version":  "2.15.55",
         "type":  "bugfix",
         "mandatory":  true,

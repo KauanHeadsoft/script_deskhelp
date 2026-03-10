@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.55
+// @version      2.15.56
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -9,7 +9,7 @@
 // @homepageURL  https://github.com/KauanHeadsoft/script_deskhelp
 // @updateURL    https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js
 // @downloadURL  https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js
-// @run-at       document-idle
+// @run-at       document-start
 // @grant        none
 // ==/UserScript==
 
@@ -58,6 +58,15 @@
   const APPEARANCE_WALLPAPER_OPACITY_DEFAULT = 0.06;
   const APPEARANCE_WALLPAPER_OPACITY_MIN = 0;
   const APPEARANCE_WALLPAPER_OPACITY_MAX = 0.18;
+  const APPEARANCE_BORDER_RADIUS_DEFAULT = 9;
+  const APPEARANCE_BORDER_RADIUS_MIN = 0;
+  const APPEARANCE_BORDER_RADIUS_MAX = 18;
+  const APPEARANCE_BORDER_WIDTH_DEFAULT = 1;
+  const APPEARANCE_BORDER_WIDTH_MIN = 1;
+  const APPEARANCE_BORDER_WIDTH_MAX = 4;
+  const APPEARANCE_DASHBOARD_GRID_WIDTH_MIN = 920;
+  const APPEARANCE_DASHBOARD_GRID_WIDTH_MAX = 2600;
+  const EARLY_THEME_STYLE_ID = "hs2025-early-theme-style";
   const APPEARANCE_DEFAULTS = Object.freeze({
     fontFamily: "default",
     wallpaperUrl: "",
@@ -65,6 +74,10 @@
     bgColor: "",
     textColor: "",
     accentColor: "",
+    borderShape: "rounded",
+    borderRadius: APPEARANCE_BORDER_RADIUS_DEFAULT,
+    borderWidth: APPEARANCE_BORDER_WIDTH_DEFAULT,
+    dashboardGridWidth: 0,
   });
   const APPEARANCE_FONT_MAP = Object.freeze({
     default: "'Segoe UI', Tahoma, sans-serif",
@@ -76,7 +89,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.55";
+  const SCRIPT_VERSION_FALLBACK = "2.15.56";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -142,6 +155,162 @@
     ENABLE_AJAX_REFRESH: true,
     ENABLE_DEBUG_SELF_CHECK: false,
   });
+  /**
+   * Objetivo: Aplica tema/base visual o mais cedo possivel para reduzir "flash" do layout legado.
+   *
+   * Contexto: executado no bootstrap (document-start) antes da injecao do CSS completo.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function bootstrapEarlyThemePaint() {
+    const html = document.documentElement;
+    if (!(html instanceof HTMLElement)) return;
+
+    const clamp = (value, min, max) => {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return min;
+      return Math.min(max, Math.max(min, n));
+    };
+    const normalizeHex = (value, fallback = "") => {
+      const raw = String(value || "").trim();
+      const short = raw.match(/^#([0-9a-f]{3})$/i);
+      if (short) {
+        const [r, g, b] = short[1].split("");
+        return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+      }
+      const full = raw.match(/^#([0-9a-f]{6})$/i);
+      if (full) return `#${full[1]}`.toUpperCase();
+      return String(fallback || "").trim();
+    };
+    const sanitizeWallpaper = (value) => {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      try {
+        const u = new URL(raw, location.href);
+        return /^https?:$/i.test(u.protocol) ? u.toString() : "";
+      } catch {
+        return "";
+      }
+    };
+
+    let mode = "dark";
+    try {
+      const stored = String(localStorage.getItem(LS_KEY) || "").trim().toLowerCase();
+      if (stored === "light" || stored === "dark") mode = stored;
+      else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) mode = "dark";
+      else mode = "light";
+    } catch {
+      mode =
+        window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
+    }
+    html.setAttribute("data-hs-theme", mode);
+
+    const defaults =
+      mode === "light"
+        ? { bg: "#FFFFFF", fg: "#0F172A", accent: "#1F5FB4" }
+        : { bg: "#0E141D", fg: "#DCE6F2", accent: "#3A6FAE" };
+
+    let appearance = null;
+    try {
+      const scopedKey = mode === "light" ? APPEARANCE_SETTINGS_LIGHT_LS_KEY : APPEARANCE_SETTINGS_DARK_LS_KEY;
+      const scopedRaw = String(localStorage.getItem(scopedKey) || "").trim();
+      const legacyRaw = String(localStorage.getItem(APPEARANCE_SETTINGS_LS_KEY) || "").trim();
+      const raw = scopedRaw || legacyRaw;
+      if (raw) appearance = JSON.parse(raw);
+    } catch {
+      appearance = null;
+    }
+
+    const fontKey = String(appearance?.fontFamily || APPEARANCE_DEFAULTS.fontFamily)
+      .trim()
+      .toLowerCase();
+    const fontCss = APPEARANCE_FONT_MAP[fontKey] || APPEARANCE_FONT_MAP.default;
+    const bg = normalizeHex(appearance?.bgColor, defaults.bg) || defaults.bg;
+    const fg = normalizeHex(appearance?.textColor, defaults.fg) || defaults.fg;
+    const accent = normalizeHex(appearance?.accentColor, defaults.accent) || defaults.accent;
+    const wallpaperUrl = sanitizeWallpaper(appearance?.wallpaperUrl || "");
+    const wallpaperOpacityRaw = Number(appearance?.wallpaperOpacity);
+    const wallpaperOpacity = Number.isFinite(wallpaperOpacityRaw)
+      ? clamp(
+          wallpaperOpacityRaw,
+          APPEARANCE_WALLPAPER_OPACITY_MIN,
+          APPEARANCE_WALLPAPER_OPACITY_MAX
+        )
+      : APPEARANCE_WALLPAPER_OPACITY_DEFAULT;
+    const overlayAlpha = clamp(1 - wallpaperOpacity, 0.82, 1);
+
+    const borderShape = String(appearance?.borderShape || "rounded").trim().toLowerCase() === "square" ? "square" : "rounded";
+    const borderRadiusBase =
+      borderShape === "square"
+        ? 0
+        : Math.round(
+            clamp(
+              Number.isFinite(Number(appearance?.borderRadius))
+                ? Number(appearance?.borderRadius)
+                : APPEARANCE_BORDER_RADIUS_DEFAULT,
+              APPEARANCE_BORDER_RADIUS_MIN,
+              APPEARANCE_BORDER_RADIUS_MAX
+            )
+          );
+    const borderWidth = Math.round(
+      clamp(
+        Number.isFinite(Number(appearance?.borderWidth))
+          ? Number(appearance?.borderWidth)
+          : APPEARANCE_BORDER_WIDTH_DEFAULT,
+        APPEARANCE_BORDER_WIDTH_MIN,
+        APPEARANCE_BORDER_WIDTH_MAX
+      )
+    );
+    const gridWidthRaw = Number(appearance?.dashboardGridWidth);
+    const dashboardGridWidth =
+      Number.isFinite(gridWidthRaw) && gridWidthRaw >= APPEARANCE_DASHBOARD_GRID_WIDTH_MIN
+        ? Math.round(clamp(gridWidthRaw, APPEARANCE_DASHBOARD_GRID_WIDTH_MIN, APPEARANCE_DASHBOARD_GRID_WIDTH_MAX))
+        : 0;
+
+    html.style.setProperty("--bg", bg);
+    html.setAttribute("data-hs-corner", borderShape === "square" ? "square" : "rounded");
+    html.style.setProperty("--fg", fg);
+    html.style.setProperty("--accent", accent);
+    html.style.setProperty("--hs-body-font", fontCss);
+    html.style.setProperty(
+      "--hs-wallpaper-image",
+      wallpaperUrl ? `url("${String(wallpaperUrl).replace(/[\\"]/g, "\\$&")}")` : "none"
+    );
+    html.style.setProperty("--hs-wallpaper-overlay", `rgba(${parseInt(bg.slice(1, 3), 16)},${parseInt(bg.slice(3, 5), 16)},${parseInt(bg.slice(5, 7), 16)},${overlayAlpha.toFixed(3)})`);
+    html.style.setProperty("--hs-border-width", `${Math.max(1, borderWidth)}px`);
+    html.style.setProperty("--hs-radius-control", `${Math.max(0, borderRadiusBase)}px`);
+    html.style.setProperty("--hs-radius-card", `${Math.max(0, Math.round(borderRadiusBase * 1.35))}px`);
+    html.style.setProperty("--hs-radius-table", `${Math.max(0, Math.round(borderRadiusBase * 1.7))}px`);
+    html.style.setProperty(
+      "--hs-dashboard-grid-user-width",
+      dashboardGridWidth > 0 ? `${dashboardGridWidth}px` : "auto"
+    );
+
+    let earlyStyle = document.getElementById(EARLY_THEME_STYLE_ID);
+    if (!(earlyStyle instanceof HTMLStyleElement)) {
+      earlyStyle = document.createElement("style");
+      earlyStyle.id = EARLY_THEME_STYLE_ID;
+      (document.head || document.documentElement).appendChild(earlyStyle);
+    }
+    earlyStyle.textContent = `
+      html,body{
+        background-color:var(--bg)!important;
+        color:var(--fg)!important;
+        font-family:var(--hs-body-font)!important;
+      }
+      body{
+        background-image:
+          linear-gradient(var(--hs-wallpaper-overlay), var(--hs-wallpaper-overlay)),
+          var(--hs-wallpaper-image)!important;
+        background-size:cover!important;
+        background-position:center center!important;
+        background-attachment:fixed!important;
+      }
+    `;
+  }
+  bootstrapEarlyThemePaint();
 
   const T_PRIMEIRO_ATENDIMENTO = `Prezado(a),
 Informamos que sua solicitacao foi recebida por nossa equipe de suporte e esta sendo analisada com atencao. Caso surjam duvidas ou necessitemos de informacoes adicionais, entraremos em contato antes de prosseguir com o atendimento.
@@ -150,6 +319,19 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-10",
+      version: "2.15.56",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Campo de versao/commit saiu do cabecalho e foi movido para o menu de Configuracoes (sessao Script), com abertura direta do commit.",
+        "Aparencia visual ganhou novos controles persistentes por tema: formato da borda (arredondada/quadrada), espessura da borda e largura da grade.",
+        "Grade do dashboard agora pode ser redimensionada arrastando as laterais (estilo janela), com salvamento automatico da largura no navegador.",
+        "Aplicacao de tema foi antecipada no bootstrap para reduzir atraso visual entre tema nativo e tema do script ao recarregar/abrir preview.",
+        "Anexos .txt e .sql (locais e recebidos) agora abrem em preview estilo editor, com fonte mono e botao de copiar conteudo.",
+      ],
+    },
     {
       date: "2026-03-10",
       version: "2.15.55",
@@ -805,6 +987,11 @@ Atenciosamente.`;
     --hs-body-font:'Segoe UI', Tahoma, sans-serif;
     --hs-wallpaper-image:none;
     --hs-wallpaper-overlay:rgba(14,20,29,.96);
+    --hs-border-width:1px;
+    --hs-radius-control:8px;
+    --hs-radius-card:12px;
+    --hs-radius-table:14px;
+    --hs-dashboard-grid-user-width:auto;
   }
   html[data-hs-theme="light"]{
     --bg:#ffffff; --fg:#0f172a;
@@ -815,6 +1002,22 @@ Atenciosamente.`;
     --accent:#1f5fb4;
     --link:#0b57d0; --link-hover:#0842a0;
     --hs-wallpaper-overlay:rgba(255,255,255,.95);
+  }
+  html[data-hs-corner="square"] :is(
+    input,
+    select,
+    textarea,
+    button,
+    form[name="filtros"],
+    table.sortable,
+    .hs-update-modal-card,
+    .hs-image-viewer-card,
+    .hs-text-viewer-card,
+    .hs-attach-thumb,
+    .hs-settings-menu-popover,
+    .hs-settings-version-card
+  ){
+    border-radius:0!important;
   }
 
   html,body{
@@ -839,21 +1042,21 @@ Atenciosamente.`;
   }
 
   form[name="filtros"], #conteudo>table[width="100%"]{
-    background:var(--panel)!important; border-bottom:1px solid var(--border)!important;
+    background:var(--panel)!important; border-bottom:var(--hs-border-width) solid var(--border)!important;
   }
   select, input, textarea, button{
-    background:var(--panel2)!important; border:1px solid var(--border)!important; color:var(--fg)!important;
-    border-radius:6px!important; padding:3px 6px!important;
+    background:var(--panel2)!important; border:var(--hs-border-width) solid var(--border)!important; color:var(--fg)!important;
+    border-radius:var(--hs-radius-control)!important; padding:3px 6px!important;
   }
   a, h1,h2,h3,strong,b{ color:var(--fg)!important; }
 
   table.sortable{ border-collapse:separate!important; border-spacing:0!important; width:100%!important; }
   table.sortable thead th{
-    background:var(--panel2)!important; color:var(--fg)!important; border-bottom:1px solid var(--border)!important;
+    background:var(--panel2)!important; color:var(--fg)!important; border-bottom:var(--hs-border-width) solid var(--border)!important;
     padding:6px 10px!important;
   }
   table.sortable tbody td{
-    border-bottom:1px solid var(--border)!important; padding:6px 10px!important; color:var(--neutral)!important;
+    border-bottom:var(--hs-border-width) solid var(--border)!important; padding:6px 10px!important; color:var(--neutral)!important;
     overflow-wrap:anywhere;
   }
   table.sortable tbody tr:nth-child(odd) td{ background:var(--row1)!important; }
@@ -1081,7 +1284,7 @@ Atenciosamente.`;
     transform:translateX(-50%);
     display:flex;
     flex-direction:column;
-    border-radius:14px;
+    border-radius:var(--hs-radius-card);
     overflow:hidden;
     background:var(--panel);
     border:1px solid var(--border);
@@ -1102,7 +1305,7 @@ Atenciosamente.`;
     min-height:26px!important;
     height:26px!important;
     padding:2px 10px!important;
-    border-radius:8px!important;
+    border-radius:var(--hs-radius-control)!important;
     cursor:pointer;
   }
   .hs-update-modal .hs-force-hide{
@@ -1149,7 +1352,7 @@ Atenciosamente.`;
     flex:1 1 auto;
     min-width:0;
     border:1px solid var(--border);
-    border-radius:8px;
+    border-radius:var(--hs-radius-control);
     background:rgba(15,23,42,.28);
     color:var(--fg);
     padding:8px 10px;
@@ -1165,7 +1368,7 @@ Atenciosamente.`;
   }
   .hs-update-modal-actions button{
     min-height:28px!important;
-    border-radius:8px!important;
+    border-radius:var(--hs-radius-control)!important;
     padding:4px 10px!important;
     font-size:11px!important;
     font-weight:700!important;
@@ -1178,7 +1381,7 @@ Atenciosamente.`;
   }
   .hs-update-modal-code details{
     border:1px solid var(--border);
-    border-radius:10px;
+    border-radius:var(--hs-radius-card);
     background:rgba(15,23,42,.18);
     padding:8px;
   }
@@ -1195,7 +1398,7 @@ Atenciosamente.`;
   }
   .hs-update-modal-code-tools button{
     min-height:24px!important;
-    border-radius:8px!important;
+    border-radius:var(--hs-radius-control)!important;
     padding:2px 9px!important;
     font-size:10px!important;
     font-weight:700!important;
@@ -1206,7 +1409,7 @@ Atenciosamente.`;
     min-height:260px;
     margin-top:8px;
     border:1px solid var(--border);
-    border-radius:8px;
+    border-radius:var(--hs-radius-control);
     background:rgba(2,6,14,.62);
     color:#f8fbff;
     font-size:11px;
@@ -1249,7 +1452,7 @@ Atenciosamente.`;
   }
   .hs-updates-log-item{
     border:1px solid var(--border);
-    border-radius:10px;
+    border-radius:var(--hs-radius-card);
     background:rgba(15,23,42,.18);
     padding:9px 10px;
     color:var(--fg);
@@ -1312,7 +1515,7 @@ Atenciosamente.`;
     max-height:92vh;
     display:flex;
     flex-direction:column;
-    border-radius:12px;
+    border-radius:var(--hs-radius-card);
     overflow:hidden;
     background:var(--panel);
     border:1px solid var(--border);
@@ -1333,7 +1536,7 @@ Atenciosamente.`;
   .hs-image-viewer-head button{
     min-height:25px!important;
     height:25px!important;
-    border-radius:8px!important;
+    border-radius:var(--hs-radius-control)!important;
     padding:2px 10px!important;
     cursor:pointer;
   }
@@ -1362,7 +1565,7 @@ Atenciosamente.`;
     width:auto;
     height:auto;
     object-fit:contain;
-    border-radius:8px;
+    border-radius:var(--hs-radius-control);
     border:1px solid var(--border);
     background:rgba(2,8,18,.45);
   }
@@ -1370,9 +1573,91 @@ Atenciosamente.`;
     width:100%;
     min-height:56vh;
     border:1px solid var(--border);
-    border-radius:8px;
+    border-radius:var(--hs-radius-control);
     background:#0a1320;
     display:none;
+  }
+  .hs-text-viewer{
+    position:fixed;
+    inset:0;
+    z-index:1000035;
+    display:none;
+  }
+  .hs-text-viewer.open{ display:block; }
+  .hs-text-viewer-backdrop{
+    position:absolute;
+    inset:0;
+    background:rgba(2,8,18,.74);
+  }
+  .hs-text-viewer-card{
+    position:absolute;
+    top:4vh;
+    left:50%;
+    transform:translateX(-50%);
+    width:min(1120px, 97vw);
+    max-height:92vh;
+    display:flex;
+    flex-direction:column;
+    border-radius:var(--hs-radius-card);
+    overflow:hidden;
+    background:#0f1724;
+    border:1px solid #2d4056;
+    box-shadow:0 20px 58px rgba(0,0,0,.5);
+  }
+  .hs-text-viewer-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:8px 10px;
+    background:#162638;
+    border-bottom:1px solid #2b3f56;
+    color:#dce8f8;
+    font-size:12px;
+    font-weight:800;
+  }
+  .hs-text-viewer-actions{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .hs-text-viewer-actions button{
+    min-height:25px!important;
+    height:25px!important;
+    border-radius:var(--hs-radius-control)!important;
+    padding:2px 10px!important;
+    cursor:pointer;
+    font-size:11px!important;
+    font-weight:800!important;
+  }
+  .hs-text-viewer-body{
+    padding:10px;
+    overflow:auto;
+    min-height:180px;
+    max-height:calc(92vh - 44px);
+    background:#0b1320;
+  }
+  .hs-text-viewer-state{
+    margin:0 0 8px;
+    font-size:12px;
+    line-height:1.35;
+    color:#c9daef;
+    opacity:.9;
+    display:none;
+  }
+  .hs-text-viewer-code{
+    margin:0;
+    border-radius:var(--hs-radius-control);
+    border:1px solid #2c415a;
+    background:#101a29;
+    color:#d8e6f7;
+    padding:12px;
+    font-family:Consolas, "Cascadia Mono", "Courier New", monospace;
+    font-size:12px;
+    line-height:1.48;
+    white-space:pre;
+    overflow:auto;
+    min-height:56vh;
   }
   @media (max-width:760px){
     .hs-image-viewer-card{
@@ -1381,6 +1666,15 @@ Atenciosamente.`;
       width:min(98vw, 98vw);
     }
     .hs-image-viewer-body{
+      max-height:calc(96vh - 42px);
+      padding:8px;
+    }
+    .hs-text-viewer-card{
+      top:2vh;
+      max-height:96vh;
+      width:min(98vw, 98vw);
+    }
+    .hs-text-viewer-body{
       max-height:calc(96vh - 42px);
       padding:8px;
     }
@@ -1893,7 +2187,7 @@ Atenciosamente.`;
   body.hs-request-page #interno .novo_consumo_interno :is(select, input[type="text"], input[type="number"], input[type="date"], input[type="time"]){
     min-height:24px!important;
     height:24px!important;
-    border-width:1px!important;
+    border-width:var(--hs-border-width)!important;
     border-radius:8px!important;
     padding:2px 7px!important;
     font-size:10px!important;
@@ -1903,7 +2197,7 @@ Atenciosamente.`;
   body.hs-request-page #interno .novo_consumo_interno textarea{
     min-height:56px!important;
     height:56px!important;
-    border-width:1px!important;
+    border-width:var(--hs-border-width)!important;
     border-radius:8px!important;
     padding:6px 8px!important;
     font-size:10px!important;
@@ -1936,12 +2230,12 @@ Atenciosamente.`;
   body.hs-request-page #interno .hs-attach-btn,
   body.hs-request-page #interno .hs-attach-clear-btn{
     min-height:24px!important;
-    border-radius:8px!important;
+    border-radius:var(--hs-radius-control)!important;
     padding:3px 10px!important;
     font-size:11px!important;
     line-height:1!important;
     font-weight:700!important;
-    border:1px solid var(--border)!important;
+    border:var(--hs-border-width) solid var(--border)!important;
     background:var(--panel2)!important;
     color:var(--fg)!important;
     cursor:pointer!important;
@@ -1970,8 +2264,8 @@ Atenciosamente.`;
     margin-top:6px!important;
   }
   body.hs-request-page #interno .hs-attach-thumb{
-    border:1px solid var(--border)!important;
-    border-radius:10px!important;
+    border:var(--hs-border-width) solid var(--border)!important;
+    border-radius:var(--hs-radius-control)!important;
     background:var(--panel)!important;
     margin:0!important;
     padding:0!important;
@@ -1995,6 +2289,21 @@ Atenciosamente.`;
   }
   body.hs-request-page #interno .hs-attach-thumb figcaption{
     display:none!important;
+  }
+  body.hs-request-page #interno .hs-attach-thumb.hs-attach-thumb-text{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    background:linear-gradient(180deg, #13243a, #0f1d31)!important;
+    color:#d5e4f6!important;
+    cursor:pointer!important;
+    text-transform:uppercase!important;
+  }
+  body.hs-request-page #interno .hs-attach-thumb.hs-attach-thumb-text .hs-attach-thumb-text-ext{
+    font-family:Consolas, "Courier New", monospace!important;
+    font-size:11px!important;
+    font-weight:800!important;
+    letter-spacing:.08em!important;
   }
   body.hs-request-page #interno .hs-attach-thumb .hs-attach-thumb-remove{
     position:absolute!important;
@@ -3822,7 +4131,7 @@ Atenciosamente.`;
   .hs-appearance-field :is(input,select){
     min-height:34px!important;
     height:34px!important;
-    border-radius:9px!important;
+    border-radius:var(--hs-radius-control)!important;
     padding:4px 10px!important;
     font-size:12px!important;
   }
@@ -3854,9 +4163,60 @@ Atenciosamente.`;
     line-height:1.35;
     opacity:.8;
   }
+  .hs-appearance-subgrid{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:10px;
+  }
+  .hs-appearance-inline{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .hs-appearance-inline > output{
+    min-width:44px;
+    text-align:right;
+    font-size:12px;
+    font-weight:700;
+    opacity:.92;
+  }
+  .hs-settings-version-card{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:8px!important;
+    min-height:33px!important;
+    height:33px!important;
+    padding:6px 9px!important;
+    border-radius:10px!important;
+    border:1px solid #3e5878!important;
+    background:linear-gradient(180deg, #1a2f49, #15273f)!important;
+    color:#dbe8f9!important;
+    cursor:pointer!important;
+    user-select:none!important;
+    text-align:left!important;
+  }
+  .hs-settings-version-card:hover{
+    border-color:#6283ad!important;
+    filter:brightness(1.04)!important;
+  }
+  .hs-settings-version-card .hs-main{
+    font-size:12px!important;
+    font-weight:900!important;
+    letter-spacing:.02em!important;
+  }
+  .hs-settings-version-card .hs-meta{
+    font-size:11px!important;
+    font-weight:700!important;
+    font-family:Consolas, "Courier New", monospace!important;
+    opacity:.9!important;
+  }
   @media (max-width:880px){
     .hs-appearance-grid{
       grid-template-columns:repeat(2, minmax(0, 1fr));
+    }
+    .hs-appearance-subgrid{
+      grid-template-columns:1fr;
     }
   }
   @media (max-width:640px){
@@ -3895,22 +4255,22 @@ Atenciosamente.`;
     width:min(1320px, 100%)!important;
     margin:10px auto 0!important;
     padding:8px 12px!important;
-    border-radius:12px!important;
+    border-radius:var(--hs-radius-card)!important;
     font-size:18px!important;
     font-weight:700!important;
     line-height:1.2!important;
     box-sizing:border-box!important;
   }
   body.hs-dashboard-page table.sortable{
-    border-radius:14px!important;
+    border-radius:var(--hs-radius-table)!important;
     overflow:hidden!important;
     box-shadow:0 8px 20px rgba(0,0,0,.15)!important;
     margin-bottom:12px!important;
   }
-  body.hs-dashboard-page table.sortable thead th:first-child{ border-top-left-radius:14px!important; }
-  body.hs-dashboard-page table.sortable thead th:last-child{ border-top-right-radius:14px!important; }
-  body.hs-dashboard-page table.sortable tbody tr:last-child td:first-child{ border-bottom-left-radius:14px!important; }
-  body.hs-dashboard-page table.sortable tbody tr:last-child td:last-child{ border-bottom-right-radius:14px!important; }
+  body.hs-dashboard-page table.sortable thead th:first-child{ border-top-left-radius:var(--hs-radius-table)!important; }
+  body.hs-dashboard-page table.sortable thead th:last-child{ border-top-right-radius:var(--hs-radius-table)!important; }
+  body.hs-dashboard-page table.sortable tbody tr:last-child td:first-child{ border-bottom-left-radius:var(--hs-radius-table)!important; }
+  body.hs-dashboard-page table.sortable tbody tr:last-child td:last-child{ border-bottom-right-radius:var(--hs-radius-table)!important; }
   body.hs-dashboard-page table.sortable thead th{
     font-size:13px!important;
     font-weight:800!important;
@@ -3993,10 +4353,10 @@ Atenciosamente.`;
   html[data-hs-theme="dark"] body.hs-dashboard-page table.sortable thead th{
     background:#1a2a3e!important;
     color:#dfeaf9!important;
-    border-bottom:1px solid #3a5068!important;
+    border-bottom:var(--hs-border-width) solid #3a5068!important;
   }
   html[data-hs-theme="dark"] body.hs-dashboard-page table.sortable tbody td{
-    border-bottom:1px solid #33495f!important;
+    border-bottom:var(--hs-border-width) solid #33495f!important;
   }
   html[data-hs-theme="dark"] body.hs-dashboard-page table.sortable tbody tr:hover td{
     background:#1b2b40!important;
@@ -4018,14 +4378,14 @@ Atenciosamente.`;
   }
   /* Dashboard (tema claro): remove contorno escuro residual da grade */
   html[data-hs-theme="light"] body.hs-dashboard-page table.sortable{
-    border:1px solid #d8e3f2!important;
+    border:var(--hs-border-width) solid #d8e3f2!important;
   }
   html[data-hs-theme="light"] body.hs-dashboard-page table.sortable thead th,
   html[data-hs-theme="light"] body.hs-dashboard-page table.sortable tbody td{
     border-color:#d8e3f2!important;
   }
   html[data-hs-theme="light"] body.hs-dashboard-page table.sortable tbody td{
-    border-bottom:1px solid #dde7f4!important;
+    border-bottom:var(--hs-border-width) solid #dde7f4!important;
   }
   html[data-hs-theme="light"] body.hs-dashboard-page table.sortable tbody tr:hover td{
     background:#eef5ff!important;
@@ -4372,6 +4732,10 @@ Atenciosamente.`;
       .trim()
       .toLowerCase();
     const fontFamily = APPEARANCE_FONT_MAP[fontRaw] ? fontRaw : APPEARANCE_DEFAULTS.fontFamily;
+    const borderShapeRaw = String(source.borderShape || APPEARANCE_DEFAULTS.borderShape)
+      .trim()
+      .toLowerCase();
+    const borderShape = borderShapeRaw === "square" ? "square" : "rounded";
     const wallpaperUrl = sanitizeWallpaperUrl(source.wallpaperUrl || "");
     const opacityRaw = Number(source.wallpaperOpacity);
     const wallpaperOpacity = clampNumber(
@@ -4379,6 +4743,33 @@ Atenciosamente.`;
       APPEARANCE_WALLPAPER_OPACITY_MIN,
       APPEARANCE_WALLPAPER_OPACITY_MAX
     );
+    const borderRadiusRaw = Number(source.borderRadius);
+    const borderRadius = Math.round(
+      clampNumber(
+        Number.isFinite(borderRadiusRaw) ? borderRadiusRaw : APPEARANCE_BORDER_RADIUS_DEFAULT,
+        APPEARANCE_BORDER_RADIUS_MIN,
+        APPEARANCE_BORDER_RADIUS_MAX
+      )
+    );
+    const borderWidthRaw = Number(source.borderWidth);
+    const borderWidth = Math.round(
+      clampNumber(
+        Number.isFinite(borderWidthRaw) ? borderWidthRaw : APPEARANCE_BORDER_WIDTH_DEFAULT,
+        APPEARANCE_BORDER_WIDTH_MIN,
+        APPEARANCE_BORDER_WIDTH_MAX
+      )
+    );
+    const dashboardGridWidthRaw = Number(source.dashboardGridWidth);
+    const dashboardGridWidth =
+      Number.isFinite(dashboardGridWidthRaw) && dashboardGridWidthRaw >= APPEARANCE_DASHBOARD_GRID_WIDTH_MIN
+        ? Math.round(
+            clampNumber(
+              dashboardGridWidthRaw,
+              APPEARANCE_DASHBOARD_GRID_WIDTH_MIN,
+              APPEARANCE_DASHBOARD_GRID_WIDTH_MAX
+            )
+          )
+        : 0;
     return {
       fontFamily,
       wallpaperUrl,
@@ -4386,6 +4777,10 @@ Atenciosamente.`;
       bgColor: normalizeHexColor(source.bgColor || ""),
       textColor: normalizeHexColor(source.textColor || ""),
       accentColor: normalizeHexColor(source.accentColor || ""),
+      borderShape,
+      borderRadius,
+      borderWidth,
+      dashboardGridWidth,
     };
   }
   /**
@@ -4525,8 +4920,41 @@ Atenciosamente.`;
       ? `url("${String(settings.wallpaperUrl).replace(/[\\"]/g, "\\$&")}")`
       : "none";
     const fontCss = APPEARANCE_FONT_MAP[settings.fontFamily] || APPEARANCE_FONT_MAP.default;
+    const borderShape = String(settings.borderShape || APPEARANCE_DEFAULTS.borderShape)
+      .trim()
+      .toLowerCase();
+    const borderRadiusBase =
+      borderShape === "square"
+        ? 0
+        : Math.round(
+            clampNumber(
+              Number(settings.borderRadius),
+              APPEARANCE_BORDER_RADIUS_MIN,
+              APPEARANCE_BORDER_RADIUS_MAX
+            )
+          );
+    const borderWidth = Math.round(
+      clampNumber(
+        Number(settings.borderWidth),
+        APPEARANCE_BORDER_WIDTH_MIN,
+        APPEARANCE_BORDER_WIDTH_MAX
+      )
+    );
+    const dashboardGridWidthRaw = Number(settings.dashboardGridWidth);
+    const dashboardGridWidth =
+      Number.isFinite(dashboardGridWidthRaw) &&
+      dashboardGridWidthRaw >= APPEARANCE_DASHBOARD_GRID_WIDTH_MIN
+        ? Math.round(
+            clampNumber(
+              dashboardGridWidthRaw,
+              APPEARANCE_DASHBOARD_GRID_WIDTH_MIN,
+              APPEARANCE_DASHBOARD_GRID_WIDTH_MAX
+            )
+          )
+        : 0;
 
     html.style.setProperty("--bg", bg);
+    html.setAttribute("data-hs-corner", borderShape === "square" ? "square" : "rounded");
     html.style.setProperty("--fg", fg);
     html.style.setProperty("--panel", panel);
     html.style.setProperty("--panel2", panel2);
@@ -4541,7 +4969,53 @@ Atenciosamente.`;
     html.style.setProperty("--hs-body-font", fontCss);
     html.style.setProperty("--hs-wallpaper-image", wallpaperCss);
     html.style.setProperty("--hs-wallpaper-overlay", wallpaperOverlay);
+    html.style.setProperty("--hs-border-width", `${Math.max(1, borderWidth)}px`);
+    html.style.setProperty("--hs-radius-control", `${Math.max(0, borderRadiusBase)}px`);
+    html.style.setProperty("--hs-radius-card", `${Math.max(0, Math.round(borderRadiusBase * 1.35))}px`);
+    html.style.setProperty("--hs-radius-table", `${Math.max(0, Math.round(borderRadiusBase * 1.7))}px`);
+    html.style.setProperty(
+      "--hs-dashboard-grid-user-width",
+      dashboardGridWidth > 0 ? `${dashboardGridWidth}px` : "auto"
+    );
     return settings;
+  }
+  /**
+   * Objetivo: Le largura persistida da grade do dashboard para o tema atual.
+   *
+   * Contexto: usado na normalizacao de largura e no resize pelas bordas.
+   * Parametros:
+   * - mode: entrada usada por esta rotina.
+   * Retorno: number (0 quando auto).
+   */
+  function getStoredDashboardGridWidth(mode = "") {
+    const settings = readAppearanceSettings(mode);
+    const raw = Number(settings.dashboardGridWidth);
+    if (!Number.isFinite(raw) || raw < APPEARANCE_DASHBOARD_GRID_WIDTH_MIN) return 0;
+    return Math.round(
+      clampNumber(raw, APPEARANCE_DASHBOARD_GRID_WIDTH_MIN, APPEARANCE_DASHBOARD_GRID_WIDTH_MAX)
+    );
+  }
+  /**
+   * Objetivo: Persiste largura da grade do dashboard no escopo do tema atual.
+   *
+   * Contexto: chamado ao arrastar bordas da grade e no modal de aparencia.
+   * Parametros:
+   * - value: entrada usada por esta rotina.
+   * - mode: entrada usada por esta rotina.
+   * Retorno: number.
+   */
+  function setStoredDashboardGridWidth(value, mode = "") {
+    const scopedMode = resolveAppearanceThemeMode(mode);
+    const base = readAppearanceSettings(scopedMode);
+    const raw = Number(value);
+    const next =
+      Number.isFinite(raw) && raw >= APPEARANCE_DASHBOARD_GRID_WIDTH_MIN
+        ? Math.round(
+            clampNumber(raw, APPEARANCE_DASHBOARD_GRID_WIDTH_MIN, APPEARANCE_DASHBOARD_GRID_WIDTH_MAX)
+          )
+        : 0;
+    writeAppearanceSettings({ ...base, dashboardGridWidth: next }, scopedMode);
+    return next;
   }
   /**
    * Objetivo: Valida se arquivo/URL e elegivel para modal (somente PNG/JPG).
@@ -4571,6 +5045,37 @@ Atenciosamente.`;
       for (const key of queryNames) {
         const value = String(url.searchParams.get(key) || "").trim().toLowerCase();
         if (/\.(png|jpe?g)$/.test(value)) return true;
+      }
+    } catch {}
+    return false;
+  }
+  /**
+   * Objetivo: Valida se anexo de texto (TXT/SQL) e elegivel para preview interno.
+   *
+   * Contexto: usado para anexos recebidos e anexos locais selecionados.
+   * Parametros:
+   * - source: URL/data URL opcional.
+   * - fileName: nome opcional.
+   * - fileType: MIME opcional.
+   * Retorno: boolean.
+   */
+  function isTextOrSqlPreviewCandidate(source, fileName = "", fileType = "") {
+    const mime = String(fileType || "").trim().toLowerCase();
+    if (/^(text\/plain|application\/sql|text\/sql|application\/x-sql)$/i.test(mime)) return true;
+
+    const name = String(fileName || "").trim().toLowerCase();
+    if (/\.(txt|sql)$/.test(name)) return true;
+
+    const src = String(source || "").trim().toLowerCase();
+    if (!src) return false;
+    if (/^data:text\/plain(?:;|,)/.test(src)) return true;
+    if (/\.(txt|sql)(?:[?#].*)?$/.test(src)) return true;
+    try {
+      const url = new URL(String(source || ""), location.href);
+      const queryNames = ["name", "filename", "file", "arquivo", "anexo"];
+      for (const key of queryNames) {
+        const value = String(url.searchParams.get(key) || "").trim().toLowerCase();
+        if (/\.(txt|sql)$/.test(value)) return true;
       }
     } catch {}
     return false;
@@ -5305,6 +5810,58 @@ Atenciosamente.`;
     out.value = `${Math.round(pct)}%`;
   }
   /**
+   * Objetivo: Atualiza labels dinamic as de controles num modal de aparencia.
+   *
+   * Contexto: exibicao imediata de percentual/tamanho enquanto usuario ajusta.
+   * Parametros:
+   * - modal: entrada usada por esta rotina.
+   * Retorno: void.
+   */
+  function refreshAppearanceLiveLabels(modal) {
+    if (!(modal instanceof HTMLElement)) return;
+    refreshAppearanceOpacityLabel(modal);
+    const borderRadius = modal.querySelector("#hs-appearance-border-radius");
+    const borderRadiusOut = modal.querySelector("#hs-appearance-border-radius-out");
+    if (borderRadius instanceof HTMLInputElement && borderRadiusOut instanceof HTMLOutputElement) {
+      const px = Math.round(
+        clampNumber(
+          Number(borderRadius.value || APPEARANCE_BORDER_RADIUS_DEFAULT),
+          APPEARANCE_BORDER_RADIUS_MIN,
+          APPEARANCE_BORDER_RADIUS_MAX
+        )
+      );
+      borderRadiusOut.value = `${px}px`;
+    }
+    const borderWidth = modal.querySelector("#hs-appearance-border-width");
+    const borderWidthOut = modal.querySelector("#hs-appearance-border-width-out");
+    if (borderWidth instanceof HTMLInputElement && borderWidthOut instanceof HTMLOutputElement) {
+      const px = Math.round(
+        clampNumber(
+          Number(borderWidth.value || APPEARANCE_BORDER_WIDTH_DEFAULT),
+          APPEARANCE_BORDER_WIDTH_MIN,
+          APPEARANCE_BORDER_WIDTH_MAX
+        )
+      );
+      borderWidthOut.value = `${px}px`;
+    }
+    const gridWidth = modal.querySelector("#hs-appearance-grid-width");
+    const gridWidthOut = modal.querySelector("#hs-appearance-grid-width-out");
+    if (gridWidth instanceof HTMLInputElement && gridWidthOut instanceof HTMLOutputElement) {
+      const valueRaw = Number(gridWidth.value || "0");
+      const value =
+        Number.isFinite(valueRaw) && valueRaw >= APPEARANCE_DASHBOARD_GRID_WIDTH_MIN
+          ? Math.round(
+              clampNumber(
+                valueRaw,
+                APPEARANCE_DASHBOARD_GRID_WIDTH_MIN,
+                APPEARANCE_DASHBOARD_GRID_WIDTH_MAX
+              )
+            )
+          : 0;
+      gridWidthOut.value = value > 0 ? `${value}px` : "Auto";
+    }
+  }
+  /**
    * Objetivo: Preenche campos do modal de aparencia com estado atual.
    *
    * Contexto: executado ao abrir o modal.
@@ -5322,6 +5879,10 @@ Atenciosamente.`;
     const accent = modal.querySelector("#hs-appearance-accent");
     const wallpaper = modal.querySelector("#hs-appearance-wallpaper-url");
     const opacity = modal.querySelector("#hs-appearance-wallpaper-opacity");
+    const borderShape = modal.querySelector("#hs-appearance-border-shape");
+    const borderRadius = modal.querySelector("#hs-appearance-border-radius");
+    const borderWidth = modal.querySelector("#hs-appearance-border-width");
+    const gridWidth = modal.querySelector("#hs-appearance-grid-width");
     if (font instanceof HTMLSelectElement) font.value = settings.fontFamily || APPEARANCE_DEFAULTS.fontFamily;
     if (bg instanceof HTMLInputElement)
       bg.value = normalizeHexColor(settings.bgColor) || (getTheme() === "light" ? "#FFFFFF" : "#0E141D");
@@ -5340,7 +5901,17 @@ Atenciosamente.`;
       );
       opacity.value = String(pct);
     }
-    refreshAppearanceOpacityLabel(modal);
+    if (borderShape instanceof HTMLSelectElement) borderShape.value = settings.borderShape || APPEARANCE_DEFAULTS.borderShape;
+    if (borderRadius instanceof HTMLInputElement) borderRadius.value = String(Math.round(settings.borderRadius || APPEARANCE_BORDER_RADIUS_DEFAULT));
+    if (borderWidth instanceof HTMLInputElement) borderWidth.value = String(Math.round(settings.borderWidth || APPEARANCE_BORDER_WIDTH_DEFAULT));
+    if (gridWidth instanceof HTMLInputElement) {
+      const widthValue = Number(settings.dashboardGridWidth);
+      gridWidth.value =
+        Number.isFinite(widthValue) && widthValue >= APPEARANCE_DASHBOARD_GRID_WIDTH_MIN
+          ? String(Math.round(widthValue))
+          : "0";
+    }
+    refreshAppearanceLiveLabels(modal);
   }
   /**
    * Objetivo: Coleta e valida dados do formulario de aparencia.
@@ -5360,6 +5931,10 @@ Atenciosamente.`;
     const accent = modal.querySelector("#hs-appearance-accent");
     const wallpaper = modal.querySelector("#hs-appearance-wallpaper-url");
     const opacity = modal.querySelector("#hs-appearance-wallpaper-opacity");
+    const borderShape = modal.querySelector("#hs-appearance-border-shape");
+    const borderRadius = modal.querySelector("#hs-appearance-border-radius");
+    const borderWidth = modal.querySelector("#hs-appearance-border-width");
+    const gridWidth = modal.querySelector("#hs-appearance-grid-width");
 
     const wallpaperInputRaw = wallpaper instanceof HTMLInputElement ? String(wallpaper.value || "").trim() : "";
     const wallpaperUrl = sanitizeWallpaperUrl(wallpaperInputRaw);
@@ -5382,6 +5957,44 @@ Atenciosamente.`;
         opacity instanceof HTMLInputElement
           ? clampNumber(Number(opacity.value || "0") / 100, APPEARANCE_WALLPAPER_OPACITY_MIN, APPEARANCE_WALLPAPER_OPACITY_MAX)
           : base.wallpaperOpacity,
+      borderShape:
+        borderShape instanceof HTMLSelectElement
+          ? String(borderShape.value || APPEARANCE_DEFAULTS.borderShape).trim().toLowerCase()
+          : base.borderShape,
+      borderRadius:
+        borderRadius instanceof HTMLInputElement
+          ? Math.round(
+              clampNumber(
+                Number(borderRadius.value || APPEARANCE_BORDER_RADIUS_DEFAULT),
+                APPEARANCE_BORDER_RADIUS_MIN,
+                APPEARANCE_BORDER_RADIUS_MAX
+              )
+            )
+          : base.borderRadius,
+      borderWidth:
+        borderWidth instanceof HTMLInputElement
+          ? Math.round(
+              clampNumber(
+                Number(borderWidth.value || APPEARANCE_BORDER_WIDTH_DEFAULT),
+                APPEARANCE_BORDER_WIDTH_MIN,
+                APPEARANCE_BORDER_WIDTH_MAX
+              )
+            )
+          : base.borderWidth,
+      dashboardGridWidth:
+        gridWidth instanceof HTMLInputElement
+          ? (() => {
+              const raw = Number(gridWidth.value || "0");
+              if (!Number.isFinite(raw) || raw < APPEARANCE_DASHBOARD_GRID_WIDTH_MIN) return 0;
+              return Math.round(
+                clampNumber(
+                  raw,
+                  APPEARANCE_DASHBOARD_GRID_WIDTH_MIN,
+                  APPEARANCE_DASHBOARD_GRID_WIDTH_MAX
+                )
+              );
+            })()
+          : base.dashboardGridWidth,
     });
   }
   /**
@@ -5416,7 +6029,7 @@ Atenciosamente.`;
           </header>
           <div class="hs-update-modal-body">
             <p class="hs-update-modal-status">
-              Personalize fonte, cores e papel de fundo. Tudo fica salvo localmente neste navegador.
+              Personalize fonte, cores, bordas e grade. As preferencias ficam salvas por tema neste navegador.
             </p>
             <div class="hs-appearance-grid">
               <label class="hs-appearance-field">
@@ -5448,13 +6061,41 @@ Atenciosamente.`;
                 />
               </label>
             </div>
+            <div class="hs-appearance-subgrid">
+              <label class="hs-appearance-field">
+                <span>Formato da borda</span>
+                <select id="hs-appearance-border-shape">
+                  <option value="rounded">Arredondada</option>
+                  <option value="square">Quadrada</option>
+                </select>
+              </label>
+              <label class="hs-appearance-field">
+                <span>Arredondamento</span>
+                <div class="hs-appearance-inline">
+                  <input id="hs-appearance-border-radius" type="range" min="0" max="18" step="1" value="9" />
+                  <output id="hs-appearance-border-radius-out">9px</output>
+                </div>
+              </label>
+              <label class="hs-appearance-field">
+                <span>Espessura da borda</span>
+                <div class="hs-appearance-inline">
+                  <input id="hs-appearance-border-width" type="range" min="1" max="4" step="1" value="1" />
+                  <output id="hs-appearance-border-width-out">1px</output>
+                </div>
+              </label>
+            </div>
             <div class="hs-appearance-range-row">
               <span>Intensidade do papel de fundo</span>
               <input id="hs-appearance-wallpaper-opacity" type="range" min="0" max="18" step="1" value="6" />
               <output id="hs-appearance-wallpaper-opacity-out">6%</output>
             </div>
+            <div class="hs-appearance-range-row">
+              <span>Largura da grade (chamados)</span>
+              <input id="hs-appearance-grid-width" type="range" min="0" max="${APPEARANCE_DASHBOARD_GRID_WIDTH_MAX}" step="10" value="0" />
+              <output id="hs-appearance-grid-width-out">Auto</output>
+            </div>
             <p class="hs-appearance-hint">
-              Dica: mantenha entre 3% e 8% para um papel quase invisivel e leitura confortavel.
+              Dica: voce tambem pode redimensionar a grade arrastando as bordas esquerda/direita no dashboard.
             </p>
             <div class="hs-update-modal-actions">
               <button type="button" class="is-main" data-action="apply">Aplicar</button>
@@ -5471,8 +6112,15 @@ Atenciosamente.`;
     modal.dataset.hsBound = "1";
     modal.querySelector(".hs-update-modal-backdrop")?.addEventListener("click", closeAppearanceModal);
     modal.querySelector('[data-action="close"]')?.addEventListener("click", closeAppearanceModal);
-    modal.querySelector("#hs-appearance-wallpaper-opacity")?.addEventListener("input", () => {
-      refreshAppearanceOpacityLabel(modal);
+    [
+      "#hs-appearance-wallpaper-opacity",
+      "#hs-appearance-border-radius",
+      "#hs-appearance-border-width",
+      "#hs-appearance-grid-width",
+      "#hs-appearance-border-shape",
+    ].forEach((selector) => {
+      modal.querySelector(selector)?.addEventListener("input", () => refreshAppearanceLiveLabels(modal));
+      modal.querySelector(selector)?.addEventListener("change", () => refreshAppearanceLiveLabels(modal));
     });
     modal.addEventListener("click", (ev) => {
       const btn = ev.target instanceof HTMLElement ? ev.target.closest("button[data-action]") : null;
@@ -5484,6 +6132,7 @@ Atenciosamente.`;
         if (!payload) return;
         writeAppearanceSettings(payload, resolveAppearanceThemeMode());
         applyAppearanceSettings();
+        normalizeDashboardTableWidths();
         fillAppearanceModalFields(modal, payload);
         toast("Aparencia aplicada com sucesso.", "ok", 2400);
         return;
@@ -5494,6 +6143,7 @@ Atenciosamente.`;
         payload.wallpaperUrl = "";
         writeAppearanceSettings(payload, resolveAppearanceThemeMode());
         applyAppearanceSettings();
+        normalizeDashboardTableWidths();
         fillAppearanceModalFields(modal, payload);
         toast("Papel de fundo removido.", "ok", 2200);
         return;
@@ -5501,6 +6151,7 @@ Atenciosamente.`;
       if (action === "reset") {
         writeAppearanceSettings(APPEARANCE_DEFAULTS, resolveAppearanceThemeMode());
         const fresh = applyAppearanceSettings();
+        normalizeDashboardTableWidths();
         fillAppearanceModalFields(modal, fresh);
         toast("Aparencia restaurada para o padrao.", "ok", 2400);
       }
@@ -6972,6 +7623,9 @@ Atenciosamente.`;
       if (localStorage.getItem(LS_KEY) !== mode) localStorage.setItem(LS_KEY, mode);
     } catch {}
     applyAppearanceSettings();
+    if (document.body?.classList?.contains("hs-dashboard-page")) {
+      normalizeDashboardTableWidths();
+    }
     const btn = document.getElementById(BTN_ID);
     if (btn) btn.textContent = mode === "dark" ? THEME_LABEL_WHEN_DARK : THEME_LABEL_WHEN_LIGHT;
   }
@@ -7088,35 +7742,8 @@ Atenciosamente.`;
     if (!wrap) return;
     const img = wrap.querySelector("img");
     if (img) img.src = NEW_LOGO;
-    if (document.body.classList.contains("hs-login-page")) {
-      wrap.querySelector(".hs-logo-version")?.remove();
-      return;
-    }
-    let badge = wrap.querySelector(".hs-logo-version");
-    if (!(badge instanceof HTMLElement)) {
-      badge = document.createElement("span");
-      badge.className = "hs-logo-version";
-    }
-    renderLogoVersionBadge(badge, hsLatestCommitMeta || readCachedLatestCommitMeta());
-    if (badge.dataset.hsCommitBind !== "1") {
-      badge.dataset.hsCommitBind = "1";
-      badge.addEventListener("click", (ev) => {
-        const commitUrl = String(badge?.dataset?.hsCommitUrl || "").trim();
-        if (!commitUrl) return;
-        ev.preventDefault();
-        ev.stopPropagation();
-        ev.stopImmediatePropagation();
-        window.open(commitUrl, "_blank", "noopener");
-      });
-    }
-    if (!badge.isConnected || badge.parentElement !== wrap) wrap.appendChild(badge);
-    if (badge.dataset.hsCommitLoadStarted !== "1") {
-      badge.dataset.hsCommitLoadStarted = "1";
-      fetchLatestMainCommitMeta(false).then((meta) => {
-        if (!meta) return;
-        renderLogoVersionBadge(badge, meta);
-      });
-    }
+    // Badge de versao saiu do cabecalho e agora fica no menu de Configuracoes.
+    wrap.querySelector(".hs-logo-version")?.remove();
   }
   /**
    * Objetivo: Configura navegaÃ§Ã£o da logo conforme contexto da pÃ¡gina.
@@ -7847,6 +8474,8 @@ Atenciosamente.`;
     const visualGroup = ensureMenuGroup("visual", "Visualizacao");
     const styleGroup = ensureMenuGroup("style", "Aparencia");
     ensureMenuDivider();
+    const scriptGroup = ensureMenuGroup("script", "Script");
+    ensureMenuDivider();
     const updateGroup = ensureMenuGroup("update", "Atualizacao");
 
     const ensureMenuButton = (id, parent = menu) => {
@@ -7862,11 +8491,25 @@ Atenciosamente.`;
       }
       return button;
     };
+    const ensureMenuCard = (id, parent = menu) => {
+      let card = menu.querySelector(`#${id}`);
+      if (!(card instanceof HTMLElement)) {
+        card = document.createElement("button");
+        card.type = "button";
+        card.id = id;
+        card.className = "hs-settings-version-card";
+        parent.appendChild(card);
+      } else if (card.parentElement !== parent) {
+        parent.appendChild(card);
+      }
+      return card;
+    };
 
     const gridPreviewBtn = ensureMenuButton("hs-preview-mode-toggle", visualGroup);
     const attachPreviewBtn = ensureMenuButton("hs-attach-preview-toggle", visualGroup);
     const suggestionFilterBtn = ensureMenuButton("hs-suggestion-filter-toggle", visualGroup);
     const appearanceBtn = ensureMenuButton("hs-appearance-toggle", styleGroup);
+    const versionCard = ensureMenuCard("hs-settings-version-card", scriptGroup);
     const updatesBtn = ensureMenuButton("hs-updates-log-btn", updateGroup);
     const checkBtn = ensureMenuButton("hs-update-check-btn", updateGroup);
     const manualBtn = ensureMenuButton("hs-update-manual-btn", updateGroup);
@@ -7930,6 +8573,38 @@ Atenciosamente.`;
         },
         true
       );
+    }
+    const renderSettingsVersionCard = (commitMeta = null) => {
+      if (!(versionCard instanceof HTMLButtonElement)) return;
+      const metaShort = String(commitMeta?.shaShort || "").trim();
+      const dateShort = String(commitMeta?.dateShort || "").trim();
+      const metaText = metaShort ? `#${metaShort}${dateShort ? ` ${dateShort}` : ""}` : "commit ...";
+      versionCard.innerHTML = `<span class="hs-main">v${SCRIPT_VERSION}</span><span class="hs-meta">${metaText}</span>`;
+      versionCard.title = metaShort
+        ? commitMeta?.message
+          ? `Versao ${SCRIPT_VERSION}\nCommit ${metaShort} (${dateShort || "sem data"})\n${commitMeta.message}`
+          : `Versao ${SCRIPT_VERSION}\nCommit ${metaShort} (${dateShort || "sem data"})`
+        : `Versao ${SCRIPT_VERSION}\nBuscando ultimo commit...`;
+      versionCard.dataset.hsCommitUrl = String(commitMeta?.url || "").trim();
+      versionCard.style.setProperty("cursor", versionCard.dataset.hsCommitUrl ? "pointer" : "default", "important");
+    };
+    renderSettingsVersionCard(hsLatestCommitMeta || readCachedLatestCommitMeta());
+    if (versionCard instanceof HTMLButtonElement && versionCard.dataset.hsCardBound !== "1") {
+      versionCard.dataset.hsCardBound = "1";
+      versionCard.addEventListener("click", (ev) => {
+        const commitUrl = String(versionCard.dataset.hsCommitUrl || "").trim();
+        if (!commitUrl) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        window.open(commitUrl, "_blank", "noopener");
+      });
+    }
+    if (versionCard instanceof HTMLButtonElement && versionCard.dataset.hsCommitLoadStarted !== "1") {
+      versionCard.dataset.hsCommitLoadStarted = "1";
+      fetchLatestMainCommitMeta(false).then((meta) => {
+        if (!meta) return;
+        renderSettingsVersionCard(meta);
+      });
     }
 
     const syncGridPreviewLabel = () => {
@@ -8031,7 +8706,7 @@ Atenciosamente.`;
       setMenuOpen(false);
     };
     appearanceBtn.value = "Aparencia visual";
-    appearanceBtn.title = "Escolher fonte, cores e papel de fundo sutil";
+    appearanceBtn.title = "Escolher fonte, cores, bordas e largura da grade (salvo por tema)";
     appearanceBtn.onclick = (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -9165,12 +9840,24 @@ Atenciosamente.`;
    * Retorno: valor calculado.
    * Efeitos colaterais: pode ler/alterar DOM, storage e estado de execucao conforme o caso.
    */
-  function normalizeDashboardTableWidths() {
+  function normalizeDashboardTableWidths(overrideWidth = 0) {
     if (!document.body.classList.contains("hs-dashboard-page")) return;
 
     const conteudo = document.getElementById("conteudo") || document.body;
     const conteudoWidth = Math.round(conteudo.getBoundingClientRect().width || 0);
     const fallbackWidth = conteudoWidth > 0 ? Math.min(1320, conteudoWidth) : 1320;
+    const overrideRaw = Number(overrideWidth);
+    const preferredStored = getStoredDashboardGridWidth(resolveAppearanceThemeMode());
+    const preferredWidth =
+      Number.isFinite(overrideRaw) && overrideRaw >= APPEARANCE_DASHBOARD_GRID_WIDTH_MIN
+        ? Math.round(
+            clampNumber(
+              overrideRaw,
+              APPEARANCE_DASHBOARD_GRID_WIDTH_MIN,
+              APPEARANCE_DASHBOARD_GRID_WIDTH_MAX
+            )
+          )
+        : preferredStored;
 
     const applyFiltrosWidth = (targetWidth) => {
       if (!Number.isFinite(targetWidth) || targetWidth <= 0) return;
@@ -9199,8 +9886,9 @@ Atenciosamente.`;
       (tb) => tb instanceof HTMLTableElement
     );
     if (!tables.length) {
-      applyFiltrosWidth(fallbackWidth);
-      return;
+      const widthWhenNoTable = preferredWidth > 0 ? preferredWidth : fallbackWidth;
+      applyFiltrosWidth(widthWhenNoTable);
+      return widthWhenNoTable;
     }
 
     // Limpa medidas antigas para recalcular pela largura real do layout atual.
@@ -9217,14 +9905,22 @@ Atenciosamente.`;
     const renderedWidths = sampleTables
       .map((tb) => Math.round(tb.getBoundingClientRect().width || 0))
       .filter((w) => w > 0);
-    if (!renderedWidths.length) return;
+    if (!renderedWidths.length) return 0;
 
     // Usa a maior largura visivel como referencia e replica para todas.
     const maxRenderedWidth = renderedWidths.reduce((acc, w) => Math.max(acc, w), renderedWidths[0]);
-    if (maxRenderedWidth <= 0) return;
+    if (maxRenderedWidth <= 0) return 0;
 
-    const targetWidth = conteudoWidth > 0 ? Math.min(maxRenderedWidth, conteudoWidth) : maxRenderedWidth;
-    if (targetWidth <= 0) return;
+    let targetWidth = conteudoWidth > 0 ? Math.min(maxRenderedWidth, conteudoWidth) : maxRenderedWidth;
+    if (preferredWidth > 0) {
+      const maxAllowed =
+        conteudoWidth > 0
+          ? Math.min(conteudoWidth, APPEARANCE_DASHBOARD_GRID_WIDTH_MAX)
+          : APPEARANCE_DASHBOARD_GRID_WIDTH_MAX;
+      const minAllowed = Math.max(320, Math.min(APPEARANCE_DASHBOARD_GRID_WIDTH_MIN, maxAllowed));
+      targetWidth = Math.round(clampNumber(preferredWidth, minAllowed, Math.max(minAllowed, maxAllowed)));
+    }
+    if (targetWidth <= 0) return 0;
 
     tables.forEach((tb) => {
       tb.style.setProperty("width", `${targetWidth}px`, "important");
@@ -9251,6 +9947,134 @@ Atenciosamente.`;
 
     // Mantem a faixa de filtros com a mesma largura das tabelas.
     applyFiltrosWidth(targetWidth);
+    return targetWidth;
+  }
+  /**
+   * Objetivo: Permite redimensionar a grade do dashboard pelas bordas laterais.
+   *
+   * Contexto: comportamento "estilo janela" com persistencia por tema no navegador.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function ensureDashboardGridEdgeResize() {
+    if (!document.body.classList.contains("hs-dashboard-page")) return;
+    const root = document.documentElement;
+    if (!(root instanceof HTMLElement)) return;
+    if (root.dataset.hsDashboardGridResizeBound === "1") return;
+    root.dataset.hsDashboardGridResizeBound = "1";
+
+    const EDGE_GAP_PX = 12;
+    let drag = null;
+    let hoverEdge = "";
+
+    const clearCursor = () => {
+      document.body?.style?.removeProperty("cursor");
+      document.body?.style?.removeProperty("user-select");
+      document.body?.style?.removeProperty("-webkit-user-select");
+    };
+    const setResizeCursor = () => {
+      document.body?.style?.setProperty("cursor", "ew-resize", "important");
+    };
+    const getMainTableRect = () => {
+      const table = Array.from(document.querySelectorAll("#conteudo table.sortable")).find(
+        (tb) => tb instanceof HTMLTableElement && tb.offsetParent !== null
+      );
+      if (!(table instanceof HTMLTableElement)) return null;
+      const rect = table.getBoundingClientRect();
+      if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+      return rect;
+    };
+    const detectEdge = (clientX, clientY) => {
+      const rect = getMainTableRect();
+      if (!rect) return "";
+      if (clientY < rect.top || clientY > rect.bottom) return "";
+      if (Math.abs(clientX - rect.left) <= EDGE_GAP_PX) return "left";
+      if (Math.abs(clientX - rect.right) <= EDGE_GAP_PX) return "right";
+      return "";
+    };
+
+    document.addEventListener(
+      "mousedown",
+      (ev) => {
+        if (!document.body.classList.contains("hs-dashboard-page")) return;
+        if (ev.button !== 0) return;
+        if (ev.defaultPrevented) return;
+        const edge = detectEdge(ev.clientX, ev.clientY);
+        if (!edge) return;
+        const rect = getMainTableRect();
+        if (!rect) return;
+        const currentStored = getStoredDashboardGridWidth(resolveAppearanceThemeMode());
+        drag = {
+          edge,
+          startX: ev.clientX,
+          startWidth: Math.round(rect.width),
+          currentWidth: Math.round(rect.width),
+          storedBefore: currentStored,
+        };
+        setResizeCursor();
+        document.body?.style?.setProperty("user-select", "none", "important");
+        document.body?.style?.setProperty("-webkit-user-select", "none", "important");
+        ev.preventDefault();
+        ev.stopPropagation();
+      },
+      true
+    );
+    document.addEventListener(
+      "mousemove",
+      (ev) => {
+        if (!document.body.classList.contains("hs-dashboard-page")) return;
+        if (drag) {
+          const delta = Number(ev.clientX) - Number(drag.startX || 0);
+          const next = Math.round(drag.startWidth + (drag.edge === "right" ? delta : -delta));
+          const applied = normalizeDashboardTableWidths(next);
+          if (Number.isFinite(applied) && applied > 0) drag.currentWidth = applied;
+          setResizeCursor();
+          ev.preventDefault();
+          return;
+        }
+        const edge = detectEdge(ev.clientX, ev.clientY);
+        if (edge && hoverEdge !== edge) {
+          hoverEdge = edge;
+          setResizeCursor();
+        } else if (!edge && hoverEdge) {
+          hoverEdge = "";
+          clearCursor();
+        }
+      },
+      true
+    );
+    document.addEventListener(
+      "mouseup",
+      () => {
+        if (!drag) return;
+        const finalWidth = Number(drag.currentWidth || 0);
+        const beforeWidth = Number(drag.storedBefore || 0);
+        drag = null;
+        hoverEdge = "";
+        clearCursor();
+        if (!Number.isFinite(finalWidth) || finalWidth <= 0) return;
+        const saved = setStoredDashboardGridWidth(finalWidth, resolveAppearanceThemeMode());
+        applyAppearanceSettings();
+        normalizeDashboardTableWidths(saved);
+        if (Math.abs((saved || 0) - (beforeWidth || 0)) >= 4) {
+          toast(
+            saved > 0
+              ? `Largura da grade salva: ${saved}px.`
+              : "Largura da grade voltou para automatico.",
+            "ok",
+            1800
+          );
+        }
+      },
+      true
+    );
+    window.addEventListener("blur", () => {
+      if (!drag) return;
+      drag = null;
+      hoverEdge = "";
+      clearCursor();
+      normalizeDashboardTableWidths();
+    });
   }
   /**
    * Objetivo: Sinaliza SLA de retorno externo com chips de aÃ§Ã£o.
@@ -9663,6 +10487,206 @@ Atenciosamente.`;
     }
   }
   /**
+   * Objetivo: Normaliza conteudo textual para preview seguro e legivel.
+   *
+   * Contexto: usado no modal tipo editor para anexos TXT/SQL.
+   * Parametros:
+   * - value: entrada textual bruta.
+   * Retorno: string.
+   */
+  function normalizeTextPreviewContent(value) {
+    const raw = String(value || "");
+    const noBom = raw.replace(/^\uFEFF/, "");
+    const normalized = noBom.replace(/\r\n?/g, "\n");
+    const withoutNull = normalized.replace(/\u0000/g, "");
+    const LIMIT = 2_500_000;
+    if (withoutNull.length <= LIMIT) return withoutNull;
+    return `${withoutNull.slice(0, LIMIT)}\n\n[preview truncado: arquivo muito grande]`;
+  }
+  /**
+   * Objetivo: Fecha modal de preview textual.
+   *
+   * Contexto: compartilhado por anexos locais e recebidos (TXT/SQL).
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function closeTextPreviewModal() {
+    if (!hsTextPreviewModal) hsTextPreviewModal = document.getElementById("hs-text-viewer");
+    if (!(hsTextPreviewModal instanceof HTMLElement)) return;
+    const codeEl = hsTextPreviewModal.querySelector(".hs-text-viewer-code");
+    const stateEl = hsTextPreviewModal.querySelector(".hs-text-viewer-state");
+    const titleEl = hsTextPreviewModal.querySelector(".hs-text-viewer-title");
+    if (codeEl instanceof HTMLElement) codeEl.textContent = "";
+    if (stateEl instanceof HTMLElement) {
+      stateEl.style.display = "none";
+      stateEl.textContent = "";
+    }
+    if (titleEl instanceof HTMLElement) titleEl.textContent = "Preview de texto";
+    hsTextPreviewModal.classList.remove("open");
+  }
+  /**
+   * Objetivo: Garante modal de preview textual estilo editor.
+   *
+   * Contexto: usado para abrir anexos TXT/SQL no proprio chamado.
+   * Parametros: nenhum.
+   * Retorno: HTMLElement|null.
+   */
+  function ensureTextPreviewModal() {
+    if (hsTextPreviewModal && hsTextPreviewModal.isConnected) return hsTextPreviewModal;
+    let modal = document.getElementById("hs-text-viewer");
+    if (!(modal instanceof HTMLElement)) {
+      modal = document.createElement("div");
+      modal.id = "hs-text-viewer";
+      modal.className = "hs-text-viewer";
+      modal.innerHTML = `
+        <div class="hs-text-viewer-backdrop"></div>
+        <section class="hs-text-viewer-card" role="dialog" aria-modal="true" aria-label="Preview do anexo de texto">
+          <header class="hs-text-viewer-head">
+            <span class="hs-text-viewer-title">Preview de texto</span>
+            <div class="hs-text-viewer-actions">
+              <button type="button" data-action="copy">Copiar</button>
+              <button type="button" data-action="close">Fechar</button>
+            </div>
+          </header>
+          <div class="hs-text-viewer-body">
+            <p class="hs-text-viewer-state" aria-live="polite"></p>
+            <pre class="hs-text-viewer-code"></pre>
+          </div>
+        </section>
+      `;
+      document.body.appendChild(modal);
+    }
+    hsTextPreviewModal = modal;
+    if (modal.dataset.hsBound === "1") return modal;
+    modal.dataset.hsBound = "1";
+
+    modal.querySelector(".hs-text-viewer-backdrop")?.addEventListener("click", closeTextPreviewModal);
+    modal.querySelector('[data-action="close"]')?.addEventListener("click", closeTextPreviewModal);
+    modal.querySelector('[data-action="copy"]')?.addEventListener("click", async () => {
+      const codeEl = modal.querySelector(".hs-text-viewer-code");
+      const text = String(codeEl?.textContent || "");
+      if (!text.trim()) {
+        toast("Nada para copiar no preview.", "err", 1800);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        toast("Conteudo copiado para a area de transferencia.", "ok", 1800);
+      } catch {
+        toast("Nao foi possivel copiar automaticamente.", "err", 2200);
+      }
+    });
+    document.addEventListener("keydown", (ev) => {
+      if (String(ev.key || "").toLowerCase() !== "escape") return;
+      if (modal.classList.contains("open")) closeTextPreviewModal();
+    });
+    return modal;
+  }
+  /**
+   * Objetivo: Abre modal textual com conteudo ja disponivel.
+   *
+   * Contexto: usado por anexos locais e payloads remotos carregados por fetch.
+   * Parametros:
+   * - title: titulo exibido no modal.
+   * - content: texto bruto do arquivo.
+   * Retorno: void.
+   */
+  function openTextPreviewModalWithContent(title, content) {
+    const modal = ensureTextPreviewModal();
+    if (!(modal instanceof HTMLElement)) return;
+    const titleEl = modal.querySelector(".hs-text-viewer-title");
+    const stateEl = modal.querySelector(".hs-text-viewer-state");
+    const codeEl = modal.querySelector(".hs-text-viewer-code");
+    if (!(codeEl instanceof HTMLElement)) return;
+
+    const clean = normalizeTextPreviewContent(content);
+    if (titleEl instanceof HTMLElement) {
+      const txt = String(title || "").trim();
+      titleEl.textContent = txt ? `Preview de texto - ${txt}` : "Preview de texto";
+    }
+    if (stateEl instanceof HTMLElement) {
+      stateEl.style.display = "none";
+      stateEl.textContent = "";
+    }
+    codeEl.textContent = clean || "// arquivo vazio";
+    modal.classList.add("open");
+  }
+  /**
+   * Objetivo: Abre preview textual a partir de arquivo local selecionado.
+   *
+   * Contexto: bloco de anexos do novo acompanhamento.
+   * Parametros:
+   * - file: arquivo local.
+   * Retorno: Promise<void>.
+   */
+  async function openTextAttachmentPreviewFromFile(file) {
+    if (!(file instanceof File)) return;
+    try {
+      const text = await file.text();
+      openTextPreviewModalWithContent(String(file.name || "anexo.txt"), text);
+    } catch {
+      toast("Nao foi possivel ler o arquivo selecionado.", "err", 2400);
+    }
+  }
+  /**
+   * Objetivo: Abre preview textual de anexo remoto (TXT/SQL) com sessao autenticada.
+   *
+   * Contexto: anexos recebidos no chamado.
+   * Parametros:
+   * - fileUrl: URL do anexo.
+   * - label: nome/titulo opcional.
+   * Retorno: Promise<void>.
+   */
+  async function openTextAttachmentPreviewFromUrl(fileUrl, label = "") {
+    const raw = String(fileUrl || "").trim();
+    if (!raw) return;
+    let absolute = raw;
+    try {
+      absolute = new URL(raw, location.href).toString();
+    } catch {}
+    const modal = ensureTextPreviewModal();
+    if (!(modal instanceof HTMLElement)) return;
+    const titleEl = modal.querySelector(".hs-text-viewer-title");
+    const stateEl = modal.querySelector(".hs-text-viewer-state");
+    const codeEl = modal.querySelector(".hs-text-viewer-code");
+    if (!(codeEl instanceof HTMLElement)) return;
+
+    if (titleEl instanceof HTMLElement) {
+      const txt = String(label || "").trim();
+      titleEl.textContent = txt ? `Preview de texto - ${txt}` : "Preview de texto";
+    }
+    codeEl.textContent = "";
+    if (stateEl instanceof HTMLElement) {
+      stateEl.style.display = "block";
+      stateEl.textContent = "Carregando conteudo...";
+    }
+    modal.classList.add("open");
+
+    try {
+      const response = await fetch(absolute, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const text = await response.text();
+      if (/\u0000/.test(text)) throw new Error("Conteudo binario.");
+      codeEl.textContent = normalizeTextPreviewContent(text) || "// arquivo vazio";
+      if (stateEl instanceof HTMLElement) {
+        stateEl.style.display = "none";
+        stateEl.textContent = "";
+      }
+    } catch {
+      if (stateEl instanceof HTMLElement) {
+        stateEl.style.display = "block";
+        stateEl.textContent = "Nao foi possivel carregar o texto no preview interno.";
+      }
+      toast("Falha no preview TXT/SQL. Abrindo em nova guia.", "err", 2600);
+      window.open(absolute, "_blank", "noopener,noreferrer");
+      closeTextPreviewModal();
+    }
+  }
+  /**
    * Objetivo: Fecha modal de preview de imagem.
    *
    * Contexto: usado nos previews de anexos locais/remotos.
@@ -9850,9 +10874,19 @@ Atenciosamente.`;
     };
     const openAttachmentThumb = (file, imageUrl) => {
       const resolvedUrl = toAbsoluteUrl(imageUrl);
-      if (!resolvedUrl || /^javascript:/i.test(resolvedUrl)) return;
       const fileName = String(file?.name || "").trim();
       const fileType = String(file?.type || "").trim();
+      if (isTextOrSqlPreviewCandidate(resolvedUrl, fileName, fileType)) {
+        if (file instanceof File) {
+          openTextAttachmentPreviewFromFile(file);
+          return;
+        }
+        if (resolvedUrl && !/^javascript:/i.test(resolvedUrl)) {
+          openTextAttachmentPreviewFromUrl(resolvedUrl, fileName || "anexo.txt");
+        }
+        return;
+      }
+      if (!resolvedUrl || /^javascript:/i.test(resolvedUrl)) return;
       if (isAttachmentModalPreviewAllowed(resolvedUrl, fileName, fileType)) {
         openImagePreviewModal(resolvedUrl, fileName, fileType);
         return;
@@ -9906,11 +10940,19 @@ Atenciosamente.`;
 
       let renderSeq = 0;
       const imageNameRx = /\.(avif|bmp|gif|heic|heif|jpe?g|png|svg|tiff?|webp)$/i;
+      const textNameRx = /\.(txt|sql)$/i;
       const isImageLike = (file) => {
         if (!(file instanceof File)) return false;
         const mime = String(file.type || "").trim();
         if (/^image\//i.test(mime)) return true;
         return imageNameRx.test(String(file.name || ""));
+      };
+      const isTextLike = (file) => {
+        if (!(file instanceof File)) return false;
+        const mime = String(file.type || "").trim();
+        const name = String(file.name || "").trim();
+        if (isTextOrSqlPreviewCandidate("", name, mime)) return true;
+        return textNameRx.test(name);
       };
       const readFileAsDataUrl = (file) =>
         new Promise((resolve) => {
@@ -9975,47 +11017,65 @@ Atenciosamente.`;
         preview.innerHTML = "";
         const files = Array.from(input.files || []);
         clearBtn.disabled = files.length === 0;
-        const images = files
+        const previewables = files
           .map((file, fileIndex) => ({ file, fileIndex }))
-          .filter((item) => isImageLike(item.file));
+          .filter((item) => isImageLike(item.file) || isTextLike(item.file));
         if (!files.length) {
           status.textContent = "Nenhum arquivo selecionado";
-        } else if (images.length === files.length) {
+        } else if (previewables.length === files.length) {
           status.textContent = `${files.length} ${files.length === 1 ? "arquivo selecionado" : "arquivos selecionados"}`;
         } else {
-          const imageLabel = `${images.length} ${images.length === 1 ? "imagem" : "imagens"}`;
-          status.textContent = `${files.length} arquivos selecionados (${imageLabel} com preview)`;
+          const previewLabel = `${previewables.length} ${previewables.length === 1 ? "arquivo" : "arquivos"}`;
+          status.textContent = `${files.length} arquivos selecionados (${previewLabel} com preview interno)`;
         }
 
-        for (const item of images) {
+        for (const item of previewables) {
           const file = item.file;
           const fileIndex = item.fileIndex;
+          const isTextFile = isTextLike(file);
           if (seq !== renderSeq) return;
-          const src = await readFileAsDataUrl(file);
-          if (seq !== renderSeq) return;
+          const src = isTextFile ? "" : await readFileAsDataUrl(file);
+          if (!isTextFile && seq !== renderSeq) return;
 
           const fig = document.createElement("figure");
           fig.className = "hs-attach-thumb";
+          if (isTextFile) fig.classList.add("hs-attach-thumb-text");
           fig.tabIndex = 0;
           fig.setAttribute("role", "button");
           const refreshThumbHint = () => {
-            const allowModal = isAttachmentModalPreviewAllowed(src, String(file.name || ""), String(file.type || ""));
+            const allowImageModal =
+              !isTextFile && isAttachmentModalPreviewAllowed(src, String(file.name || ""), String(file.type || ""));
+            const allowTextModal = isTextFile;
             fig.setAttribute(
               "aria-label",
-              allowModal
+              allowTextModal
+                ? `Abrir preview de texto de ${String(file.name || "arquivo")}`
+                : allowImageModal
                 ? `Abrir preview de ${String(file.name || "imagem")}`
                 : `Abrir ${String(file.name || "arquivo")} em nova guia`
             );
-            fig.title = allowModal ? "Clique para ampliar (PNG/JPG)" : "Clique para abrir em nova guia";
-            fig.style.setProperty("cursor", allowModal ? "zoom-in" : "pointer", "important");
+            fig.title = allowTextModal
+              ? "Clique para abrir preview TXT/SQL"
+              : allowImageModal
+              ? "Clique para ampliar (PNG/JPG)"
+              : "Clique para abrir em nova guia";
+            fig.style.setProperty("cursor", allowTextModal || allowImageModal ? "zoom-in" : "pointer", "important");
           };
           refreshThumbHint();
 
-          const img = document.createElement("img");
-          img.alt = String(file.name || "imagem");
-          img.loading = "lazy";
-          img.decoding = "async";
-          if (src) img.src = src;
+          if (isTextFile) {
+            const ext = document.createElement("span");
+            ext.className = "hs-attach-thumb-text-ext";
+            ext.textContent = /\.sql$/i.test(String(file.name || "")) ? "SQL" : "TXT";
+            fig.appendChild(ext);
+          } else {
+            const img = document.createElement("img");
+            img.alt = String(file.name || "imagem");
+            img.loading = "lazy";
+            img.decoding = "async";
+            if (src) img.src = src;
+            fig.appendChild(img);
+          }
 
           const caption = document.createElement("figcaption");
           caption.textContent = String(file.name || "imagem");
@@ -10027,7 +11087,6 @@ Atenciosamente.`;
           removeBtn.title = "Remover arquivo";
           removeBtn.setAttribute("aria-label", `Remover ${String(file.name || "arquivo")}`);
 
-          fig.appendChild(img);
           fig.appendChild(removeBtn);
           fig.appendChild(caption);
           preview.appendChild(fig);
@@ -10036,13 +11095,17 @@ Atenciosamente.`;
           fig.addEventListener(
             "click",
             (ev) => {
-              if (!src) return;
               if (ev.target instanceof Element && ev.target.closest(".hs-attach-thumb-remove")) return;
               if (ev.defaultPrevented) return;
               if ("button" in ev && ev.button !== 0) return;
               if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return;
               ev.preventDefault();
               ev.stopPropagation();
+              if (isTextFile) {
+                openTextAttachmentPreviewFromFile(file);
+                return;
+              }
+              if (!src) return;
               openAttachmentThumb(file, src);
             },
             true
@@ -10057,6 +11120,10 @@ Atenciosamente.`;
             const key = String(ev.key || "").toLowerCase();
             if (key !== "enter" && key !== " ") return;
             ev.preventDefault();
+            if (isTextFile) {
+              openTextAttachmentPreviewFromFile(file);
+              return;
+            }
             if (src) openAttachmentThumb(file, src);
           });
         }
@@ -10233,10 +11300,14 @@ Atenciosamente.`;
                 anchor.textContent ||
                 ""
             ).trim();
-            const allowModal =
+            const allowImageModal =
               !!hrefAbs &&
               !/^javascript:/i.test(hrefAbs) &&
               isAttachmentModalPreviewAllowed(hrefAbs, label, "");
+            const allowTextModal =
+              !!hrefAbs &&
+              !/^javascript:/i.test(hrefAbs) &&
+              isTextOrSqlPreviewCandidate(hrefAbs, label, "");
             const isPlainLeftClick =
               !ev.defaultPrevented &&
               (("button" in ev && ev.button === 0) || !("button" in ev)) &&
@@ -10244,10 +11315,16 @@ Atenciosamente.`;
               !ev.metaKey &&
               !ev.shiftKey &&
               !ev.altKey;
-            if (allowModal && isPlainLeftClick) {
+            if (allowImageModal && isPlainLeftClick) {
               ev.preventDefault();
               ev.stopPropagation();
               openImagePreviewModal(hrefAbs, label, "");
+              return;
+            }
+            if (allowTextModal && isPlainLeftClick) {
+              ev.preventDefault();
+              ev.stopPropagation();
+              openTextAttachmentPreviewFromUrl(hrefAbs, label || "anexo.txt");
               return;
             }
           }
@@ -11942,6 +13019,7 @@ Atenciosamente.`;
   let hsUpdatesLogPayload = null;
   let hsAppearanceModal = null;
   let hsImagePreviewModal = null;
+  let hsTextPreviewModal = null;
   let hsImagePreviewObjectUrlRevoke = null;
   let reqPopupEscBound = false;
   let hsReqClicksBound = false;
@@ -13208,6 +14286,7 @@ Atenciosamente.`;
     runStep(wireCalendars, "wireCalendars");
     runStep(enhanceUsersPage, "enhanceUsersPage");
     runStep(normalizeDashboardTableWidths, "normalizeDashboardTableWidths");
+    runStep(ensureDashboardGridEdgeResize, "ensureDashboardGridEdgeResize");
     runStep(adjustHomeTopOffset, "adjustHomeTopOffset");
     runStep(adjustDashboardTopOffset, "adjustDashboardTopOffset");
     runStep(adjustRequestTopOffset, "adjustRequestTopOffset");
@@ -13216,10 +14295,6 @@ Atenciosamente.`;
     runStep(runHealthCheckOnce, "runHealthCheckOnce");
     runStep(runSelfCheck, "runSelfCheck");
   }
-
-  // Bootstrap inicial do userscript com suporte a pagina ja carregada.
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", safeRun);
-  else safeRun();
 
   // Ajustes de layout dependentes de viewport.
   window.addEventListener("resize", () => {
@@ -13233,9 +14308,9 @@ Atenciosamente.`;
   });
 
   // Reexecuta quando DOM muda (legacy pages costumam renderizar em partes).
-  const target = document.getElementById("conteudo") || document.body;
   let timer = null;
   let running = false;
+  let mo = null;
   const isIgnoredMutationNode = (node) => {
     if (!(node instanceof HTMLElement)) return false;
     if (node.closest("#hs-req-pop, .hs-toast-wrap")) return true;
@@ -13280,9 +14355,26 @@ Atenciosamente.`;
       }
     }, SAFE_RUN_MUTATION_DEBOUNCE_MS);
   };
-  const mo = new MutationObserver((mutations) => {
-    if (!shouldProcessMutations(mutations)) return;
-    schedule();
-  });
-  mo.observe(target, { childList: true, subtree: true });
+  const ensureMutationObserver = () => {
+    if (mo) return;
+    const target = document.getElementById("conteudo") || document.body || document.documentElement;
+    if (!(target instanceof Node)) return;
+    mo = new MutationObserver((mutations) => {
+      if (!shouldProcessMutations(mutations)) return;
+      schedule();
+    });
+    mo.observe(target, { childList: true, subtree: true });
+  };
+
+  const bootstrapRuntime = () => {
+    safeRun();
+    ensureMutationObserver();
+  };
+
+  // Bootstrap inicial do userscript com suporte a pagina ja carregada.
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootstrapRuntime, { once: true });
+  } else {
+    bootstrapRuntime();
+  }
 })();
