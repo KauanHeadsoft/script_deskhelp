@@ -2,6 +2,16 @@
     
         {
         "date":  "2026-03-10",
+        "version":  "2.15.61",
+        "type":  "bugfix",
+        "mandatory":  false,
+        "notes":  [
+                      "Fluxo de atualizacao foi ajustado para abrir direto o .user.js raw, sem usar a pagina intermediaria do tampermonkey.net.",
+                      "Quando o link vier no formato bridge, o script extrai automaticamente a URL real do .user.js antes de iniciar a atualizacao."
+                  ]
+    },
+    {
+        "date":  "2026-03-10",
         "version":  "2.15.60",
         "type":  "routine",
         "mandatory":  false,

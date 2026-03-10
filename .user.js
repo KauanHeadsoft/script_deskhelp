@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.60
+// @version      2.15.61
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -92,7 +92,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.60";
+  const SCRIPT_VERSION_FALLBACK = "2.15.61";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -339,6 +339,16 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-10",
+      version: "2.15.61",
+      type: "bugfix",
+      mandatory: false,
+      notes: [
+        "Fluxo de atualizacao foi ajustado para abrir direto o .user.js raw, sem usar a pagina intermediaria do tampermonkey.net.",
+        "Quando o link vier no formato bridge, o script extrai automaticamente a URL real do .user.js antes de iniciar a atualizacao.",
+      ],
+    },
     {
       date: "2026-03-10",
       version: "2.15.60",
@@ -6579,10 +6589,34 @@ Atenciosamente.`;
       String(MANUAL_UPDATE_SOURCE_URL || "").trim() ||
       SCRIPT_REPO_URL;
     const safeTarget = String(target || "").trim();
-    const isUserscript = /\.user\.js(?:[?#].*)?$/i.test(safeTarget);
-    const directUrl = isUserscript ? buildNoCacheUserscriptUrl(safeTarget) : "";
-    const bridged = !isUserscript && safeTarget ? `${UPDATE_INSTALL_BRIDGE_BASE_URL}${encodeURIComponent(safeTarget)}` : "";
-    const destination = String(directUrl || bridged || safeTarget || SCRIPT_REPO_URL).trim() || SCRIPT_REPO_URL;
+    const unwrapBridgeUrl = (value) => {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      try {
+        const u = new URL(raw, location.href);
+        const host = String(u.hostname || "").toLowerCase();
+        const path = String(u.pathname || "").toLowerCase();
+        const isBridge = host.includes("tampermonkey.net") && /script_installation\.php$/.test(path);
+        if (!isBridge) return raw;
+        const hash = String(u.hash || "").replace(/^#/, "");
+        const fromHash = new URLSearchParams(hash).get("url");
+        const fromQuery = u.searchParams.get("url");
+        const extracted = String(fromHash || fromQuery || "").trim();
+        if (!extracted) return raw;
+        try {
+          return decodeURIComponent(extracted);
+        } catch {
+          return extracted;
+        }
+      } catch {
+        return raw;
+      }
+    };
+    const unwrappedTarget = unwrapBridgeUrl(safeTarget);
+    const isUserscript = /\.user\.js(?:[?#].*)?$/i.test(unwrappedTarget);
+    const destination = buildNoCacheUserscriptUrl(
+      isUserscript ? unwrappedTarget : String(MANUAL_UPDATE_SOURCE_URL || "").trim()
+    );
     const remoteVersion = String(opts.remoteVersion || "").trim();
     const mandatory = opts.mandatory ? true : false;
     const requireConfirmation = opts.requireConfirmation !== false;
