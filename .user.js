@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.63
+// @version      2.15.64
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -53,6 +53,7 @@
   const ATTACH_IMAGE_PREVIEW_LS_KEY = "hs2025-attach-image-preview";
   const ATTACH_TEXT_PREVIEW_DEFAULT = true;
   const ATTACH_TEXT_PREVIEW_LS_KEY = "hs2025-attach-text-preview";
+  const ACOMP_TEXTAREA_SIZE_LS_KEY = "hs2025-acomp-textarea-size";
   const HIDE_SUGGESTION_FILTER_DEFAULT = true;
   const HIDE_SUGGESTION_FILTER_LS_KEY = "hs2025-hide-suggestion-filter";
   const APPEARANCE_SETTINGS_LS_KEY = "hs2025-appearance-settings";
@@ -339,6 +340,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-10",
+      version: "2.15.64",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Campo de Acompanhamento (textarea.acomp_descricao) agora salva automaticamente a altura definida pelo usuario.",
+        "Ao abrir qualquer novo chamado, o formulario reaplica a ultima altura utilizada no textarea para manter consistencia.",
+        "Persistencia usa localStorage (chave hs2025-acomp-textarea-size) com bind idempotente para nao duplicar eventos no reload parcial.",
+      ],
+    },
     {
       date: "2026-03-10",
       version: "2.15.63",
@@ -767,6 +779,7 @@ Atenciosamente.`;
    *   - hs2025-preview-only-mode
    *   - hs2025-attach-image-preview
    *   - hs2025-attach-text-preview
+   *   - hs2025-acomp-textarea-size
    *   - hs2025-hide-suggestion-filter
    *   - hs2025-openai-api-key
    *   - hs2025-gemini-api-key
@@ -4669,6 +4682,66 @@ Atenciosamente.`;
   function setHideSuggestionFilterEnabled(enabled) {
     try {
       localStorage.setItem(HIDE_SUGGESTION_FILTER_LS_KEY, enabled ? "1" : "0");
+    } catch {}
+  }
+  /**
+   * Objetivo: Normaliza altura do textarea de acompanhamento em faixa segura.
+   *
+   * Contexto: usada para persistir/reaplicar resize manual entre chamados.
+   * Parametros:
+   * - value: altura candidata em pixels.
+   * - textarea: textarea opcional para respeitar min-height efetivo.
+   * Retorno: number.
+   */
+  function normalizeAcompanhamentoTextareaHeight(value, textarea = null) {
+    const raw = Number(value);
+    let minHeight = 76;
+    if (textarea instanceof HTMLTextAreaElement) {
+      const cssMin = parseFloat(String(window.getComputedStyle(textarea).minHeight || ""));
+      if (Number.isFinite(cssMin) && cssMin > 0) minHeight = Math.max(minHeight, Math.round(cssMin));
+    }
+    const viewportMax = Math.max(minHeight, Math.floor(window.innerHeight * 0.88));
+    if (!Number.isFinite(raw)) return minHeight;
+    return Math.min(viewportMax, Math.max(minHeight, Math.round(raw)));
+  }
+  /**
+   * Objetivo: Le tamanho salvo do textarea de acompanhamento.
+   *
+   * Contexto: aplicado ao montar o formulario de acompanhamento em qualquer chamado.
+   * Parametros: nenhum.
+   * Retorno: objeto com altura, quando disponivel.
+   */
+  function readAcompanhamentoTextareaSize() {
+    try {
+      const raw = String(localStorage.getItem(ACOMP_TEXTAREA_SIZE_LS_KEY) || "").trim();
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const height = normalizeAcompanhamentoTextareaHeight(parsed?.height);
+      if (!Number.isFinite(height) || height <= 0) return null;
+      return { height };
+    } catch {
+      return null;
+    }
+  }
+  /**
+   * Objetivo: Persiste tamanho do textarea de acompanhamento para reuso global.
+   *
+   * Contexto: disparado ao redimensionar manualmente o campo Acompanhamento.
+   * Parametros:
+   * - payload: objeto com altura em pixels.
+   * Retorno: void.
+   */
+  function setAcompanhamentoTextareaSize(payload) {
+    const height = normalizeAcompanhamentoTextareaHeight(payload?.height);
+    if (!Number.isFinite(height) || height <= 0) return;
+    try {
+      localStorage.setItem(
+        ACOMP_TEXTAREA_SIZE_LS_KEY,
+        JSON.stringify({
+          height,
+          updatedAt: Date.now(),
+        })
+      );
     } catch {}
   }
   /**
@@ -12403,6 +12476,85 @@ Atenciosamente.`;
     return { actionSelect, textArea, sendBtn, minutosInput, actionHost, form };
   }
   /**
+   * Objetivo: Persistir tamanho do textarea de acompanhamento entre chamados.
+   *
+   * Contexto: tela visualizar_requisicao.php, bloco Novo_Acompanhamento/acompanhamento_form.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function bindAcompanhamentoTextareaSizePersistence() {
+    if (!isRequestVisualizarPage()) return;
+    const selector = [
+      "#Novo_Acompanhamento textarea[name='Acompanhamento']",
+      "#Novo_Acompanhamento textarea.acomp_descricao",
+      "#acompanhamento_form textarea[name='Acompanhamento']",
+      "#acompanhamento_form textarea.acomp_descricao",
+      "textarea[name='Acompanhamento'].acomp_descricao",
+      "textarea.acomp_descricao[name='Acompanhamento']",
+    ].join(", ");
+    const targets = Array.from(document.querySelectorAll(selector)).filter((el) => el instanceof HTMLTextAreaElement);
+    if (!targets.length) return;
+
+    const persisted = readAcompanhamentoTextareaSize();
+    const persistNow = (textarea) => {
+      if (!(textarea instanceof HTMLTextAreaElement) || !textarea.isConnected) return;
+      const cssHeight = parseFloat(String(window.getComputedStyle(textarea).height || ""));
+      const inlineHeight = parseFloat(String(textarea.style.height || ""));
+      const measuredHeight = Math.max(textarea.offsetHeight || 0, cssHeight || 0, inlineHeight || 0);
+      const nextHeight = normalizeAcompanhamentoTextareaHeight(measuredHeight, textarea);
+      if (!Number.isFinite(nextHeight) || nextHeight <= 0) return;
+      textarea.style.height = `${nextHeight}px`;
+      textarea.dataset.hsAcompSizeHeight = String(nextHeight);
+      setAcompanhamentoTextareaSize({ height: nextHeight });
+    };
+    const schedulePersist = (textarea) => {
+      if (!(textarea instanceof HTMLTextAreaElement)) return;
+      if (hsAcompanhamentoTextareaPersistTimer) window.clearTimeout(hsAcompanhamentoTextareaPersistTimer);
+      hsAcompanhamentoTextareaPending = textarea;
+      hsAcompanhamentoTextareaPersistTimer = window.setTimeout(() => {
+        const pending = hsAcompanhamentoTextareaPending;
+        hsAcompanhamentoTextareaPending = null;
+        hsAcompanhamentoTextareaPersistTimer = null;
+        persistNow(pending);
+      }, 160);
+    };
+
+    if (typeof ResizeObserver === "function" && !hsAcompanhamentoTextareaResizeObserver) {
+      hsAcompanhamentoTextareaResizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries || []) {
+          const textarea = entry?.target;
+          if (!(textarea instanceof HTMLTextAreaElement)) continue;
+          if (textarea.dataset.hsAcompSizeBound !== "1") continue;
+          schedulePersist(textarea);
+        }
+      });
+    }
+
+    targets.forEach((textarea) => {
+      if (!(textarea instanceof HTMLTextAreaElement)) return;
+      if (persisted?.height && textarea.dataset.hsAcompSizeApplied !== "1") {
+        const applied = normalizeAcompanhamentoTextareaHeight(persisted.height, textarea);
+        textarea.style.height = `${applied}px`;
+        textarea.dataset.hsAcompSizeHeight = String(applied);
+        textarea.dataset.hsAcompSizeApplied = "1";
+      }
+      if (textarea.dataset.hsAcompSizeBound !== "1") {
+        textarea.dataset.hsAcompSizeBound = "1";
+        textarea.addEventListener("pointerup", () => schedulePersist(textarea));
+        textarea.addEventListener("mouseup", () => schedulePersist(textarea));
+        textarea.addEventListener("touchend", () => schedulePersist(textarea), { passive: true });
+        textarea.addEventListener("blur", () => schedulePersist(textarea));
+      }
+      if (
+        hsAcompanhamentoTextareaResizeObserver &&
+        textarea.dataset.hsAcompSizeObserved !== "1"
+      ) {
+        hsAcompanhamentoTextareaResizeObserver.observe(textarea);
+        textarea.dataset.hsAcompSizeObserved = "1";
+      }
+    });
+  }
+  /**
    * Objetivo: Converte entrada de hora para minutos totais.
    *
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
@@ -13282,6 +13434,9 @@ Atenciosamente.`;
   let hsTextPreviewModal = null;
   let hsImagePreviewObjectUrlRevoke = null;
   let hsImagePreviewDragState = null;
+  let hsAcompanhamentoTextareaResizeObserver = null;
+  let hsAcompanhamentoTextareaPersistTimer = null;
+  let hsAcompanhamentoTextareaPending = null;
   let reqPopupEscBound = false;
   let hsReqClicksBound = false;
   let hsAjaxRefreshBusy = false;
@@ -14542,6 +14697,7 @@ Atenciosamente.`;
     runStep(bindRowAndLogoClicks, "bindRowAndLogoClicks");
     runStep(runAutoConcluirIfPending, "runAutoConcluirIfPending");
     runStep(ensureSingleImageAttachments, "ensureSingleImageAttachments");
+    runStep(bindAcompanhamentoTextareaSizePersistence, "bindAcompanhamentoTextareaSizePersistence");
     runStep(ensureRequestQuickActions, "ensureRequestQuickActions");
     runStep(layoutRequestCalendarAndConsumption, "layoutRequestCalendarAndConsumption");
     runStep(highlightAcompanhamentosResponsavelEspecial, "highlightAcompanhamentosResponsavelEspecial");

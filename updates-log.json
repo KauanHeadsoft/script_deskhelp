@@ -2,6 +2,17 @@
     
     {
         "date":  "2026-03-10",
+        "version":  "2.15.64",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Campo de Acompanhamento (textarea.acomp_descricao) agora salva automaticamente a altura definida pelo usuario.",
+                      "Ao abrir qualquer novo chamado, o formulario reaplica a ultima altura utilizada no textarea para manter consistencia.",
+                      "Persistencia usa localStorage (chave hs2025-acomp-textarea-size) com bind idempotente para nao duplicar eventos no reload parcial."
+                  ]
+    },
+    {
+        "date":  "2026-03-10",
         "version":  "2.15.63",
         "type":  "routine",
         "mandatory":  false,
