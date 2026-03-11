@@ -1,6 +1,17 @@
 ﻿[   
     
     {
+        "date":  "2026-03-11",
+        "version":  "2.15.65",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Tela visualizar_requisicao agora transforma numeros de chamados referenciados no texto em links clicaveis.",
+                      "Ao clicar no numero referenciado, o sistema abre diretamente visualizar_requisicao.php?numero=<chamado> sem precisar usar a barra de pesquisa.",
+                      "Linkificacao evita campos editaveis e ignora padroes de data para reduzir falsos positivos."
+                  ]
+    },
+    {
         "date":  "2026-03-10",
         "version":  "2.15.64",
         "type":  "routine",

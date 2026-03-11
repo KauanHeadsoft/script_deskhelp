@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.64
+// @version      2.15.65
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -93,7 +93,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.62";
+  const SCRIPT_VERSION_FALLBACK = "2.15.65";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -10555,6 +10555,118 @@ Atenciosamente.`;
     }
   }
   /**
+   * Objetivo: Converte numeros de chamados referenciados em links clicaveis.
+   *
+   * Contexto: tela de visualizar requisicao; facilita abrir chamado citado no
+   * titulo/descricao sem usar busca manual.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function linkifyReferencedRequestNumbers() {
+    if (!isRequestVisualizarPage()) return;
+    const root = document.querySelector("#interno");
+    if (!(root instanceof HTMLElement)) return;
+
+    const numberRx = /\b\d{4,}\b/g;
+    const candidateRx = /\d{4,}/;
+    const skipTags = new Set([
+      "A",
+      "SCRIPT",
+      "STYLE",
+      "TEXTAREA",
+      "INPUT",
+      "SELECT",
+      "BUTTON",
+      "OPTION",
+      "NOSCRIPT",
+      "CODE",
+      "PRE",
+    ]);
+
+    const isValidTicketNumber = (text, rawNumber, start, end) => {
+      if (!rawNumber) return false;
+      if (rawNumber.length === 4) {
+        const year = Number(rawNumber);
+        if (Number.isFinite(year) && year >= 1900 && year <= 2100) return false;
+      }
+
+      const before = start > 0 ? text[start - 1] : "";
+      const after = end < text.length ? text[end] : "";
+      if (before === "/" || before === "-" || before === ":" || after === "/" || after === "-" || after === ":") {
+        return false;
+      }
+      return true;
+    };
+
+    const shouldSkipNode = (textNode) => {
+      const parent = textNode.parentElement;
+      if (!(parent instanceof HTMLElement)) return true;
+      if (parent.closest("a,script,style,textarea,input,select,button,code,pre,noscript")) return true;
+      if (parent.closest("[contenteditable='true']")) return true;
+
+      let el = parent;
+      while (el) {
+        if (skipTags.has(el.tagName)) return true;
+        if (el === root) break;
+        el = el.parentElement;
+      }
+      return false;
+    };
+
+    const nodes = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const txt = String(node?.nodeValue || "");
+        if (!txt || !candidateRx.test(txt)) return NodeFilter.FILTER_REJECT;
+        if (shouldSkipNode(node)) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+
+    let current = walker.nextNode();
+    while (current) {
+      nodes.push(current);
+      current = walker.nextNode();
+    }
+
+    nodes.forEach((textNode) => {
+      const originalText = String(textNode.nodeValue || "");
+      if (!originalText) return;
+      numberRx.lastIndex = 0;
+
+      let match = null;
+      let lastIndex = 0;
+      let changed = false;
+      const frag = document.createDocumentFragment();
+      while ((match = numberRx.exec(originalText)) !== null) {
+        const num = String(match[0] || "").trim();
+        const start = match.index;
+        const end = start + num.length;
+        if (!isValidTicketNumber(originalText, num, start, end)) continue;
+
+        if (start > lastIndex) {
+          frag.appendChild(document.createTextNode(originalText.slice(lastIndex, start)));
+        }
+
+        const a = document.createElement("a");
+        a.href = `${location.origin}/visualizar_requisicao.php?numero=${encodeURIComponent(num)}`;
+        a.textContent = num;
+        a.title = `Abrir chamado ${num}`;
+        a.setAttribute("data-hs-req-ref-link", "1");
+        frag.appendChild(a);
+
+        lastIndex = end;
+        changed = true;
+      }
+
+      if (!changed) return;
+      if (lastIndex < originalText.length) {
+        frag.appendChild(document.createTextNode(originalText.slice(lastIndex)));
+      }
+      textNode.parentNode?.replaceChild(frag, textNode);
+    });
+  }
+  /**
    * Objetivo: Libera URL temporaria (blob) usada no preview de imagem.
    *
    * Contexto: evita vazamento de memoria ao trocar/fechar previews.
@@ -14679,6 +14791,7 @@ Atenciosamente.`;
     runStep(styleDashboardPage, "styleDashboardPage");
     runStep(ensureDashboardEmptyState, "ensureDashboardEmptyState");
     runStep(styleRequestPage, "styleRequestPage");
+    runStep(linkifyReferencedRequestNumbers, "linkifyReferencedRequestNumbers");
     runStep(styleUserFormPage, "styleUserFormPage");
     runStep(hideSomeFilters, "hideSomeFilters");
     runStep(ensureDashboardPreviewModeToggle, "ensureDashboardPreviewModeToggle");
