@@ -2,6 +2,18 @@
     
     {
         "date":  "2026-03-11",
+        "version":  "2.15.66",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Consulta de requisicoes ganhou modo profissional opcional com painel lateral de operacao (KPIs, fila mais antiga e distribuicao de situacoes).",
+                      "Nova preferencia no menu Configuracoes: 'Painel consulta ON/OFF', desativada por padrao e salva no navegador (localStorage).",
+                      "Linhas com situacao 'Servico aprovado' agora ficam em azul para destacar chamados que faltam concluir.",
+                      "Ajuste de largura da grade considera automaticamente a coluna principal quando o painel lateral estiver ativo, evitando quebra de layout."
+                  ]
+    },
+    {
+        "date":  "2026-03-11",
         "version":  "2.15.65",
         "type":  "routine",
         "mandatory":  false,

@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.65
+// @version      2.15.66
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -49,6 +49,8 @@
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
+  const CONSULTA_PRO_LAYOUT_DEFAULT = false;
+  const CONSULTA_PRO_LAYOUT_LS_KEY = "hs2025-consulta-pro-layout";
   const ATTACH_IMAGE_PREVIEW_DEFAULT = true;
   const ATTACH_IMAGE_PREVIEW_LS_KEY = "hs2025-attach-image-preview";
   const ATTACH_TEXT_PREVIEW_DEFAULT = true;
@@ -93,7 +95,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.65";
+  const SCRIPT_VERSION_FALLBACK = "2.15.66";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -340,6 +342,18 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-11",
+      version: "2.15.66",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Consulta de requisicoes ganhou modo profissional opcional com painel lateral de operacao (KPIs, fila mais antiga e distribuicao de situacoes).",
+        "Nova preferencia no menu Configuracoes: 'Painel consulta ON/OFF', desativada por padrao e salva no navegador (localStorage).",
+        "Linhas com situacao 'Servico aprovado' agora ficam em azul para destacar chamados que faltam concluir.",
+        "Ajuste de largura da grade considera automaticamente a coluna principal quando o painel lateral estiver ativo, evitando quebra de layout.",
+      ],
+    },
     {
       date: "2026-03-10",
       version: "2.15.64",
@@ -777,6 +791,7 @@ Atenciosamente.`;
    *   - hs2025-appearance-settings-dark
    *   - hs2025-appearance-settings (legado para migracao automatica)
    *   - hs2025-preview-only-mode
+   *   - hs2025-consulta-pro-layout
    *   - hs2025-attach-image-preview
    *   - hs2025-attach-text-preview
    *   - hs2025-acomp-textarea-size
@@ -1323,6 +1338,10 @@ Atenciosamente.`;
   tr.req_sr:not(.req_at):not(.hs-em100) td *{ color:var(--ok)!important; font-weight:700!important; }
   tr.hs-em:not(.req_at):not(.hs-em100) td,
   tr.hs-em:not(.req_at):not(.hs-em100) td *{ color:var(--neutral)!important; font-weight:600!important; }
+  tr.hs-servico-aprovado:not(.req_at) td,
+  tr.hs-servico-aprovado:not(.req_at) td *{ color:#1f5fb4!important; font-weight:700!important; }
+  html[data-hs-theme="dark"] tr.hs-servico-aprovado:not(.req_at) td,
+  html[data-hs-theme="dark"] tr.hs-servico-aprovado:not(.req_at) td *{ color:#7ec3ff!important; }
 
   #cabecalho_menu #${BTN_ID}{
     display:inline-flex; align-items:center; gap:6px;
@@ -3807,6 +3826,166 @@ Atenciosamente.`;
     height:56px!important;
     width:auto!important;
   }
+  body.hs-dashboard-page.hs-consulta-page.hs-consulta-pro-enabled #conteudo{
+    max-width:1960px!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-shell{
+    display:grid!important;
+    grid-template-columns:minmax(0, 1fr) minmax(286px, 332px)!important;
+    gap:14px!important;
+    align-items:start!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-main{
+    min-width:0!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side{
+    position:sticky!important;
+    top:calc(var(--hs-dashboard-top-offset, 72px) + 8px)!important;
+    align-self:start!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:10px!important;
+    min-width:0!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-side-card{
+    border-radius:12px!important;
+    border:1px solid #355173!important;
+    box-shadow:0 10px 22px rgba(0,0,0,.2)!important;
+    padding:11px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:9px!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-side-card h3{
+    margin:0!important;
+    font-size:13px!important;
+    line-height:1.2!important;
+    font-weight:900!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-side-meta{
+    margin:0!important;
+    font-size:11px!important;
+    line-height:1.3!important;
+    opacity:.86!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi-grid{
+    display:grid!important;
+    grid-template-columns:repeat(2, minmax(0, 1fr))!important;
+    gap:8px!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi{
+    border-radius:10px!important;
+    padding:8px 8px 7px!important;
+    border:1px solid transparent!important;
+    background:rgba(13,34,57,.48)!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:3px!important;
+    min-width:0!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi .kpi-label{
+    font-size:10px!important;
+    font-weight:700!important;
+    letter-spacing:.01em!important;
+    opacity:.86!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi .kpi-value{
+    font-size:16px!important;
+    font-weight:900!important;
+    line-height:1!important;
+    letter-spacing:.01em!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi.is-approved{
+    border-color:rgba(66,142,220,.55)!important;
+    background:rgba(26,73,118,.36)!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi.is-danger{
+    border-color:rgba(206,98,98,.5)!important;
+    background:rgba(98,34,34,.36)!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi.is-warning{
+    border-color:rgba(213,171,81,.54)!important;
+    background:rgba(90,66,20,.38)!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi.is-new{
+    border-color:rgba(89,164,112,.52)!important;
+    background:rgba(36,81,44,.34)!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list{
+    margin:0!important;
+    padding:0!important;
+    list-style:none!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:7px!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li{
+    margin:0!important;
+    padding:7px 8px!important;
+    border-radius:9px!important;
+    border:1px solid rgba(124,164,205,.26)!important;
+    background:rgba(14,32,53,.36)!important;
+    font-size:11px!important;
+    line-height:1.32!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-main{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:8px!important;
+    font-weight:800!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-sub{
+    margin-top:3px!important;
+    opacity:.86!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list a{
+    color:inherit!important;
+    text-decoration:none!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list a:hover{
+    text-decoration:underline!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-empty{
+    margin:0!important;
+    font-size:11px!important;
+    opacity:.8!important;
+  }
+  html[data-hs-theme="dark"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-side-card{
+    background:linear-gradient(180deg, #11263e, #0f2238)!important;
+    border-color:#385679!important;
+    color:#deebfb!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-side-card{
+    background:linear-gradient(180deg, #ffffff, #f4f8fd)!important;
+    border-color:#ccdcee!important;
+    box-shadow:0 8px 18px rgba(21,56,102,.1)!important;
+    color:#1d3d63!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi{
+    background:#f8fbff!important;
+    border-color:#d9e6f3!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi.is-approved{
+    border-color:#8fb7df!important;
+    background:#ecf5ff!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi.is-danger{
+    border-color:#e4b4b4!important;
+    background:#fff0f0!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi.is-warning{
+    border-color:#e5ce9b!important;
+    background:#fff8ea!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi.is-new{
+    border-color:#aad1b6!important;
+    background:#eefaf1!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li{
+    border-color:#d9e6f3!important;
+    background:#f8fbff!important;
+  }
   body.hs-dashboard-page form[name="filtros"]{
     border-radius:14px!important;
     padding:10px!important;
@@ -4282,6 +4461,16 @@ Atenciosamente.`;
       flex:none!important;
     }
   }
+  @media (max-width:1280px){
+    body.hs-dashboard-page.hs-consulta-page #hs-consulta-shell{
+      grid-template-columns:1fr!important;
+    }
+    body.hs-dashboard-page.hs-consulta-page #hs-consulta-side{
+      position:relative!important;
+      top:auto!important;
+      order:2!important;
+    }
+  }
   body.hs-dashboard-page h1,
   body.hs-dashboard-page h2,
   body.hs-dashboard-page h3{
@@ -4592,6 +4781,36 @@ Atenciosamente.`;
   function setPreviewOnlyModeEnabled(enabled) {
     try {
       localStorage.setItem(PREVIEW_ONLY_MODE_LS_KEY, enabled ? "1" : "0");
+    } catch {}
+  }
+  /**
+   * Objetivo: Le preferencia do painel profissional lateral da consulta.
+   *
+   * Contexto: layout opcional da tela consulta_requisicao.php.
+   * Parametros: nenhum.
+   * Retorno: boolean.
+   * Efeitos colaterais: leitura opcional de localStorage.
+   */
+  function isConsultaProLayoutEnabled() {
+    try {
+      const raw = String(localStorage.getItem(CONSULTA_PRO_LAYOUT_LS_KEY) || "").trim().toLowerCase();
+      if (raw === "1" || raw === "true" || raw === "on") return true;
+      if (raw === "0" || raw === "false" || raw === "off") return false;
+    } catch {}
+    return CONSULTA_PRO_LAYOUT_DEFAULT;
+  }
+  /**
+   * Objetivo: Persiste preferencia do painel profissional lateral da consulta.
+   *
+   * Contexto: acionado pelo menu de configuracoes.
+   * Parametros:
+   * - enabled: entrada usada por esta rotina.
+   * Retorno: void.
+   * Efeitos colaterais: grava valor em localStorage quando disponivel.
+   */
+  function setConsultaProLayoutEnabled(enabled) {
+    try {
+      localStorage.setItem(CONSULTA_PRO_LAYOUT_LS_KEY, enabled ? "1" : "0");
     } catch {}
   }
   /**
@@ -8653,6 +8872,7 @@ Atenciosamente.`;
     };
 
     const gridPreviewBtn = ensureMenuButton("hs-preview-mode-toggle", visualGroup);
+    const consultaLayoutBtn = ensureMenuButton("hs-consulta-layout-toggle", visualGroup);
     const attachPreviewBtn = ensureMenuButton("hs-attach-preview-toggle", visualGroup);
     const attachTextPreviewBtn = ensureMenuButton("hs-attach-text-preview-toggle", visualGroup);
     const suggestionFilterBtn = ensureMenuButton("hs-suggestion-filter-toggle", visualGroup);
@@ -8762,6 +8982,16 @@ Atenciosamente.`;
         ? "Modo preview ativo: clique abre em popup."
         : "Modo preview desativado: clique abre em nova guia.";
     };
+    const syncConsultaLayoutLabel = () => {
+      const isConsultaPage = /consulta_requisicao\.php/i.test(location.pathname);
+      consultaLayoutBtn.style.setProperty("display", isConsultaPage ? "block" : "none", "important");
+      if (!isConsultaPage) return;
+      const enabled = isConsultaProLayoutEnabled();
+      consultaLayoutBtn.value = enabled ? "Painel consulta ON" : "Painel consulta OFF";
+      consultaLayoutBtn.title = enabled
+        ? "Painel lateral profissional ativo na consulta de requisicoes."
+        : "Painel lateral profissional desligado na consulta de requisicoes.";
+    };
     const syncAttachmentPreviewLabel = () => {
       const enabled = isAttachmentImagePreviewEnabled();
       attachPreviewBtn.value = enabled ? "Preview PNG/JPG ON" : "Preview PNG/JPG OFF";
@@ -8835,6 +9065,23 @@ Atenciosamente.`;
       setPreviewOnlyModeEnabled(next);
       syncGridPreviewLabel();
       toast(next ? "Modo preview ativado." : "Modo preview desativado.", "ok", 2200);
+      setMenuOpen(false);
+    };
+    consultaLayoutBtn.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const next = !isConsultaProLayoutEnabled();
+      setConsultaProLayoutEnabled(next);
+      syncConsultaLayoutLabel();
+      ensureConsultaProLayout();
+      normalizeDashboardTableWidths();
+      toast(
+        next
+          ? "Painel lateral da consulta ativado."
+          : "Painel lateral da consulta desativado.",
+        "ok",
+        2600
+      );
       setMenuOpen(false);
     };
     attachPreviewBtn.onclick = (ev) => {
@@ -9000,6 +9247,7 @@ Atenciosamente.`;
     }
 
     syncGridPreviewLabel();
+    syncConsultaLayoutLabel();
     syncAttachmentPreviewLabel();
     syncTextAttachmentPreviewLabel();
     syncSuggestionFilterLabel();
@@ -9104,6 +9352,7 @@ Atenciosamente.`;
     if (hasPassword) return;
     const path = String(location.pathname || "").toLowerCase();
     const isDashboardLikePath = /(?:^|\/)(dashboard|consulta_requisicao)\.php$/.test(path);
+    const isConsultaPage = /(?:^|\/)consulta_requisicao\.php$/.test(path);
     const hasGrid = document.querySelector("table.sortable");
     const hasFiltros = document.querySelector('form[name="filtros"]');
     if (!isDashboardLikePath && !hasFiltros) return;
@@ -9112,6 +9361,7 @@ Atenciosamente.`;
       if (!/nenhuma\s+requisic/.test(conteudoTxt)) return;
     }
     document.body.classList.add("hs-dashboard-page");
+    document.body.classList.toggle("hs-consulta-page", isConsultaPage);
   }
   /**
    * Objetivo: Padroniza mensagem de estado vazio no dashboard/consulta.
@@ -9972,6 +10222,304 @@ Atenciosamente.`;
     }
   }
   /**
+   * Objetivo: Detecta situacao "Servico aprovado" de forma tolerante.
+   *
+   * Contexto: usado para coloracao azul e contagem do painel da consulta.
+   * Parametros:
+   * - situacaoValue: texto de situacao bruto/normalizado.
+   * Retorno: boolean.
+   */
+  function isServicoAprovadoStatus(situacaoValue) {
+    const sit = norm(situacaoValue || "").trim();
+    if (!sit) return false;
+    const hasServicoAprovado =
+      /\bservic\w*\b.*\baprovad\w*\b/.test(sit) || /\baprovad\w*\b.*\bservic\w*\b/.test(sit);
+    if (!hasServicoAprovado) return false;
+    if (/em\s+aprovac/.test(sit)) return false;
+    if (/solicitac/.test(sit) && /aprovac/.test(sit)) return false;
+    return true;
+  }
+  /**
+   * Objetivo: Renderiza painel lateral profissional da consulta de requisicoes.
+   *
+   * Contexto: dashboard-like da rota consulta_requisicao.php.
+   * Parametros:
+   * - sideRoot: container do painel.
+   * - scopeRoot: area principal que contem as tabelas.
+   * Retorno: void.
+   */
+  function renderConsultaProLayoutPanel(sideRoot, scopeRoot) {
+    if (!(sideRoot instanceof HTMLElement) || !(scopeRoot instanceof HTMLElement)) return;
+
+    const cleanCellText = (cell) => {
+      if (!(cell instanceof HTMLTableCellElement)) return "";
+      const clone = cell.cloneNode(true);
+      if (clone instanceof HTMLElement) {
+        clone.querySelectorAll(".hs-first-att-wrap, .hs-situacao-sinal").forEach((el) => el.remove());
+      }
+      return String(clone.textContent || "").replace(/\s+/g, " ").trim();
+    };
+    const clip = (text, max = 86) => {
+      const raw = String(text || "").replace(/\s+/g, " ").trim();
+      if (raw.length <= max) return raw;
+      return `${raw.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+    };
+
+    const statusCounter = new Map();
+    const oldestRows = [];
+    let total = 0;
+    let novas = 0;
+    let emServico = 0;
+    let servicoAprovado = 0;
+    let aguardandoRetorno = 0;
+    let aguardandoInformacoes = 0;
+    let semResponsavel = 0;
+    let parados5dias = 0;
+
+    const tables = Array.from(scopeRoot.querySelectorAll("table.sortable")).filter(
+      (tb) => tb instanceof HTMLTableElement
+    );
+    tables.forEach((tb) => {
+      const headerRow = tb.tHead?.rows?.[0] || Array.from(tb.rows || []).find((tr) => tr.querySelector("th"));
+      if (!headerRow) return;
+
+      const headers = Array.from(headerRow.cells || []).map((cell) => norm(cell.textContent || ""));
+      const idxSituacao = headers.findIndex((h) => SITUACAO_RX.test(h));
+      const idxResponsavel = headers.findIndex((h) => /responsavel|tecnico|atendente/.test(h));
+      const idxUltAcomp = headers.findIndex((h) => /ultimo.*acompanh|ultima.*atualiz|data.*acompanh/.test(h));
+      const idxTitulo = headers.findIndex((h) => /titulo|assunto|descricao/.test(h));
+
+      const rows = Array.from(tb.tBodies?.[0]?.rows || tb.rows || []);
+      rows.forEach((tr) => {
+        if (!(tr instanceof HTMLTableRowElement)) return;
+        if (tr.querySelector("th")) return;
+        if (tr.offsetParent === null) return;
+
+        total += 1;
+
+        const tdSituacao = idxSituacao >= 0 ? tr.cells[idxSituacao] : null;
+        const situacaoRaw = tdSituacao ? cleanCellText(tdSituacao) : "";
+        const situacaoNorm = norm(situacaoRaw);
+
+        if (NOVA_RX.test(situacaoNorm)) novas += 1;
+        if (/em\s*serv/.test(situacaoNorm)) emServico += 1;
+        if (isServicoAprovadoStatus(situacaoNorm)) servicoAprovado += 1;
+        if (/aguardando.*retorno/.test(situacaoNorm)) aguardandoRetorno += 1;
+        if (/aguardando.*informac/.test(situacaoNorm)) aguardandoInformacoes += 1;
+
+        const statusLabel = situacaoRaw || "Sem situacao";
+        statusCounter.set(statusLabel, (statusCounter.get(statusLabel) || 0) + 1);
+
+        const responsavel = idxResponsavel >= 0 ? cleanCellText(tr.cells[idxResponsavel]) : "";
+        if (!responsavel) semResponsavel += 1;
+
+        const dataUltTxt = idxUltAcomp >= 0 ? cleanCellText(tr.cells[idxUltAcomp]) : "";
+        const dataUlt = parsePtBrDateTime(dataUltTxt);
+        if (hasElapsedDays(dataUlt, 5)) parados5dias += 1;
+
+        const numero = String(extractNumero(tr) || "").trim();
+        if (!(dataUlt instanceof Date) || !numero) return;
+
+        oldestRows.push({
+          numero,
+          situacao: statusLabel,
+          titulo: idxTitulo >= 0 ? cleanCellText(tr.cells[idxTitulo]) : "",
+          ageDays: Math.max(0, Math.floor((Date.now() - dataUlt.getTime()) / (24 * 60 * 60 * 1000))),
+        });
+      });
+    });
+
+    const oldestTop = oldestRows
+      .sort((a, b) => b.ageDays - a.ageDays)
+      .slice(0, 5);
+    const statusTop = Array.from(statusCounter.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
+    const digest = JSON.stringify({
+      total,
+      novas,
+      emServico,
+      servicoAprovado,
+      aguardandoRetorno,
+      aguardandoInformacoes,
+      semResponsavel,
+      parados5dias,
+      oldestTop: oldestTop.map((x) => `${x.numero}:${x.ageDays}`),
+      statusTop,
+    });
+    if (sideRoot.dataset.hsConsultaDigest === digest) return;
+    sideRoot.dataset.hsConsultaDigest = digest;
+
+    sideRoot.textContent = "";
+
+    const createCard = (title, meta = "") => {
+      const card = document.createElement("section");
+      card.className = "hs-consulta-side-card";
+      const h3 = document.createElement("h3");
+      h3.textContent = title;
+      card.appendChild(h3);
+      if (meta) {
+        const p = document.createElement("p");
+        p.className = "hs-consulta-side-meta";
+        p.textContent = meta;
+        card.appendChild(p);
+      }
+      return card;
+    };
+    const appendKpi = (parent, label, value, tone = "") => {
+      const item = document.createElement("article");
+      item.className = `hs-consulta-kpi${tone ? ` is-${tone}` : ""}`;
+      const labelEl = document.createElement("span");
+      labelEl.className = "kpi-label";
+      labelEl.textContent = label;
+      const valueEl = document.createElement("strong");
+      valueEl.className = "kpi-value";
+      valueEl.textContent = String(value);
+      item.appendChild(labelEl);
+      item.appendChild(valueEl);
+      parent.appendChild(item);
+    };
+    const now = formatShortDateTime(new Date().toISOString()) || "agora";
+
+    const summaryCard = createCard("Painel de operacao", `Atualizado em ${now}`);
+    const kpiGrid = document.createElement("div");
+    kpiGrid.className = "hs-consulta-kpi-grid";
+    appendKpi(kpiGrid, "Total visiveis", total);
+    appendKpi(kpiGrid, "Novas", novas, "new");
+    appendKpi(kpiGrid, "Em servico", emServico);
+    appendKpi(kpiGrid, "Servico aprovado", servicoAprovado, "approved");
+    appendKpi(kpiGrid, "Aguard. retorno", aguardandoRetorno, "warning");
+    appendKpi(kpiGrid, "Aguard. info", aguardandoInformacoes, "warning");
+    appendKpi(kpiGrid, "Parados 5+ dias", parados5dias, "danger");
+    appendKpi(kpiGrid, "Sem responsavel", semResponsavel, "danger");
+    summaryCard.appendChild(kpiGrid);
+    sideRoot.appendChild(summaryCard);
+
+    const oldestCard = createCard("Fila mais antiga", "Chamados com maior tempo sem atualizacao.");
+    if (oldestTop.length) {
+      const ul = document.createElement("ul");
+      ul.className = "hs-consulta-list";
+      oldestTop.forEach((item) => {
+        const li = document.createElement("li");
+        const main = document.createElement("div");
+        main.className = "hs-main";
+
+        const link = document.createElement("a");
+        link.href = `${location.origin}/visualizar_requisicao.php?numero=${encodeURIComponent(item.numero)}`;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = `#${item.numero}`;
+
+        const age = document.createElement("span");
+        age.textContent = `${item.ageDays}d`;
+
+        main.appendChild(link);
+        main.appendChild(age);
+
+        const sub = document.createElement("div");
+        sub.className = "hs-sub";
+        sub.textContent = clip(
+          `${item.situacao || "Sem situacao"}${item.titulo ? ` | ${item.titulo}` : ""}`,
+          96
+        );
+
+        li.appendChild(main);
+        li.appendChild(sub);
+        ul.appendChild(li);
+      });
+      oldestCard.appendChild(ul);
+    } else {
+      const empty = document.createElement("p");
+      empty.className = "hs-consulta-empty";
+      empty.textContent = "Sem dados suficientes para ranking de antiguidade.";
+      oldestCard.appendChild(empty);
+    }
+    sideRoot.appendChild(oldestCard);
+
+    const statusCard = createCard("Situacoes em destaque", "Top 5 situacoes da grade atual.");
+    if (statusTop.length) {
+      const ul = document.createElement("ul");
+      ul.className = "hs-consulta-list";
+      statusTop.forEach(([label, count]) => {
+        const li = document.createElement("li");
+        const main = document.createElement("div");
+        main.className = "hs-main";
+        const statusName = document.createElement("span");
+        statusName.textContent = clip(label, 58);
+        const qty = document.createElement("strong");
+        qty.textContent = String(count);
+        main.appendChild(statusName);
+        main.appendChild(qty);
+        li.appendChild(main);
+        ul.appendChild(li);
+      });
+      statusCard.appendChild(ul);
+    } else {
+      const empty = document.createElement("p");
+      empty.className = "hs-consulta-empty";
+      empty.textContent = "Sem linhas visiveis no momento.";
+      statusCard.appendChild(empty);
+    }
+    sideRoot.appendChild(statusCard);
+  }
+  /**
+   * Objetivo: Ativa layout profissional opcional na consulta de requisicoes.
+   *
+   * Contexto: organiza conteudo em duas colunas (grade + painel lateral).
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function ensureConsultaProLayout() {
+    const isConsultaPage = /consulta_requisicao\.php/i.test(location.pathname);
+    const shouldEnable =
+      isConsultaPage && document.body.classList.contains("hs-dashboard-page") && isConsultaProLayoutEnabled();
+    const conteudo = document.getElementById("conteudo");
+    if (!(conteudo instanceof HTMLElement)) return;
+
+    const shellExisting = document.getElementById("hs-consulta-shell");
+    const mainExisting = document.getElementById("hs-consulta-main");
+
+    if (!shouldEnable) {
+      document.body.classList.remove("hs-consulta-pro-enabled");
+      if (shellExisting instanceof HTMLElement) {
+        if (mainExisting instanceof HTMLElement) {
+          const restoreTarget =
+            shellExisting.parentElement instanceof HTMLElement ? shellExisting.parentElement : conteudo;
+          while (mainExisting.firstChild) restoreTarget.insertBefore(mainExisting.firstChild, shellExisting);
+        }
+        shellExisting.remove();
+      }
+      return;
+    }
+
+    let shell = shellExisting;
+    if (!(shell instanceof HTMLElement)) {
+      shell = document.createElement("div");
+      shell.id = "hs-consulta-shell";
+    }
+    let main = shell.querySelector("#hs-consulta-main");
+    if (!(main instanceof HTMLElement)) {
+      main = document.createElement("div");
+      main.id = "hs-consulta-main";
+    }
+    let side = shell.querySelector("#hs-consulta-side");
+    if (!(side instanceof HTMLElement)) {
+      side = document.createElement("aside");
+      side.id = "hs-consulta-side";
+    }
+
+    if (shell.parentElement !== conteudo) conteudo.appendChild(shell);
+    const movableNodes = Array.from(conteudo.childNodes).filter((node) => node !== shell);
+    movableNodes.forEach((node) => main.appendChild(node));
+
+    if (shell.firstChild !== main) shell.insertBefore(main, shell.firstChild || null);
+    if (side.parentElement !== shell || side === shell.firstChild) shell.appendChild(side);
+
+    document.body.classList.add("hs-consulta-pro-enabled");
+    renderConsultaProLayoutPanel(side, main);
+  }
+  /**
    * Objetivo: Classifica linhas por situaÃ§Ã£o de atendimento em serviÃ§o.
    *
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
@@ -9987,9 +10535,13 @@ Atenciosamente.`;
       if (sitIdx < 0) return;
 
       tb.querySelectorAll("tbody tr").forEach((tr) => {
-        tr.classList.remove("hs-em", "hs-em100");
+        tr.classList.remove("hs-em", "hs-em100", "hs-servico-aprovado");
         const tds = tr.children;
         const sit = norm((tds[sitIdx]?.textContent) || "");
+        if (isServicoAprovadoStatus(sit)) {
+          tr.classList.add("hs-servico-aprovado");
+          return;
+        }
         const pct = (tds[pctIdx]?.textContent) || "";
         const emServ = /em serv/.test(sit);
         if (emServ) {
@@ -10013,7 +10565,15 @@ Atenciosamente.`;
     if (!document.body.classList.contains("hs-dashboard-page")) return;
 
     const conteudo = document.getElementById("conteudo") || document.body;
-    const conteudoWidth = Math.round(conteudo.getBoundingClientRect().width || 0);
+    const consultaMain =
+      document.body.classList.contains("hs-consulta-pro-enabled")
+        ? document.getElementById("hs-consulta-main")
+        : null;
+    const widthBase =
+      consultaMain instanceof HTMLElement && consultaMain.getBoundingClientRect().width > 0
+        ? consultaMain
+        : conteudo;
+    const conteudoWidth = Math.round(widthBase.getBoundingClientRect().width || 0);
     const fallbackWidth = conteudoWidth > 0 ? Math.min(1320, conteudoWidth) : 1320;
     const overrideRaw = Number(overrideWidth);
     const preferredStored = getStoredDashboardGridWidth(resolveAppearanceThemeMode());
@@ -14805,6 +15365,7 @@ Atenciosamente.`;
     runStep(ensureAjaxGridRefresh, "ensureAjaxGridRefresh");
     runStep(registerCurrentNovaRows, "registerCurrentNovaRows");
     runStep(renderRowAlerts, "renderRowAlerts");
+    runStep(ensureConsultaProLayout, "ensureConsultaProLayout");
     runStep(ensureCountBadges, "ensureCountBadges");
     runStep(ensureConsultaPrimeiroAtendimentoButtons, "ensureConsultaPrimeiroAtendimentoButtons");
     runStep(bindRowAndLogoClicks, "bindRowAndLogoClicks");
