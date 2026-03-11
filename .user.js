@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.66
+// @version      2.15.67
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -95,7 +95,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.66";
+  const SCRIPT_VERSION_FALLBACK = "2.15.67";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -342,6 +342,18 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-11",
+      version: "2.15.67",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Painel profissional da consulta agora integra com o ciclo de refresh AJAX da grade, exibindo status de carregamento em tempo real.",
+        "Novo card de sincronismo mostra ultimo sync, proxima atualizacao e contagem de novos/alterados no ultimo ciclo.",
+        "Distribuicao de situacoes ganhou filtro rapido clicavel (por status) para focar operacao sem recarregar a pagina.",
+        "Painel passa a se atualizar imediatamente apos refresh automatico e mantem filtros ativos entre ciclos de carregamento.",
+      ],
+    },
     {
       date: "2026-03-11",
       version: "2.15.66",
@@ -3951,6 +3963,115 @@ Atenciosamente.`;
     font-size:11px!important;
     opacity:.8!important;
   }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-actions{
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:7px!important;
+    margin-top:2px!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-action-btn{
+    border-radius:8px!important;
+    border:1px solid #4f7097!important;
+    background:linear-gradient(180deg, #254666, #1f3e5e)!important;
+    color:#dbeafe!important;
+    font-size:11px!important;
+    font-weight:800!important;
+    min-height:29px!important;
+    padding:5px 10px!important;
+    cursor:pointer!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-action-btn[disabled]{
+    opacity:.72!important;
+    cursor:wait!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-sync-list{
+    margin:0!important;
+    padding:0!important;
+    list-style:none!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:6px!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-sync-item{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:9px!important;
+    font-size:11px!important;
+    line-height:1.3!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-sync-item .lbl{
+    opacity:.82!important;
+    font-weight:700!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-sync-item .val{
+    font-weight:800!important;
+    text-align:right!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-sync-status{
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:6px!important;
+    font-size:11px!important;
+    font-weight:800!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-sync-status .dot{
+    width:8px!important;
+    height:8px!important;
+    border-radius:50%!important;
+    background:#6fb8ff!important;
+    box-shadow:0 0 0 3px rgba(111,184,255,.2)!important;
+    flex:0 0 auto!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-sync-status.is-loading .dot{
+    background:#f7d171!important;
+    box-shadow:0 0 0 3px rgba(247,209,113,.24)!important;
+    animation:hs-consulta-loading-pulse 1.2s ease-in-out infinite!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-sync-status.is-error .dot{
+    background:#f08a8a!important;
+    box-shadow:0 0 0 3px rgba(240,138,138,.24)!important;
+  }
+  @keyframes hs-consulta-loading-pulse{
+    0%{ transform:scale(1); }
+    50%{ transform:scale(1.2); }
+    100%{ transform:scale(1); }
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-status-filter-btn{
+    width:100%!important;
+    border-radius:8px!important;
+    border:1px solid #4a678a!important;
+    background:linear-gradient(180deg, #1d3856, #183250)!important;
+    color:#deebfb!important;
+    min-height:30px!important;
+    padding:5px 8px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:8px!important;
+    cursor:pointer!important;
+    text-align:left!important;
+    font-size:11px!important;
+    font-weight:800!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-status-filter-btn:hover{
+    border-color:#6889b1!important;
+    filter:brightness(1.04)!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-status-filter-btn.is-active{
+    border-color:#7fb4e6!important;
+    background:linear-gradient(180deg, #29537d, #214869)!important;
+    box-shadow:0 0 0 1px rgba(127,180,230,.36)!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-status-filter-btn .hs-label{
+    min-width:0!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-status-filter-btn .hs-count{
+    flex:0 0 auto!important;
+  }
   html[data-hs-theme="dark"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-side-card{
     background:linear-gradient(180deg, #11263e, #0f2238)!important;
     border-color:#385679!important;
@@ -3985,6 +4106,21 @@ Atenciosamente.`;
   html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li{
     border-color:#d9e6f3!important;
     background:#f8fbff!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-action-btn{
+    border-color:#bcd0e4!important;
+    background:linear-gradient(180deg, #edf4fc, #dfeaf8)!important;
+    color:#23496f!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-status-filter-btn{
+    border-color:#c2d6ea!important;
+    background:linear-gradient(180deg, #f2f8ff, #e7f1fc)!important;
+    color:#254a70!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-status-filter-btn.is-active{
+    border-color:#8fb7df!important;
+    background:linear-gradient(180deg, #eaf3ff, #dcecff)!important;
+    box-shadow:0 0 0 1px rgba(77,127,182,.2)!important;
   }
   body.hs-dashboard-page form[name="filtros"]{
     border-radius:14px!important;
@@ -10240,6 +10376,109 @@ Atenciosamente.`;
     return true;
   }
   /**
+   * Objetivo: Recupera referencias atuais do layout profissional da consulta.
+   *
+   * Contexto: evita consultas repetidas e valida se o shell esta montado.
+   * Parametros: nenhum.
+   * Retorno: {side,main}|null.
+   */
+  function getConsultaProLayoutRoots() {
+    const side = document.getElementById("hs-consulta-side");
+    const main = document.getElementById("hs-consulta-main");
+    if (!(side instanceof HTMLElement) || !(main instanceof HTMLElement)) return null;
+    return { side, main };
+  }
+  /**
+   * Objetivo: Re-renderiza painel da consulta quando ele estiver ativo na tela.
+   *
+   * Contexto: usado nos eventos de carregamento/refresh para status em tempo real.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function refreshConsultaProLayoutPanelMounted() {
+    if (!document.body.classList.contains("hs-consulta-pro-enabled")) return;
+    const roots = getConsultaProLayoutRoots();
+    if (!roots) return;
+    renderConsultaProLayoutPanel(roots.side, roots.main);
+  }
+  /**
+   * Objetivo: Aplica filtro rapido por situacao direto na grade da consulta.
+   *
+   * Contexto: acionado por cliques no painel lateral.
+   * Parametros:
+   * - statusLabel: situacao alvo.
+   * - options: {preserve,silent}.
+   * Retorno: string (filtro efetivo).
+   */
+  function applyConsultaStatusQuickFilter(statusLabel = "", options = {}) {
+    const preserve = !!options?.preserve;
+    const silent = !!options?.silent;
+
+    const previousNorm = String(hsConsultaStatusFilterNorm || "").trim();
+    const previousLabel = String(hsConsultaStatusFilterLabel || "").trim();
+    const requestedLabel = preserve
+      ? String(statusLabel || previousLabel || "").trim()
+      : String(statusLabel || "").trim();
+    const requestedNorm = norm(requestedLabel);
+
+    let nextNorm = requestedNorm;
+    let nextLabel = requestedLabel;
+    if (!preserve && requestedNorm && requestedNorm === previousNorm) {
+      nextNorm = "";
+      nextLabel = "";
+    }
+    hsConsultaStatusFilterNorm = nextNorm;
+    hsConsultaStatusFilterLabel = nextLabel;
+
+    const roots = getConsultaProLayoutRoots();
+    const scopeRoot = roots?.main || document.getElementById("conteudo") || document.body;
+    const tables = Array.from(scopeRoot.querySelectorAll("table.sortable")).filter(
+      (tb) => tb instanceof HTMLTableElement
+    );
+
+    tables.forEach((tb) => {
+      const headerRow = tb.tHead?.rows?.[0] || Array.from(tb.rows || []).find((tr) => tr.querySelector("th"));
+      if (!headerRow) return;
+      const headers = Array.from(headerRow.cells || []).map((cell) => norm(cell.textContent || ""));
+      const idxSituacao = headers.findIndex((h) => SITUACAO_RX.test(h));
+      if (idxSituacao < 0) return;
+
+      const rows = Array.from(tb.tBodies?.[0]?.rows || tb.rows || []);
+      rows.forEach((tr) => {
+        if (!(tr instanceof HTMLTableRowElement)) return;
+        if (tr.querySelector("th")) return;
+        const tdSit = tr.cells[idxSituacao];
+        if (!(tdSit instanceof HTMLTableCellElement)) return;
+
+        const sitNorm = norm(getSituacaoCellText(tdSit));
+        const matches = !nextNorm || sitNorm.includes(nextNorm);
+        const hiddenByFilter = tr.dataset.hsConsultaStatusFilterHidden === "1";
+
+        if (matches) {
+          if (hiddenByFilter) {
+            const prevDisplay = String(tr.dataset.hsConsultaStatusPrevDisplay || "");
+            if (prevDisplay) tr.style.setProperty("display", prevDisplay, "important");
+            else tr.style.removeProperty("display");
+            delete tr.dataset.hsConsultaStatusFilterHidden;
+            delete tr.dataset.hsConsultaStatusPrevDisplay;
+          }
+          return;
+        }
+
+        if (!hiddenByFilter) tr.dataset.hsConsultaStatusPrevDisplay = tr.style.display || "";
+        tr.dataset.hsConsultaStatusFilterHidden = "1";
+        tr.style.setProperty("display", "none", "important");
+      });
+    });
+
+    if (!silent) {
+      if (nextNorm) toast(`Filtro rapido: ${nextLabel}.`, "info", 2200);
+      else if (previousNorm) toast("Filtro rapido removido.", "ok", 1800);
+    }
+    if (roots) renderConsultaProLayoutPanel(roots.side, roots.main);
+    return nextLabel;
+  }
+  /**
    * Objetivo: Renderiza painel lateral profissional da consulta de requisicoes.
    *
    * Contexto: dashboard-like da rota consulta_requisicao.php.
@@ -10263,6 +10502,17 @@ Atenciosamente.`;
       const raw = String(text || "").replace(/\s+/g, " ").trim();
       if (raw.length <= max) return raw;
       return `${raw.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+    };
+    const formatAgo = (timestamp) => {
+      const at = Number(timestamp || 0);
+      if (!Number.isFinite(at) || at <= 0) return "--";
+      const diffSec = Math.max(0, Math.floor((Date.now() - at) / 1000));
+      if (diffSec < 60) return `${diffSec}s`;
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin}min`;
+      const diffHour = Math.floor(diffMin / 60);
+      if (diffHour < 24) return `${diffHour}h`;
+      return `${Math.floor(diffHour / 24)}d`;
     };
 
     const statusCounter = new Map();
@@ -10336,6 +10586,10 @@ Atenciosamente.`;
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
 
+    const nextInSec =
+      Number.isFinite(hsAjaxRefreshNextAt) && hsAjaxRefreshNextAt > 0
+        ? Math.max(0, Math.ceil((hsAjaxRefreshNextAt - Date.now()) / 1000))
+        : null;
     const digest = JSON.stringify({
       total,
       novas,
@@ -10347,6 +10601,14 @@ Atenciosamente.`;
       parados5dias,
       oldestTop: oldestTop.map((x) => `${x.numero}:${x.ageDays}`),
       statusTop,
+      ajaxBusy: hsAjaxRefreshBusy,
+      ajaxLastAt: hsAjaxRefreshLastAt,
+      ajaxNextAt: hsAjaxRefreshNextAt,
+      ajaxNew: hsAjaxRefreshLastNewCount,
+      ajaxChanged: hsAjaxRefreshLastChangedCount,
+      ajaxError: hsAjaxRefreshLastError,
+      filtroAtual: hsConsultaStatusFilterNorm,
+      nextInSec,
     });
     if (sideRoot.dataset.hsConsultaDigest === digest) return;
     sideRoot.dataset.hsConsultaDigest = digest;
@@ -10396,6 +10658,66 @@ Atenciosamente.`;
     summaryCard.appendChild(kpiGrid);
     sideRoot.appendChild(summaryCard);
 
+    const syncMeta = hsAjaxRefreshBusy
+      ? "Acompanhando carregamento da grade em tempo real."
+      : "Sincronismo conectado ao refresh automatico dos chamados.";
+    const syncCard = createCard("Sincronismo", syncMeta);
+    const statusLine = document.createElement("div");
+    statusLine.className = `hs-consulta-sync-status${
+      hsAjaxRefreshBusy ? " is-loading" : hsAjaxRefreshLastError ? " is-error" : ""
+    }`;
+    statusLine.innerHTML = `<span class="dot"></span><span>${
+      hsAjaxRefreshBusy ? "Atualizando agora" : hsAjaxRefreshLastError ? "Ultimo ciclo com erro" : "Monitorando grade"
+    }</span>`;
+    syncCard.appendChild(statusLine);
+
+    const syncList = document.createElement("ul");
+    syncList.className = "hs-consulta-sync-list";
+    const addSyncItem = (label, value) => {
+      const li = document.createElement("li");
+      li.className = "hs-consulta-sync-item";
+      li.innerHTML = `<span class="lbl">${label}</span><span class="val">${value}</span>`;
+      syncList.appendChild(li);
+    };
+    addSyncItem("Ultimo sync", formatAgo(hsAjaxRefreshLastAt));
+    addSyncItem(
+      "Proximo ciclo",
+      hsAjaxRefreshBusy ? "em andamento" : Number.isFinite(nextInSec) ? `${nextInSec}s` : "--"
+    );
+    addSyncItem(
+      "Ultimo ciclo",
+      `${hsAjaxRefreshLastNewCount || 0} novo(s) / ${hsAjaxRefreshLastChangedCount || 0} alterado(s)`
+    );
+    if (hsAjaxRefreshLastError) addSyncItem("Erro", clip(hsAjaxRefreshLastError, 38));
+    syncCard.appendChild(syncList);
+
+    const syncActions = document.createElement("div");
+    syncActions.className = "hs-consulta-actions";
+    const refreshBtn = document.createElement("button");
+    refreshBtn.type = "button";
+    refreshBtn.className = "hs-consulta-action-btn";
+    refreshBtn.textContent = hsAjaxRefreshBusy ? "Atualizando..." : "Atualizar agora";
+    refreshBtn.disabled = !!hsAjaxRefreshBusy;
+    refreshBtn.onclick = (ev) => {
+      ev.preventDefault();
+      if (hsAjaxRefreshBusy) return;
+      runAjaxGridRefresh();
+    };
+    syncActions.appendChild(refreshBtn);
+    if (hsConsultaStatusFilterNorm) {
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "hs-consulta-action-btn";
+      clearBtn.textContent = "Limpar filtro";
+      clearBtn.onclick = (ev) => {
+        ev.preventDefault();
+        applyConsultaStatusQuickFilter("", { preserve: false });
+      };
+      syncActions.appendChild(clearBtn);
+    }
+    syncCard.appendChild(syncActions);
+    sideRoot.appendChild(syncCard);
+
     const oldestCard = createCard("Fila mais antiga", "Chamados com maior tempo sem atualizacao.");
     if (oldestTop.length) {
       const ul = document.createElement("ul");
@@ -10437,21 +10759,27 @@ Atenciosamente.`;
     }
     sideRoot.appendChild(oldestCard);
 
-    const statusCard = createCard("Situacoes em destaque", "Top 5 situacoes da grade atual.");
+    const statusCard = createCard(
+      "Situacoes em destaque",
+      "Top 5 situacoes da grade atual. Clique para filtrar."
+    );
     if (statusTop.length) {
       const ul = document.createElement("ul");
       ul.className = "hs-consulta-list";
       statusTop.forEach(([label, count]) => {
         const li = document.createElement("li");
-        const main = document.createElement("div");
-        main.className = "hs-main";
-        const statusName = document.createElement("span");
-        statusName.textContent = clip(label, 58);
-        const qty = document.createElement("strong");
-        qty.textContent = String(count);
-        main.appendChild(statusName);
-        main.appendChild(qty);
-        li.appendChild(main);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "hs-consulta-status-filter-btn";
+        if (hsConsultaStatusFilterNorm && norm(label) === hsConsultaStatusFilterNorm) {
+          btn.classList.add("is-active");
+        }
+        btn.innerHTML = `<span class="hs-label">${clip(label, 58)}</span><span class="hs-count">${count}</span>`;
+        btn.onclick = (ev) => {
+          ev.preventDefault();
+          applyConsultaStatusQuickFilter(label, { preserve: false });
+        };
+        li.appendChild(btn);
         ul.appendChild(li);
       });
       statusCard.appendChild(ul);
@@ -10481,6 +10809,9 @@ Atenciosamente.`;
     const mainExisting = document.getElementById("hs-consulta-main");
 
     if (!shouldEnable) {
+      if (hsConsultaStatusFilterNorm) {
+        applyConsultaStatusQuickFilter("", { preserve: false, silent: true });
+      }
       document.body.classList.remove("hs-consulta-pro-enabled");
       if (shellExisting instanceof HTMLElement) {
         if (mainExisting instanceof HTMLElement) {
@@ -10517,6 +10848,7 @@ Atenciosamente.`;
     if (side.parentElement !== shell || side === shell.firstChild) shell.appendChild(side);
 
     document.body.classList.add("hs-consulta-pro-enabled");
+    applyConsultaStatusQuickFilter("", { preserve: true, silent: true });
     renderConsultaProLayoutPanel(side, main);
   }
   /**
@@ -14115,6 +14447,13 @@ Atenciosamente.`;
   let hsAjaxRefreshTimer = null;
   let hsAjaxLastSignature = "";
   let hsAjaxLastToastAt = 0;
+  let hsAjaxRefreshLastAt = 0;
+  let hsAjaxRefreshNextAt = 0;
+  let hsAjaxRefreshLastNewCount = 0;
+  let hsAjaxRefreshLastChangedCount = 0;
+  let hsAjaxRefreshLastError = "";
+  let hsConsultaStatusFilterNorm = "";
+  let hsConsultaStatusFilterLabel = "";
   const hsRowAlertState = new Map();
   let hsRowAlertPersist = new Map();
   let hsRowAlertPersistLoaded = false;
@@ -14613,6 +14952,7 @@ Atenciosamente.`;
     ensureConsultaPrimeiroAtendimentoButtons();
     bindRowAndLogoClicks();
     normalizeDashboardTableWidths();
+    ensureConsultaProLayout();
   }
   /**
    * Objetivo: Atualiza a grade de chamados via fetch remoto sem F5.
@@ -14629,7 +14969,23 @@ Atenciosamente.`;
     const active = document.activeElement;
     if (active && /^(input|textarea|select)$/i.test(active.tagName)) return;
 
+    const markSuccess = (newCount = 0, changedCount = 0) => {
+      const now = Date.now();
+      hsAjaxRefreshLastAt = now;
+      hsAjaxRefreshLastNewCount = Math.max(0, Number(newCount) || 0);
+      hsAjaxRefreshLastChangedCount = Math.max(0, Number(changedCount) || 0);
+      hsAjaxRefreshLastError = "";
+      hsAjaxRefreshNextAt = now + AJAX_REFRESH_INTERVAL_MS;
+    };
+    const markFailure = (errorMessage = "") => {
+      const now = Date.now();
+      hsAjaxRefreshLastError = String(errorMessage || "Falha no refresh da grade.").trim();
+      hsAjaxRefreshNextAt = now + AJAX_REFRESH_INTERVAL_MS;
+    };
+
     hsAjaxRefreshBusy = true;
+    hsAjaxRefreshNextAt = 0;
+    refreshConsultaProLayoutPanelMounted();
     try {
       const beforeSnap = buildGridSnapshot(document);
       if (!hsAjaxLastSignature) hsAjaxLastSignature = beforeSnap.signature;
@@ -14643,12 +14999,22 @@ Atenciosamente.`;
       const html = await resp.text();
       const parsed = new DOMParser().parseFromString(html, "text/html");
       const remoteSnap = buildGridSnapshot(parsed);
-      if (!remoteSnap.signature) return;
-      if (remoteSnap.signature === hsAjaxLastSignature) return;
+      if (!remoteSnap.signature) {
+        markSuccess(0, 0);
+        return;
+      }
+      if (remoteSnap.signature === hsAjaxLastSignature) {
+        markSuccess(0, 0);
+        return;
+      }
 
       const localBodies = Array.from(document.querySelectorAll("#conteudo table.sortable tbody"));
       const remoteBodies = Array.from(parsed.querySelectorAll("#conteudo table.sortable tbody"));
-      if (!localBodies.length || !remoteBodies.length) return;
+      if (!localBodies.length || !remoteBodies.length) {
+        hsAjaxLastSignature = remoteSnap.signature;
+        markSuccess(0, 0);
+        return;
+      }
 
       const total = Math.min(localBodies.length, remoteBodies.length);
       for (let i = 0; i < total; i++) {
@@ -14674,11 +15040,14 @@ Atenciosamente.`;
         }
       }
 
+      markSuccess(newNums.length, changedNums.length);
       runPostAjaxGridRefreshLightPass();
     } catch (err) {
       console.warn("[HeadsoftHelper] Falha no refresh AJAX discreto:", err);
+      markFailure(err?.message || err);
     } finally {
       hsAjaxRefreshBusy = false;
+      refreshConsultaProLayoutPanelMounted();
     }
   }
   /**
@@ -14693,8 +15062,16 @@ Atenciosamente.`;
     if (document.documentElement.dataset.hsAjaxRefreshBound === "1") return;
     document.documentElement.dataset.hsAjaxRefreshBound = "1";
     hsAjaxLastSignature = buildGridSnapshot(document).signature;
+    const now = Date.now();
+    hsAjaxRefreshLastAt = now;
+    hsAjaxRefreshLastNewCount = 0;
+    hsAjaxRefreshLastChangedCount = 0;
+    hsAjaxRefreshLastError = "";
+    hsAjaxRefreshNextAt = now + AJAX_REFRESH_INTERVAL_MS;
+    refreshConsultaProLayoutPanelMounted();
 
     hsAjaxRefreshTimer = window.setInterval(() => {
+      if (!hsAjaxRefreshBusy) hsAjaxRefreshNextAt = Date.now() + AJAX_REFRESH_INTERVAL_MS;
       runAjaxGridRefresh();
     }, AJAX_REFRESH_INTERVAL_MS);
 

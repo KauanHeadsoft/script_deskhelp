@@ -2,6 +2,18 @@
     
     {
         "date":  "2026-03-11",
+        "version":  "2.15.67",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Painel profissional da consulta agora integra com o ciclo de refresh AJAX da grade, exibindo status de carregamento em tempo real.",
+                      "Novo card de sincronismo mostra ultimo sync, proxima atualizacao e contagem de novos/alterados no ultimo ciclo.",
+                      "Distribuicao de situacoes ganhou filtro rapido clicavel (por status) para focar operacao sem recarregar a pagina.",
+                      "Painel passa a se atualizar imediatamente apos refresh automatico e mantem filtros ativos entre ciclos de carregamento."
+                  ]
+    },
+    {
+        "date":  "2026-03-11",
         "version":  "2.15.66",
         "type":  "routine",
         "mandatory":  false,
