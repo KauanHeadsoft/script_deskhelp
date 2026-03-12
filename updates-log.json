@@ -1,5 +1,91 @@
-﻿[   
-    
+﻿[
+
+    {
+        "date":  "2026-03-12",
+        "version":  "2.15.78",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Modal automatico de atualizacao agora abre somente para releases de correcao obrigatoria (bugfix/security).",
+                      "Atualizacoes rotineiras deixaram de abrir popup automatico ao recarregar a pagina; usuario decide quando atualizar manualmente.",
+                      "Fluxo de alerta obrigatorio foi mantido sem mudancas para garantir aplicacao imediata de correcoes criticas."
+                  ]
+    },{
+        "date":  "2026-03-12",
+        "version":  "2.15.77",
+        "type":  "bugfix",
+        "mandatory":  true,
+        "notes":  [
+                      "Bridge TXT/SQL ficou mais resiliente: a aba do anexo agora aguarda o texto renderizar e so retorna erro apos janela de tentativa, evitando falha precoce.",
+                      "Canal alternativo por localStorage foi adicionado para devolver conteudo ao modal quando window.opener estiver indisponivel na nova guia.",
+                      "Preview textual no modal agora recebe o conteudo do link aberto com maior estabilidade para copia de texto em anexos .txt/.sql."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
+        "version":  "2.15.76",
+        "type":  "bugfix",
+        "mandatory":  true,
+        "notes":  [
+                      "Bridge TXT/SQL ajustado para abrir nova guia sem noopener/noreferrer, mantendo window.opener e permitindo retorno do conteudo ao modal via postMessage.",
+                      "Correcao destrava o fluxo em que a aba era aberta, mas o modal nao recebia texto por bloqueio do canal de comunicacao."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
+        "version":  "2.15.75",
+        "type":  "bugfix",
+        "mandatory":  true,
+        "notes":  [
+                      "Fluxo TXT/SQL passou a abrir nova guia do anexo e capturar o texto pelo proprio contexto da pagina do arquivo, retornando conteudo para o modal principal.",
+                      "Canal bridge por postMessage foi adicionado com id temporario para sincronizar aba do anexo e modal da tela de requisicao.",
+                      "Quando a captura via nova guia falhar, preview tenta fallback local (fetch/iframe) antes de exibir erro final."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
+        "version":  "2.15.74",
+        "type":  "bugfix",
+        "mandatory":  true,
+        "notes":  [
+                      "Preview TXT/SQL agora normaliza URL do anexo para o mesmo protocolo/origem da pagina quando o host e igual, reduzindo falhas por CORS em links absolutos https/http.",
+                      "Fetch e fallback por iframe passaram a usar essa URL normalizada antes da leitura do conteudo.",
+                      "Correcao focada em anexos que abrem em nova guia mas falhavam no modal por contexto de origem misto."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
+        "version":  "2.15.73",
+        "type":  "bugfix",
+        "mandatory":  true,
+        "notes":  [
+                      "Blindagem extra no fluxo TXT/SQL: window.open legado para o mesmo anexo e bloqueado por alguns segundos durante a abertura do modal.",
+                      "Correcao evita corrida entre handlers da pagina e preview interno que causava modal abrir/fechar com nova guia em seguida.",
+                      "Fluxo de preview textual segue priorizando modal e copia de link/texto sem navegacao forcada."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
+        "version":  "2.15.72",
+        "type":  "bugfix",
+        "mandatory":  true,
+        "notes":  [
+                      "Correcao imediata no preview TXT/SQL: fallback nao fecha mais o modal nem abre nova guia automaticamente quando a leitura interna falhar.",
+                      "Leitura textual de anexo agora aceita payload com bytes nulos (caso comum de UTF-16), evitando falso erro de conteudo binario.",
+                      "Mensagem de erro no modal passou a orientar copiar link/manual sem interromper a tela."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
+        "version":  "2.15.71",
+        "type":  "bugfix",
+        "mandatory":  false,
+        "notes":  [
+                      "Anexos TXT/SQL recebidos no chamado agora priorizam abertura no modal-editor, inclusive quando o link legado nao expoe extensao no href.",
+                      "Deteccao de nome do anexo textual foi reforcada pelo contexto da linha para capturar casos em que o nome aparece somente no texto da tela.",
+                      "Modal textual ganhou acao dedicada de \"Copiar link\" e campo readonly com a URL do anexo para facilitar consulta e compartilhamento."
+                  ]
+    },
     {
         "date":  "2026-03-12",
         "version":  "2.15.70",
@@ -474,6 +560,10 @@
                   ]
     }
 ]
+
+
+
+
 
 
 

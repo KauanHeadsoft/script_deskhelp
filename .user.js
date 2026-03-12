@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.70
+// @version      2.15.78
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -46,6 +46,10 @@
   const REQ_OPEN_DEBUG_LS_KEY = "hs2025-req-open-debug";
   const REQ_OPEN_DEBUG_QUERY = "hsdebugopen";
   const REQ_POPUP_PREVIEW_QUERY_KEY = "hs_preview_popup";
+  const TEXT_PREVIEW_BRIDGE_QUERY_KEY = "hs_text_preview";
+  const TEXT_PREVIEW_BRIDGE_ID_QUERY_KEY = "hs_text_preview_id";
+  const TEXT_PREVIEW_BRIDGE_STORAGE_KEY_PREFIX = "hs2025-text-preview-bridge:";
+  const TEXT_PREVIEW_BRIDGE_STORAGE_TTL_MS = 2 * 60 * 1000;
   const REQ_OPEN_LOG_LIMIT = 320;
   const PREVIEW_ONLY_MODE_DEFAULT = true;
   const PREVIEW_ONLY_MODE_LS_KEY = "hs2025-preview-only-mode";
@@ -97,7 +101,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.70";
+  const SCRIPT_VERSION_FALLBACK = "2.15.78";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -344,6 +348,93 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-12",
+      version: "2.15.78",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Modal automatico de atualizacao agora abre somente para releases de correcao obrigatoria (bugfix/security).",
+        "Atualizacoes rotineiras deixaram de abrir popup automatico ao recarregar a pagina; usuario decide quando atualizar manualmente.",
+        "Fluxo de alerta obrigatorio foi mantido sem mudancas para garantir aplicacao imediata de correcoes criticas.",
+      ],
+    },
+    {
+      date: "2026-03-12",
+      version: "2.15.77",
+      type: "bugfix",
+      mandatory: true,
+      notes: [
+        "Bridge TXT/SQL ficou mais resiliente: a aba do anexo agora aguarda o texto renderizar e so retorna erro apos janela de tentativa, evitando falha precoce.",
+        "Canal alternativo por localStorage foi adicionado para devolver conteudo ao modal quando window.opener estiver indisponivel na nova guia.",
+        "Preview textual no modal agora recebe o conteudo do link aberto com maior estabilidade para copia de texto em anexos .txt/.sql.",
+      ],
+    },
+    {
+      date: "2026-03-12",
+      version: "2.15.76",
+      type: "bugfix",
+      mandatory: true,
+      notes: [
+        "Bridge TXT/SQL ajustado para abrir nova guia sem noopener/noreferrer, mantendo window.opener e permitindo retorno do conteudo ao modal via postMessage.",
+        "Correcao destrava o fluxo em que a aba era aberta, mas o modal nao recebia texto por bloqueio do canal de comunicacao.",
+      ],
+    },
+    {
+      date: "2026-03-12",
+      version: "2.15.75",
+      type: "bugfix",
+      mandatory: true,
+      notes: [
+        "Fluxo TXT/SQL passou a abrir nova guia do anexo e capturar o texto pelo proprio contexto da pagina do arquivo, retornando conteudo para o modal principal.",
+        "Canal bridge por postMessage foi adicionado com id temporario para sincronizar aba do anexo e modal da tela de requisicao.",
+        "Quando a captura via nova guia falhar, preview tenta fallback local (fetch/iframe) antes de exibir erro final.",
+      ],
+    },
+    {
+      date: "2026-03-12",
+      version: "2.15.74",
+      type: "bugfix",
+      mandatory: true,
+      notes: [
+        "Preview TXT/SQL agora normaliza URL do anexo para o mesmo protocolo/origem da pagina quando o host e igual, reduzindo falhas por CORS em links absolutos https/http.",
+        "Fetch e fallback por iframe passaram a usar essa URL normalizada antes da leitura do conteudo.",
+        "Correcao focada em anexos que abrem em nova guia mas falhavam no modal por contexto de origem misto.",
+      ],
+    },
+    {
+      date: "2026-03-12",
+      version: "2.15.73",
+      type: "bugfix",
+      mandatory: true,
+      notes: [
+        "Blindagem extra no fluxo TXT/SQL: window.open legado para o mesmo anexo e bloqueado por alguns segundos durante a abertura do modal.",
+        "Correcao evita corrida entre handlers da pagina e preview interno que causava modal abrir/fechar com nova guia em seguida.",
+        "Fluxo de preview textual segue priorizando modal e copia de link/texto sem navegacao forcada.",
+      ],
+    },
+    {
+      date: "2026-03-12",
+      version: "2.15.72",
+      type: "bugfix",
+      mandatory: true,
+      notes: [
+        "Correcao imediata no preview TXT/SQL: fallback nao fecha mais o modal nem abre nova guia automaticamente quando a leitura interna falhar.",
+        "Leitura textual de anexo agora aceita payload com bytes nulos (caso comum de UTF-16), evitando falso erro de conteudo binario.",
+        "Mensagem de erro no modal passou a orientar copiar link/manualmente sem interromper a tela.",
+      ],
+    },
+    {
+      date: "2026-03-12",
+      version: "2.15.71",
+      type: "bugfix",
+      mandatory: false,
+      notes: [
+        "Anexos TXT/SQL recebidos no chamado agora priorizam abertura no modal-editor, inclusive quando o link legado nao expõe extensao no href.",
+        "Deteccao de nome do anexo textual foi reforcada pelo contexto da linha para capturar casos em que o nome aparece somente no texto da tela.",
+        "Modal textual ganhou acao dedicada de 'Copiar link' e campo readonly com a URL do anexo para facilitar consulta e compartilhamento.",
+      ],
+    },
     {
       date: "2026-03-12",
       version: "2.15.70",
@@ -1818,6 +1909,27 @@ Atenciosamente.`;
     cursor:pointer;
     font-size:11px!important;
     font-weight:800!important;
+  }
+  .hs-text-viewer-link-wrap{
+    margin:0 0 8px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .hs-text-viewer-link{
+    width:100%;
+    min-height:30px;
+    border-radius:var(--hs-radius-control);
+    border:1px solid #2c415a;
+    background:#0e1828;
+    color:#cfe0f5;
+    font-size:12px;
+    line-height:1.3;
+    padding:6px 9px;
+    font-family:'Segoe UI',Tahoma,sans-serif;
+  }
+  .hs-text-viewer-link::selection{
+    background:rgba(56,189,248,.28);
   }
   .hs-text-viewer-body{
     padding:10px;
@@ -7885,47 +7997,29 @@ Atenciosamente.`;
     }, 120);
   }
   /**
-   * Objetivo: Exibe popup de update apenas uma vez por versao remota detectada.
+   * Objetivo: Dispara popup automatico apenas para update obrigatorio de correcao.
    *
-   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
+   * Contexto: releases rotineiras nao devem abrir modal automaticamente.
    * Parametros:
    * - result: entrada usada por esta rotina.
    * Retorno: void.
-   * Efeitos colaterais: abre modal de atualizacao e persiste versao notificada.
+   * Efeitos colaterais: abre modal forcado somente em correcao obrigatoria.
    */
   function showUpdatePopupOnce(result) {
     const hasUpdate = !!result?.hasUpdate && !!String(result?.remoteVersion || "").trim();
     if (!hasUpdate) return;
     const remoteVersion = String(result.remoteVersion || "").trim();
     if (!remoteVersion) return;
-    if (isMandatoryUpdateResult(result)) {
-      showMandatoryUpdatePrompt(result);
-      return;
-    }
-
-    const lastPopup = getLastUpdatePopupVersion();
-    if (lastPopup === remoteVersion) return;
-    setLastUpdatePopupVersion(remoteVersion);
-
-    setTimeout(() => {
-      showRecentUpdatesDialog({
-        forceRefresh: true,
-        remoteVersion,
-        remoteUrl: String(result?.remoteUrl || ""),
-        highlightVersion: remoteVersion,
-        checkedAt: Number(result?.checkedAt || Date.now()),
-      }).catch(() => {
-        toast(`Nova versao ${remoteVersion} disponivel.`, "info", 3000);
-      });
-    }, 120);
+    if (!isMandatoryUpdateResult(result)) return;
+    showMandatoryUpdatePrompt(result);
   }
   /**
-   * Objetivo: Dispara verificacao/notificacao de update de forma global na pagina.
+   * Objetivo: Dispara verificacao global e alerta automatico so para correcao obrigatoria.
    *
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
    * Parametros: nenhum.
    * Retorno: void.
-   * Efeitos colaterais: consulta remota e popup de update quando houver nova versao.
+   * Efeitos colaterais: consulta remota e popup apenas em update obrigatorio.
    */
   function ensureGlobalUpdateNotification() {
     const root = document.documentElement;
@@ -8281,6 +8375,47 @@ Atenciosamente.`;
 
       try {
         const abs = new URL(urlTxt, location.href);
+        const isAttachmentOpen =
+          abs.origin === location.origin &&
+          (/\/anexo(?:\.php)?$/i.test(abs.pathname) ||
+            abs.searchParams.has("guid") ||
+            abs.searchParams.has("anexo") ||
+            abs.searchParams.has("id_anexo"));
+        const bridgeFlagRaw = String(abs.searchParams.get(TEXT_PREVIEW_BRIDGE_QUERY_KEY) || "")
+          .trim()
+          .toLowerCase();
+        const isTextBridgeOpen = bridgeFlagRaw === "1" || bridgeFlagRaw === "true" || bridgeFlagRaw === "yes";
+        if (canDedup && isAttachmentOpen && !isTextBridgeOpen) {
+          const now = Date.now();
+          const guardUntil = Number(root?.dataset?.hsTextPreviewGuardUntil || 0);
+          if (Number.isFinite(guardUntil) && now <= guardUntil) {
+            const guardUrl = String(root?.dataset?.hsTextPreviewGuardUrl || "").trim();
+            const guardGuid = String(root?.dataset?.hsTextPreviewGuardGuid || "")
+              .trim()
+              .toLowerCase();
+            const absUrl = abs.toString();
+            const absGuid = String(
+              abs.searchParams.get("guid") ||
+                abs.searchParams.get("anexo") ||
+                abs.searchParams.get("id_anexo") ||
+                ""
+            )
+              .trim()
+              .toLowerCase();
+            const sameUrl = !!guardUrl && absUrl === guardUrl;
+            const sameGuid = !!guardGuid && !!absGuid && guardGuid === absGuid;
+            if (sameUrl || sameGuid) {
+              traceReqOpen("window.open.blocked.textPreview", {
+                target: targetTxt,
+                url: absUrl,
+                reason: sameGuid ? "same-guid" : "same-url",
+                guardUntil,
+              });
+              return null;
+            }
+          }
+        }
+
         isReqOpen = abs.origin === location.origin && /\/visualizar_requisicao\.php$/i.test(abs.pathname);
         reqNumero = String(abs.searchParams.get("numero") || "").trim();
 
@@ -12257,6 +12392,37 @@ Atenciosamente.`;
     }
   }
   /**
+   * Objetivo: Normaliza URL de anexo para o mesmo protocolo/origem atual quando possivel.
+   *
+   * Contexto: evita falhas de leitura por origem mista (http x https) no preview TXT/SQL.
+   * Parametros:
+   * - value: URL original do anexo.
+   * Retorno: string.
+   */
+  function normalizeAttachmentPreviewUrl(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    try {
+      const u = new URL(raw, location.href);
+      const hostMatches = String(u.hostname || "").toLowerCase() === String(location.hostname || "").toLowerCase();
+      const attachmentHint =
+        /\/anexo(?:\.php)?$/i.test(String(u.pathname || "")) ||
+        u.searchParams.has("guid") ||
+        u.searchParams.has("anexo") ||
+        u.searchParams.has("id_anexo");
+      if (hostMatches && attachmentHint && u.protocol !== location.protocol) {
+        const sameOrigin = new URL(location.origin);
+        sameOrigin.pathname = u.pathname;
+        sameOrigin.search = u.search;
+        sameOrigin.hash = u.hash;
+        return sameOrigin.toString();
+      }
+      return u.toString();
+    } catch {
+      return raw;
+    }
+  }
+  /**
    * Objetivo: Extrai URL real de download quando endpoint retorna HTML com iframe.
    *
    * Contexto: corrige preview de anexos que chegam encapsulados por pagina intermediaria.
@@ -12427,6 +12593,376 @@ Atenciosamente.`;
     return `${withoutNull.slice(0, LIMIT)}\n\n[preview truncado: arquivo muito grande]`;
   }
   /**
+   * Objetivo: Atualiza URL de origem exibida no modal textual.
+   *
+   * Contexto: usado para oferecer acao de copiar link do anexo remoto.
+   * Parametros:
+   * - modal: elemento do modal textual.
+   * - sourceUrl: URL absoluta ou vazia.
+   * Retorno: void.
+   */
+  function setTextPreviewModalSourceUrl(modal, sourceUrl = "") {
+    if (!(modal instanceof HTMLElement)) return;
+    const clean = String(sourceUrl || "").trim();
+    const linkWrap = modal.querySelector(".hs-text-viewer-link-wrap");
+    const linkInput = modal.querySelector(".hs-text-viewer-link");
+    modal.dataset.hsTextSourceUrl = clean;
+    if (linkInput instanceof HTMLInputElement) {
+      linkInput.value = clean;
+      linkInput.title = clean || "Link indisponivel para este preview";
+    }
+    if (linkWrap instanceof HTMLElement) {
+      linkWrap.style.display = clean ? "flex" : "none";
+    }
+  }
+  /**
+   * Objetivo: Ativa guard temporario contra abertura concorrente de nova guia do mesmo anexo.
+   *
+   * Contexto: evita corrida entre handlers legados e o preview TXT/SQL em modal.
+   * Parametros:
+   * - sourceUrl: URL absoluta do anexo em preview.
+   * Retorno: void.
+   */
+  function armTextPreviewWindowOpenGuard(sourceUrl = "") {
+    const root = document.documentElement;
+    if (!(root instanceof HTMLElement) || !root.dataset) return;
+    const clean = String(sourceUrl || "").trim();
+    if (!clean) return;
+    root.dataset.hsTextPreviewGuardUntil = String(Date.now() + 9000);
+    root.dataset.hsTextPreviewGuardUrl = clean;
+    let guid = "";
+    try {
+      const u = new URL(clean, location.href);
+      guid = String(u.searchParams.get("guid") || u.searchParams.get("anexo") || u.searchParams.get("id_anexo") || "")
+        .trim()
+        .toLowerCase();
+    } catch {}
+    root.dataset.hsTextPreviewGuardGuid = guid;
+  }
+  /**
+   * Objetivo: Gera id curto para sincronizar requisicao de preview textual via bridge.
+   *
+   * Contexto: usado na comunicacao entre aba principal e aba do anexo (postMessage).
+   * Parametros: nenhum.
+   * Retorno: string.
+   */
+  function buildTextPreviewBridgeRequestId() {
+    return `hs-txt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+  /**
+   * Objetivo: Monta chave de persistencia temporaria do bridge textual.
+   *
+   * Contexto: fallback entre abas quando postMessage/opener nao estiver disponivel.
+   * Parametros:
+   * - reqId: id curto do request.
+   * Retorno: string.
+   */
+  function buildTextPreviewBridgeStorageKey(reqId = "") {
+    const clean = String(reqId || "").trim();
+    if (!clean) return "";
+    return `${TEXT_PREVIEW_BRIDGE_STORAGE_KEY_PREFIX}${clean}`;
+  }
+  /**
+   * Objetivo: Grava payload de bridge textual em storage local temporario.
+   *
+   * Contexto: fallback de comunicacao entre aba do anexo e modal principal.
+   * Parametros:
+   * - reqId: id do request bridge.
+   * - payload: objeto com resultado ok/error e metadados.
+   * Retorno: void.
+   */
+  function writeTextPreviewBridgeStoragePayload(reqId, payload = {}) {
+    const key = buildTextPreviewBridgeStorageKey(reqId);
+    if (!key) return;
+    try {
+      const safe = payload && typeof payload === "object" ? payload : {};
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          requestId: String(reqId || "").trim(),
+          ok: !!safe.ok,
+          sourceUrl: String(safe.sourceUrl || ""),
+          label: String(safe.label || ""),
+          content: String(safe.content || ""),
+          error: String(safe.error || ""),
+          at: Date.now(),
+        })
+      );
+    } catch {}
+  }
+  /**
+   * Objetivo: Le payload temporario do bridge textual do storage local.
+   *
+   * Contexto: utilizado como fallback quando nao houver retorno por postMessage.
+   * Parametros:
+   * - reqId: id do request bridge.
+   * Retorno: objeto|null.
+   */
+  function readTextPreviewBridgeStoragePayload(reqId) {
+    const key = buildTextPreviewBridgeStorageKey(reqId);
+    if (!key) return null;
+    try {
+      const raw = String(localStorage.getItem(key) || "");
+      if (!raw.trim()) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return null;
+      const at = Number(parsed.at || 0);
+      if (Number.isFinite(at) && at > 0 && Date.now() - at > TEXT_PREVIEW_BRIDGE_STORAGE_TTL_MS) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      return {
+        ok: !!parsed.ok,
+        sourceUrl: String(parsed.sourceUrl || ""),
+        label: String(parsed.label || ""),
+        content: String(parsed.content || ""),
+        error: String(parsed.error || ""),
+      };
+    } catch {
+      return null;
+    }
+  }
+  /**
+   * Objetivo: Remove payload temporario do bridge textual.
+   *
+   * Contexto: cleanup apos concluir request ou em timeout.
+   * Parametros:
+   * - reqId: id do request bridge.
+   * Retorno: void.
+   */
+  function clearTextPreviewBridgeStoragePayload(reqId) {
+    const key = buildTextPreviewBridgeStorageKey(reqId);
+    if (!key) return;
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+  }
+  /**
+   * Objetivo: Registra listener unico de mensagens do bridge de preview textual.
+   *
+   * Contexto: recebe payload da aba do anexo e resolve promessa pendente no modal.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function ensureTextPreviewBridgeReceiver() {
+    if (hsTextPreviewBridgeBound) return;
+    hsTextPreviewBridgeBound = true;
+    window.addEventListener("message", (ev) => {
+      const data = ev?.data;
+      if (!data || typeof data !== "object") return;
+      if (String(data.type || "") !== "hs-text-preview-bridge") return;
+      const reqId = String(data.requestId || "").trim();
+      if (!reqId) return;
+      const pending = hsTextPreviewBridgePending.get(reqId);
+      if (!pending) return;
+
+      const expectedHost = String(location.hostname || "").trim().toLowerCase();
+      let originHost = "";
+      try {
+        originHost = String(new URL(String(ev.origin || "")).hostname || "")
+          .trim()
+          .toLowerCase();
+      } catch {}
+      if (originHost && expectedHost && originHost !== expectedHost) return;
+
+      if (typeof pending.settle !== "function") return;
+      const ok = !!data.ok;
+      if (ok) {
+        pending.settle(true, String(data.content || ""));
+        return;
+      }
+      pending.settle(false, String(data.error || "Falha no bridge textual."));
+    });
+  }
+  /**
+   * Objetivo: Solicita leitura do texto via nova guia do anexo e retorna payload ao modal.
+   *
+   * Contexto: usado quando preview precisa executar no contexto real do arquivo.
+   * Parametros:
+   * - fileUrl: URL alvo do anexo.
+   * Retorno: Promise<string>.
+   */
+  function requestTextPreviewViaBridgeTab(fileUrl) {
+    const raw = String(fileUrl || "").trim();
+    if (!raw) return Promise.reject(new Error("URL vazia."));
+    ensureTextPreviewBridgeReceiver();
+    const reqId = buildTextPreviewBridgeRequestId();
+    let bridgeUrl = normalizeAttachmentPreviewUrl(raw) || raw;
+    try {
+      const u = new URL(bridgeUrl, location.href);
+      u.searchParams.set(TEXT_PREVIEW_BRIDGE_QUERY_KEY, "1");
+      u.searchParams.set(TEXT_PREVIEW_BRIDGE_ID_QUERY_KEY, reqId);
+      bridgeUrl = u.toString();
+    } catch {}
+
+    return new Promise((resolve, reject) => {
+      const REQUEST_TIMEOUT_MS = 32000;
+      const STORAGE_POLL_INTERVAL_MS = 240;
+      let done = false;
+      let timer = null;
+      let poll = null;
+      const cleanup = () => {
+        try {
+          if (timer) window.clearTimeout(timer);
+        } catch {}
+        try {
+          if (poll) window.clearInterval(poll);
+        } catch {}
+        hsTextPreviewBridgePending.delete(reqId);
+        clearTextPreviewBridgeStoragePayload(reqId);
+      };
+      const settle = (ok, payload) => {
+        if (done) return;
+        done = true;
+        cleanup();
+        if (ok) {
+          resolve(String(payload || ""));
+          return;
+        }
+        reject(new Error(String(payload || "Falha no bridge textual.")));
+      };
+      hsTextPreviewBridgePending.set(reqId, { settle });
+      clearTextPreviewBridgeStoragePayload(reqId);
+      timer = window.setTimeout(() => {
+        settle(false, "Timeout aguardando retorno da nova guia.");
+      }, REQUEST_TIMEOUT_MS);
+      poll = window.setInterval(() => {
+        const payload = readTextPreviewBridgeStoragePayload(reqId);
+        if (!payload) return;
+        if (payload.ok) {
+          settle(true, payload.content || "");
+          return;
+        }
+        settle(false, payload.error || "Falha no bridge textual (storage).");
+      }, STORAGE_POLL_INTERVAL_MS);
+
+      // Bridge tenta postMessage (opener) e fallback por localStorage.
+      const opened = window.open(bridgeUrl, "_blank");
+      if (!opened) settle(false, "Nova guia bloqueada pelo navegador.");
+    });
+  }
+  /**
+   * Objetivo: Se a aba atual for de bridge textual, envia o conteudo para a aba principal.
+   *
+   * Contexto: executado no proprio anexo.php aberto com query hs_text_preview=1.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function runTextPreviewBridgeSenderIfNeeded() {
+    let reqId = "";
+    try {
+      const qs = new URLSearchParams(location.search);
+      const enabled = String(qs.get(TEXT_PREVIEW_BRIDGE_QUERY_KEY) || "")
+        .trim()
+        .toLowerCase();
+      if (!(enabled === "1" || enabled === "true" || enabled === "yes")) return;
+      reqId = String(qs.get(TEXT_PREVIEW_BRIDGE_ID_QUERY_KEY) || "").trim();
+    } catch {
+      return;
+    }
+    if (!reqId) return;
+
+    const root = document.documentElement;
+    if (root instanceof HTMLElement && root.dataset.hsTextBridgeSent === reqId) return;
+
+    const sourceUrl = (() => {
+      try {
+        const u = new URL(location.href);
+        u.searchParams.delete(TEXT_PREVIEW_BRIDGE_QUERY_KEY);
+        u.searchParams.delete(TEXT_PREVIEW_BRIDGE_ID_QUERY_KEY);
+        return u.toString();
+      } catch {
+        return location.href;
+      }
+    })();
+    const label = (() => {
+      try {
+        const u = new URL(sourceUrl, location.href);
+        const name =
+          u.searchParams.get("name") ||
+          u.searchParams.get("filename") ||
+          u.searchParams.get("file") ||
+          u.searchParams.get("arquivo") ||
+          "";
+        if (name) return String(name);
+      } catch {}
+      return String(document.title || "anexo.txt");
+    })();
+
+    const postPayload = (ok, payload) => {
+      const normalizedPayload = ok
+        ? { content: String(payload || "") }
+        : { error: String(payload || "Falha no bridge.") };
+      writeTextPreviewBridgeStoragePayload(reqId, {
+        ok: !!ok,
+        sourceUrl,
+        label,
+        ...normalizedPayload,
+      });
+
+      if (!window.opener || window.opener.closed) return;
+      try {
+        window.opener.postMessage(
+          {
+            type: "hs-text-preview-bridge",
+            requestId: reqId,
+            ok: !!ok,
+            sourceUrl,
+            label,
+            ...normalizedPayload,
+          },
+          "*"
+        );
+      } catch {}
+    };
+
+    const BRIDGE_READ_TIMEOUT_MS = 30000;
+    const BRIDGE_READ_INTERVAL_MS = 240;
+    const readStartedAt = Date.now();
+    let finished = false;
+    const finish = (ok, payload) => {
+      if (finished) return;
+      finished = true;
+      if (ok && root instanceof HTMLElement) root.dataset.hsTextBridgeSent = reqId;
+      postPayload(ok, payload);
+    };
+    const readCurrentText = () => {
+      const pre = document.querySelector("pre");
+      let text = String(pre?.textContent || "");
+      if (!text.trim()) {
+        const body = document.body;
+        text = String(body?.innerText || body?.textContent || "");
+      }
+      if (!text.trim()) {
+        text = String(document.documentElement?.innerText || document.documentElement?.textContent || "");
+      }
+      return normalizeTextPreviewContent(text);
+    };
+    const tryReadAndSend = () => {
+      if (finished) return;
+      try {
+        const clean = readCurrentText();
+        if (clean.trim()) {
+          finish(true, clean);
+          return;
+        }
+        if (Date.now() - readStartedAt >= BRIDGE_READ_TIMEOUT_MS) {
+          finish(false, "Conteudo textual indisponivel na aba do anexo.");
+          return;
+        }
+      } catch (err) {
+        if (Date.now() - readStartedAt >= BRIDGE_READ_TIMEOUT_MS) {
+          finish(false, String(err?.message || err || "Erro ao ler texto do anexo."));
+          return;
+        }
+      }
+      window.setTimeout(tryReadAndSend, BRIDGE_READ_INTERVAL_MS);
+    };
+
+    window.setTimeout(tryReadAndSend, 90);
+    window.addEventListener("load", tryReadAndSend, { once: true });
+  }
+  /**
    * Objetivo: Fecha modal de preview textual.
    *
    * Contexto: compartilhado por anexos locais e recebidos (TXT/SQL).
@@ -12445,6 +12981,7 @@ Atenciosamente.`;
       stateEl.textContent = "";
     }
     if (titleEl instanceof HTMLElement) titleEl.textContent = "Preview de texto";
+    setTextPreviewModalSourceUrl(hsTextPreviewModal, "");
     hsTextPreviewModal.classList.remove("open");
   }
   /**
@@ -12467,11 +13004,15 @@ Atenciosamente.`;
           <header class="hs-text-viewer-head">
             <span class="hs-text-viewer-title">Preview de texto</span>
             <div class="hs-text-viewer-actions">
-              <button type="button" data-action="copy">Copiar</button>
+              <button type="button" data-action="copy-link">Copiar link</button>
+              <button type="button" data-action="copy">Copiar texto</button>
               <button type="button" data-action="close">Fechar</button>
             </div>
           </header>
           <div class="hs-text-viewer-body">
+            <div class="hs-text-viewer-link-wrap" style="display:none">
+              <input type="text" class="hs-text-viewer-link" readonly spellcheck="false" />
+            </div>
             <p class="hs-text-viewer-state" aria-live="polite"></p>
             <pre class="hs-text-viewer-code"></pre>
           </div>
@@ -12485,6 +13026,15 @@ Atenciosamente.`;
 
     modal.querySelector(".hs-text-viewer-backdrop")?.addEventListener("click", closeTextPreviewModal);
     modal.querySelector('[data-action="close"]')?.addEventListener("click", closeTextPreviewModal);
+    modal.querySelector('[data-action="copy-link"]')?.addEventListener("click", async () => {
+      const source = String(modal.dataset.hsTextSourceUrl || "").trim();
+      if (!source) {
+        toast("Link indisponivel nesse preview.", "err", 1900);
+        return;
+      }
+      const ok = await copyTextToClipboard(source);
+      toast(ok ? "Link do anexo copiado." : "Nao foi possivel copiar o link.", ok ? "ok" : "err", 2200);
+    });
     modal.querySelector('[data-action="copy"]')?.addEventListener("click", async () => {
       const codeEl = modal.querySelector(".hs-text-viewer-code");
       const text = String(codeEl?.textContent || "");
@@ -12492,12 +13042,8 @@ Atenciosamente.`;
         toast("Nada para copiar no preview.", "err", 1800);
         return;
       }
-      try {
-        await navigator.clipboard.writeText(text);
-        toast("Conteudo copiado para a area de transferencia.", "ok", 1800);
-      } catch {
-        toast("Nao foi possivel copiar automaticamente.", "err", 2200);
-      }
+      const ok = await copyTextToClipboard(text);
+      toast(ok ? "Conteudo copiado para a area de transferencia." : "Nao foi possivel copiar automaticamente.", ok ? "ok" : "err", 2200);
     });
     document.addEventListener("keydown", (ev) => {
       if (String(ev.key || "").toLowerCase() !== "escape") return;
@@ -12531,6 +13077,7 @@ Atenciosamente.`;
       stateEl.style.display = "none";
       stateEl.textContent = "";
     }
+    setTextPreviewModalSourceUrl(modal, "");
     codeEl.textContent = clean || "// arquivo vazio";
     modal.classList.add("open");
   }
@@ -12551,6 +13098,7 @@ Atenciosamente.`;
     try {
       absolute = new URL(raw, location.href).toString();
     } catch {}
+    absolute = normalizeAttachmentPreviewUrl(absolute) || absolute;
     const response = await fetch(absolute, {
       method: "GET",
       credentials: "include",
@@ -12566,7 +13114,11 @@ Atenciosamente.`;
         return fetchAttachmentTextPreviewContent(embeddedUrl, depth + 1);
       }
     }
-    if (/\u0000/.test(text)) throw new Error("Conteudo binario.");
+    // Alguns anexos TXT/SQL chegam com bytes nulos (ex.: UTF-16); remove os nulos e preserva o texto.
+    if (/\u0000/.test(text)) {
+      const compact = text.replace(/\u0000/g, "");
+      if (compact.trim()) return compact;
+    }
     return text;
   }
   /**
@@ -12585,6 +13137,7 @@ Atenciosamente.`;
       try {
         absolute = new URL(raw, location.href).toString();
       } catch {}
+      absolute = normalizeAttachmentPreviewUrl(absolute) || absolute;
 
       const iframe = document.createElement("iframe");
       iframe.setAttribute("aria-hidden", "true");
@@ -12650,13 +13203,15 @@ Atenciosamente.`;
    * Parametros:
    * - fileUrl: URL do anexo.
    * - label: nome/titulo opcional.
+   * - options.force: quando true, tenta preview interno mesmo sem extensao detectada no href.
    * Retorno: Promise<void>.
    */
-  async function openTextAttachmentPreviewFromUrl(fileUrl, label = "") {
+  async function openTextAttachmentPreviewFromUrl(fileUrl, label = "", options = {}) {
     const raw = String(fileUrl || "").trim();
     if (!raw) return;
+    const forcePreview = !!(options && options.force);
     const textCandidate = isTextOrSqlPreviewCandidate(raw, label, "");
-    if (!textCandidate) {
+    if (!textCandidate && !forcePreview) {
       window.open(raw, "_blank", "noopener,noreferrer");
       return;
     }
@@ -12664,6 +13219,8 @@ Atenciosamente.`;
     try {
       absolute = new URL(raw, location.href).toString();
     } catch {}
+    absolute = normalizeAttachmentPreviewUrl(absolute) || absolute;
+    armTextPreviewWindowOpenGuard(absolute);
     const modal = ensureTextPreviewModal();
     if (!(modal instanceof HTMLElement)) return;
     const titleEl = modal.querySelector(".hs-text-viewer-title");
@@ -12675,37 +13232,54 @@ Atenciosamente.`;
       const txt = String(label || "").trim();
       titleEl.textContent = txt ? `Preview de texto - ${txt}` : "Preview de texto";
     }
+    setTextPreviewModalSourceUrl(modal, absolute);
     codeEl.textContent = "";
     if (stateEl instanceof HTMLElement) {
       stateEl.style.display = "block";
-      stateEl.textContent = "Carregando conteudo...";
+      stateEl.textContent = "Abrindo anexo em nova guia para capturar o texto...";
     }
     modal.classList.add("open");
 
     try {
-      const text = await fetchAttachmentTextPreviewContent(absolute, 0);
-      codeEl.textContent = normalizeTextPreviewContent(text) || "// arquivo vazio";
+      const bridgeText = await requestTextPreviewViaBridgeTab(absolute);
+      codeEl.textContent = normalizeTextPreviewContent(bridgeText) || "// arquivo vazio";
       if (stateEl instanceof HTMLElement) {
         stateEl.style.display = "none";
         stateEl.textContent = "";
       }
+      toast("Preview TXT/SQL carregado via nova guia.", "ok", 2200);
+      return;
     } catch {
       try {
-        const textIframe = await fetchAttachmentTextPreviewContentViaIframe(absolute);
-        codeEl.textContent = normalizeTextPreviewContent(textIframe) || "// arquivo vazio";
+        const text = await fetchAttachmentTextPreviewContent(absolute, 0);
+        codeEl.textContent = normalizeTextPreviewContent(text) || "// arquivo vazio";
         if (stateEl instanceof HTMLElement) {
           stateEl.style.display = "none";
           stateEl.textContent = "";
         }
-        toast("Preview TXT/SQL carregado com fallback interno.", "ok", 2200);
+        toast("Preview TXT/SQL carregado com fallback interno (fetch).", "ok", 2200);
       } catch {
         if (stateEl instanceof HTMLElement) {
           stateEl.style.display = "block";
-          stateEl.textContent = "Nao foi possivel carregar o texto no preview interno.";
+          stateEl.textContent = "Tentando fallback final via iframe interno...";
         }
-        toast("Falha no preview TXT/SQL. Abrindo em nova guia.", "err", 2600);
-        window.open(absolute, "_blank", "noopener,noreferrer");
-        closeTextPreviewModal();
+        try {
+          const textIframe = await fetchAttachmentTextPreviewContentViaIframe(absolute);
+          codeEl.textContent = normalizeTextPreviewContent(textIframe) || "// arquivo vazio";
+          if (stateEl instanceof HTMLElement) {
+            stateEl.style.display = "none";
+            stateEl.textContent = "";
+          }
+          toast("Preview TXT/SQL carregado com fallback iframe.", "ok", 2200);
+        } catch {
+          if (stateEl instanceof HTMLElement) {
+            stateEl.style.display = "block";
+            stateEl.textContent =
+              "Nao foi possivel carregar o texto no preview. A nova guia foi aberta para consulta manual e o link esta disponivel para copia.";
+          }
+          codeEl.textContent = "// Falha ao carregar o conteudo deste anexo no preview interno.";
+          toast("Falha no preview TXT/SQL interno.", "err", 3000);
+        }
       }
     }
   }
@@ -13446,6 +14020,53 @@ Atenciosamente.`;
       );
     }
 
+    const textAttachExtRx = /\.(?:txt|sql|log|csv|json|xml|md|ini)\b/i;
+    const extractTextAttachmentName = (value) => {
+      const raw = String(value || "").replace(/\u00a0/g, " ").trim();
+      if (!raw) return "";
+      const directMatch = raw.match(/(^|[\\/])([^\\/:*?"<>|\r\n]+?\.(?:txt|sql|log|csv|json|xml|md|ini))$/i);
+      if (directMatch && directMatch[2]) return String(directMatch[2]).trim();
+      const genericMatch = raw.match(
+        /(?:^|[\s"'([{;,])([^\\/:*?"<>|\r\n]+?\.(?:txt|sql|log|csv|json|xml|md|ini))(?=$|[\s"')\]}.,;:!?])/i
+      );
+      if (genericMatch && genericMatch[1]) return String(genericMatch[1]).trim();
+      return "";
+    };
+    const resolveAttachmentLabelFromAnchor = (anchor, hrefAbs) => {
+      if (!(anchor instanceof HTMLAnchorElement)) return "";
+      const rawCandidates = [
+        anchor.getAttribute("download") || "",
+        anchor.getAttribute("title") || "",
+        anchor.getAttribute("aria-label") || "",
+        anchor.textContent || "",
+        anchor.parentElement?.textContent || "",
+        anchor.closest("td,th,tr,li,div,p,span")?.textContent || "",
+      ];
+      try {
+        const url = new URL(String(hrefAbs || ""), location.href);
+        const queryNames = ["name", "filename", "file", "arquivo", "anexo", "nome", "titulo"];
+        for (const key of queryNames) {
+          rawCandidates.push(String(url.searchParams.get(key) || ""));
+        }
+        const pathName = decodeURIComponent(String(url.pathname || "").split("/").pop() || "");
+        rawCandidates.push(pathName);
+      } catch {}
+      let fallback = "";
+      for (const candidate of rawCandidates) {
+        const clean = String(candidate || "").replace(/\s+/g, " ").trim();
+        if (!clean) continue;
+        if (!fallback) fallback = clean;
+        const fileName = extractTextAttachmentName(clean);
+        if (fileName) return fileName;
+      }
+      return fallback;
+    };
+    const seemsTextAttachmentByContext = (anchor) => {
+      if (!(anchor instanceof HTMLAnchorElement)) return false;
+      const contextText = String(anchor.closest("tr,td,li,div,p")?.textContent || "");
+      return textAttachExtRx.test(contextText);
+    };
+
     if (root.dataset.hsAttachLinkPreviewBind === "1") return;
     root.dataset.hsAttachLinkPreviewBind = "1";
     root.addEventListener(
@@ -13477,10 +14098,13 @@ Atenciosamente.`;
         if (!isPlainLeftClick) return;
         const hrefAbs = toAbsoluteUrl(hrefRaw);
         if (!hrefAbs || /^javascript:/i.test(hrefAbs)) return;
-        const label = String(anchor.getAttribute("download") || anchor.getAttribute("title") || anchor.textContent || "")
-          .trim();
+        const label = resolveAttachmentLabelFromAnchor(anchor, hrefAbs);
         const allowImageModal = isAttachmentModalPreviewAllowed(hrefAbs, label, "");
-        const allowTextModal = isAttachmentTextModalPreviewAllowed(hrefAbs, label, "");
+        const forceTextPreview =
+          hrefLooksLikeAnexo &&
+          !allowImageModal &&
+          (isTextOrSqlPreviewCandidate(hrefAbs, label, "") || seemsTextAttachmentByContext(anchor));
+        const allowTextModal = isAttachmentTextModalPreviewAllowed(hrefAbs, label, "") || forceTextPreview;
         if (allowImageModal) {
           ev.preventDefault();
           ev.stopPropagation();
@@ -13490,7 +14114,7 @@ Atenciosamente.`;
         if (allowTextModal) {
           ev.preventDefault();
           ev.stopPropagation();
-          openTextAttachmentPreviewFromUrl(hrefAbs, label || "anexo.txt");
+          openTextAttachmentPreviewFromUrl(hrefAbs, label || "anexo.txt", { force: true });
         }
       },
       true
@@ -15325,6 +15949,8 @@ Atenciosamente.`;
   let hsAppearanceModal = null;
   let hsImagePreviewModal = null;
   let hsTextPreviewModal = null;
+  const hsTextPreviewBridgePending = new Map();
+  let hsTextPreviewBridgeBound = false;
   let hsImagePreviewObjectUrlRevoke = null;
   let hsImagePreviewDragState = null;
   let hsAcompanhamentoTextareaResizeObserver = null;
@@ -16602,6 +17228,7 @@ Atenciosamente.`;
    * Efeitos colaterais: aplica alteracoes idempotentes no DOM e binds necessarios da sessao.
    */
   function safeRun() {
+    runStep(runTextPreviewBridgeSenderIfNeeded, "runTextPreviewBridgeSenderIfNeeded");
     runStep(ensureReqOpenDebugTools, "ensureReqOpenDebugTools");
     runStep(ensureWindowOpenDedupGuard, "ensureWindowOpenDedupGuard");
     runStep(injectStyle, "injectStyle");
