@@ -1,6 +1,17 @@
 ﻿[   
     
     {
+        "date":  "2026-03-12",
+        "version":  "2.15.68",
+        "type":  "bugfix",
+        "mandatory":  false,
+        "notes":  [
+                      "Preview de imagem no modal agora libera pan completo apos zoom, sem prender as bordas laterais/superiores.",
+                      "Zoom por botoes e atalhos passa a respeitar o ultimo ponto do cursor dentro da imagem, em vez de forcar sempre o centro.",
+                      "Roda do mouse no modal foi ajustada para zoom continuo no ponto do cursor (Shift+wheel mantem rolagem nativa do container)."
+                  ]
+    },
+    {
         "date":  "2026-03-11",
         "version":  "2.15.67",
         "type":  "routine",

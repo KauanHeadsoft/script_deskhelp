@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.67
+// @version      2.15.68
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -95,7 +95,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.67";
+  const SCRIPT_VERSION_FALLBACK = "2.15.68";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -342,6 +342,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-12",
+      version: "2.15.68",
+      type: "bugfix",
+      mandatory: false,
+      notes: [
+        "Preview de imagem no modal agora libera pan completo apos zoom, sem prender as bordas laterais/superiores.",
+        "Zoom por botoes e atalhos passa a respeitar o ultimo ponto do cursor dentro da imagem, em vez de forcar sempre o centro.",
+        "Roda do mouse no modal foi ajustada para zoom continuo no ponto do cursor (Shift+wheel mantem rolagem nativa do container).",
+      ],
+    },
     {
       date: "2026-03-11",
       version: "2.15.67",
@@ -1698,7 +1709,11 @@ Atenciosamente.`;
     gap:10px;
     overscroll-behavior:contain;
   }
-  .hs-image-viewer-body.zoomed{ cursor:grab; }
+  .hs-image-viewer-body.zoomed{
+    cursor:grab;
+    justify-content:flex-start;
+    align-items:flex-start;
+  }
   .hs-image-viewer-body.dragging{ cursor:grabbing; }
   .hs-image-viewer-state{
     margin:0;
@@ -1713,6 +1728,7 @@ Atenciosamente.`;
     max-height:none;
     width:auto;
     height:auto;
+    flex:0 0 auto;
     object-fit:contain;
     border-radius:var(--hs-radius-control);
     border:1px solid var(--border);
@@ -11981,6 +11997,61 @@ Atenciosamente.`;
     return num;
   }
   /**
+   * Objetivo: Salva ancora de zoom/pan no ponto atual do cursor dentro do corpo do modal.
+   *
+   * Contexto: reutilizado por wheel, drag e interacoes de zoom por botao/atalho.
+   * Parametros:
+   * - modal: container do modal.
+   * - clientX/clientY: coordenadas em viewport.
+   * Retorno: {x:number,y:number}|null.
+   */
+  function saveImagePreviewAnchor(modal, clientX, clientY) {
+    if (!(modal instanceof HTMLElement)) return null;
+    const body = modal.querySelector(".hs-image-viewer-body");
+    if (!(body instanceof HTMLElement)) return null;
+    const rect = body.getBoundingClientRect();
+    if (!(rect.width > 0) || !(rect.height > 0)) return null;
+    const centerX = rect.left + body.clientWidth / 2;
+    const centerY = rect.top + body.clientHeight / 2;
+    const rawX = Number(clientX);
+    const rawY = Number(clientY);
+    const x = Number.isFinite(rawX) ? rawX : centerX;
+    const y = Number.isFinite(rawY) ? rawY : centerY;
+    const marginX = Math.min(1, Math.max(0, rect.width / 2));
+    const marginY = Math.min(1, Math.max(0, rect.height / 2));
+    const clampedX = Math.max(rect.left + marginX, Math.min(rect.right - marginX, x));
+    const clampedY = Math.max(rect.top + marginY, Math.min(rect.bottom - marginY, y));
+    modal.dataset.hsImageAnchorX = String(clampedX);
+    modal.dataset.hsImageAnchorY = String(clampedY);
+    return { x: clampedX, y: clampedY };
+  }
+  /**
+   * Objetivo: Recupera ancora preferencial para zoom quando nao ha evento de ponteiro.
+   *
+   * Contexto: utilizado por botoes e atalhos de teclado do modal.
+   * Parametros:
+   * - modal: container do modal.
+   * Retorno: {x:number,y:number}|null.
+   */
+  function getImagePreviewAnchor(modal) {
+    if (!(modal instanceof HTMLElement)) return null;
+    const body = modal.querySelector(".hs-image-viewer-body");
+    if (!(body instanceof HTMLElement)) return null;
+    const rect = body.getBoundingClientRect();
+    if (!(rect.width > 0) || !(rect.height > 0)) return null;
+    const rawX = Number(modal.dataset.hsImageAnchorX);
+    const rawY = Number(modal.dataset.hsImageAnchorY);
+    const hasStored =
+      Number.isFinite(rawX) &&
+      Number.isFinite(rawY) &&
+      rawX >= rect.left &&
+      rawX <= rect.right &&
+      rawY >= rect.top &&
+      rawY <= rect.bottom;
+    if (hasStored) return { x: rawX, y: rawY };
+    return saveImagePreviewAnchor(modal, rect.left + body.clientWidth / 2, rect.top + body.clientHeight / 2);
+  }
+  /**
    * Objetivo: Atualiza o indicador visual de zoom no cabecalho do modal de imagem.
    *
    * Contexto: chamado apos alterar zoom ou resetar estado do preview.
@@ -12118,6 +12189,8 @@ Atenciosamente.`;
       body.scrollLeft = 0;
       body.scrollTop = 0;
     }
+    delete hsImagePreviewModal.dataset.hsImageAnchorX;
+    delete hsImagePreviewModal.dataset.hsImageAnchorY;
     if (hsImagePreviewDragState && hsImagePreviewDragState.modal === hsImagePreviewModal) hsImagePreviewDragState = null;
     refreshImagePreviewZoomLabel(hsImagePreviewModal, 1);
     releaseImagePreviewObjectUrl();
@@ -12206,15 +12279,7 @@ Atenciosamente.`;
     hsImagePreviewModal = modal;
     if (modal.dataset.hsBound === "1") return modal;
     modal.dataset.hsBound = "1";
-    const getBodyCenter = () => {
-      const body = modal.querySelector(".hs-image-viewer-body");
-      if (!(body instanceof HTMLElement)) return null;
-      const rect = body.getBoundingClientRect();
-      return {
-        x: rect.left + body.clientWidth / 2,
-        y: rect.top + body.clientHeight / 2,
-      };
-    };
+    const getBodyAnchor = () => getImagePreviewAnchor(modal);
     const endImagePreviewDrag = () => {
       if (!hsImagePreviewDragState || hsImagePreviewDragState.modal !== modal) return;
       const body = modal.querySelector(".hs-image-viewer-body");
@@ -12225,15 +12290,15 @@ Atenciosamente.`;
     modal.querySelector('[data-action="close"]')?.addEventListener("click", closeImagePreviewModal);
     modal.querySelector('[data-action="zoom-in"]')?.addEventListener("click", () => {
       if (!modal.classList.contains("open")) return;
-      const center = getBodyCenter();
-      if (!center) return;
-      zoomImagePreviewByFactor(modal, 1.2, { clientX: center.x, clientY: center.y });
+      const anchor = getBodyAnchor();
+      if (!anchor) return;
+      zoomImagePreviewByFactor(modal, 1.2, { clientX: anchor.x, clientY: anchor.y });
     });
     modal.querySelector('[data-action="zoom-out"]')?.addEventListener("click", () => {
       if (!modal.classList.contains("open")) return;
-      const center = getBodyCenter();
-      if (!center) return;
-      zoomImagePreviewByFactor(modal, 1 / 1.2, { clientX: center.x, clientY: center.y });
+      const anchor = getBodyAnchor();
+      if (!anchor) return;
+      zoomImagePreviewByFactor(modal, 1 / 1.2, { clientX: anchor.x, clientY: anchor.y });
     });
     modal.querySelector('[data-action="zoom-reset"]')?.addEventListener("click", () => {
       if (!modal.classList.contains("open")) return;
@@ -12247,36 +12312,46 @@ Atenciosamente.`;
           if (!modal.classList.contains("open")) return;
           const img = modal.querySelector(".hs-image-viewer-body img");
           if (!(img instanceof HTMLImageElement) || img.style.display === "none") return;
-          const canScroll =
-            bodyEl.scrollHeight > bodyEl.clientHeight + 1 || bodyEl.scrollWidth > bodyEl.clientWidth + 1;
-          const shouldZoom = ev.ctrlKey || ev.metaKey || !canScroll;
-          if (!shouldZoom) return;
+          if (ev.shiftKey) return;
+          const anchor = saveImagePreviewAnchor(modal, ev.clientX, ev.clientY);
+          if (!anchor) return;
           ev.preventDefault();
           const factor = ev.deltaY < 0 ? 1.16 : 1 / 1.16;
-          zoomImagePreviewByFactor(modal, factor, { clientX: ev.clientX, clientY: ev.clientY });
+          zoomImagePreviewByFactor(modal, factor, { clientX: anchor.x, clientY: anchor.y });
         },
         { passive: false }
       );
+      bodyEl.addEventListener("mouseenter", (ev) => {
+        if (!modal.classList.contains("open")) return;
+        saveImagePreviewAnchor(modal, ev.clientX, ev.clientY);
+      });
+      bodyEl.addEventListener("mousemove", (ev) => {
+        if (!modal.classList.contains("open")) return;
+        saveImagePreviewAnchor(modal, ev.clientX, ev.clientY);
+      });
       bodyEl.addEventListener("dblclick", (ev) => {
         if (!modal.classList.contains("open")) return;
         const img = modal.querySelector(".hs-image-viewer-body img");
         if (!(img instanceof HTMLImageElement) || img.style.display === "none") return;
         const zoom = clampImagePreviewZoom(parseFloat(String(img.dataset.hsZoom || "1")));
+        const anchor = saveImagePreviewAnchor(modal, ev.clientX, ev.clientY);
         if (zoom > 1.01) {
           applyImagePreviewZoom(modal, 1, { center: true });
           return;
         }
-        zoomImagePreviewByFactor(modal, 2, { clientX: ev.clientX, clientY: ev.clientY });
+        if (!anchor) return;
+        zoomImagePreviewByFactor(modal, 2, { clientX: anchor.x, clientY: anchor.y });
       });
       bodyEl.addEventListener("mousedown", (ev) => {
         if (!modal.classList.contains("open")) return;
         if (ev.button !== 0) return;
         const img = modal.querySelector(".hs-image-viewer-body img");
         if (!(img instanceof HTMLImageElement) || img.style.display === "none") return;
-        if (!(ev.target instanceof Element) || !ev.target.closest("img")) return;
+        if (!(ev.target instanceof Element)) return;
         const zoom = clampImagePreviewZoom(parseFloat(String(img.dataset.hsZoom || "1")));
         if (zoom <= 1.01) return;
         ev.preventDefault();
+        saveImagePreviewAnchor(modal, ev.clientX, ev.clientY);
         bodyEl.classList.add("dragging");
         hsImagePreviewDragState = {
           modal,
@@ -12324,17 +12399,17 @@ Atenciosamente.`;
           }
           const key = String(ev.key || "").toLowerCase();
           if (key === "+" || key === "=" || key === "add") {
-            const center = getBodyCenter();
-            if (!center) return;
+            const anchor = getBodyAnchor();
+            if (!anchor) return;
             ev.preventDefault();
-            zoomImagePreviewByFactor(modal, 1.2, { clientX: center.x, clientY: center.y });
+            zoomImagePreviewByFactor(modal, 1.2, { clientX: anchor.x, clientY: anchor.y });
             return;
           }
           if (key === "-" || key === "_" || key === "subtract") {
-            const center = getBodyCenter();
-            if (!center) return;
+            const anchor = getBodyAnchor();
+            if (!anchor) return;
             ev.preventDefault();
-            zoomImagePreviewByFactor(modal, 1 / 1.2, { clientX: center.x, clientY: center.y });
+            zoomImagePreviewByFactor(modal, 1 / 1.2, { clientX: anchor.x, clientY: anchor.y });
             return;
           }
           if (key === "0") {
@@ -12379,6 +12454,8 @@ Atenciosamente.`;
     const card = modal.querySelector(".hs-image-viewer-card");
     const body = modal.querySelector(".hs-image-viewer-body");
     if (!(img instanceof HTMLImageElement)) return;
+    delete modal.dataset.hsImageAnchorX;
+    delete modal.dataset.hsImageAnchorY;
     if (titleEl instanceof HTMLElement) {
       const title = String(label || "").trim();
       titleEl.textContent = title ? `Preview da imagem - ${title}` : "Preview da imagem";
@@ -12412,6 +12489,7 @@ Atenciosamente.`;
       stateEl.textContent = "Carregando imagem...";
     }
     modal.classList.add("open");
+    saveImagePreviewAnchor(modal);
     const previewRequestId = String(Date.now()) + String(Math.random()).slice(2);
     img.dataset.hsPreviewRequest = previewRequestId;
     (async () => {
