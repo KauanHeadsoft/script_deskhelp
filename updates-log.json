@@ -1,6 +1,17 @@
 ﻿[
     {
         "date":  "2026-03-12",
+        "version":  "2.15.80",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Correcao de posicionamento do checkbox \u0027Exibir Em servico\u0027 no dashboard: agora ele ancora junto do grupo correto de filtros.",
+                      "Insercao do toggle ficou resiliente para nao cair na celula flex do topo (campo Interno/Todos), evitando desalinhamento visual.",
+                      "Refino de CSS no bloco extra do filtro para manter quebra de linha consistente no formulario legado."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
         "version":  "2.15.79",
         "type":  "routine",
         "mandatory":  false,

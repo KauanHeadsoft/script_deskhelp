@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.79
+// @version      2.15.80
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -106,7 +106,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.79";
+  const SCRIPT_VERSION_FALLBACK = "2.15.80";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -353,6 +353,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-12",
+      version: "2.15.80",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Correcao de posicionamento do checkbox 'Exibir Em servico' no dashboard: agora ele ancora junto do grupo correto de filtros.",
+        "Insercao do toggle ficou resiliente para nao cair na celula flex do topo (campo Interno/Todos), evitando desalinhamento visual.",
+        "Refino de CSS no bloco extra do filtro para manter quebra de linha consistente no formulario legado.",
+      ],
+    },
     {
       date: "2026-03-12",
       version: "2.15.79",
@@ -4512,6 +4523,10 @@ Atenciosamente.`;
     display:block!important;
     width:100%!important;
     margin-top:4px!important;
+    clear:both!important;
+    float:none!important;
+    flex:0 0 100%!important;
+    min-width:100%!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-dashboard-extra-toggle{
     display:inline-flex!important;
@@ -10621,22 +10636,31 @@ Atenciosamente.`;
       return;
     }
 
-    const resolveHost = () => {
-      const wrappers = Array.from(form.querySelectorAll("label,td,div,span,p,strong,b,font"));
-      const anchor = wrappers.find((el) => {
-        const txt = norm(el.textContent || "");
-        return /sem\s+responsavel|retorno\s+externo|exibir\s+historic/.test(txt);
+    const resolvePlacement = () => {
+      const labels = Array.from(form.querySelectorAll("label")).filter((el) => {
+        const labelTxt = norm(el.textContent || "");
+        return /sem\s+responsavel|retorno\s+externo|exibir\s+historic/.test(labelTxt);
       });
-      const host = anchor?.closest("td,div,p,span,label");
-      if (host instanceof HTMLElement) {
-        if (host.tagName === "LABEL" && host.parentElement instanceof HTMLElement) return host.parentElement;
-        return host;
+      const anchor =
+        labels.find((el) => /exibir\s+historic/.test(norm(el.textContent || ""))) ||
+        labels.find((el) => /retorno\s+externo/.test(norm(el.textContent || ""))) ||
+        labels.find((el) => /sem\s+responsavel/.test(norm(el.textContent || ""))) ||
+        labels[labels.length - 1] ||
+        null;
+      if (anchor instanceof HTMLElement && anchor.parentElement instanceof HTMLElement) {
+        return { host: anchor.parentElement, anchor };
       }
+
+      const tdWithChecks = Array.from(form.querySelectorAll("td")).find(
+        (td) => td.querySelectorAll('input[type="checkbox"]').length >= 2
+      );
+      if (tdWithChecks instanceof HTMLElement) return { host: tdWithChecks, anchor: null };
+
       const firstTd = form.querySelector("td");
-      return firstTd instanceof HTMLElement ? firstTd : form;
+      return { host: firstTd instanceof HTMLElement ? firstTd : form, anchor: null };
     };
 
-    const host = resolveHost();
+    const { host, anchor } = resolvePlacement();
     let wrap = form.querySelector("#hs2025-dashboard-em-servico-wrap");
     if (!(wrap instanceof HTMLElement)) {
       wrap = document.createElement("div");
@@ -10645,7 +10669,19 @@ Atenciosamente.`;
       wrap.innerHTML =
         '<label class="hs-dashboard-extra-toggle"><input type="checkbox" id="hs2025-dashboard-em-servico-toggle" /><span>Exibir Em servico</span></label>';
     }
-    if (wrap.parentElement !== host) host.appendChild(wrap);
+    if (anchor instanceof HTMLElement && anchor.parentElement === host) {
+      let insertRef = anchor.nextSibling;
+      while (insertRef && insertRef.nodeType === Node.TEXT_NODE && !String(insertRef.textContent || "").trim()) {
+        insertRef = insertRef.nextSibling;
+      }
+      if (insertRef instanceof HTMLElement && insertRef.tagName === "BR") insertRef = insertRef.nextSibling;
+      const needsMove = wrap.parentElement !== host || (insertRef ? wrap.nextSibling !== insertRef : host.lastElementChild !== wrap);
+      if (needsMove) {
+        host.insertBefore(wrap, insertRef || null);
+      }
+    } else if (wrap.parentElement !== host) {
+      host.appendChild(wrap);
+    }
 
     const checkbox = wrap.querySelector("#hs2025-dashboard-em-servico-toggle");
     if (!(checkbox instanceof HTMLInputElement)) {
