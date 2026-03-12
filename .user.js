@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.82
+// @version      2.15.83
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -107,7 +107,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.82";
+  const SCRIPT_VERSION_FALLBACK = "2.15.83";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -355,6 +355,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-12",
+      version: "2.15.83",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Pintura por situacao foi movida para o modulo auxiliar (.user2.js), iniciando a divisao do script principal.",
+        "Cor de fundo da situacao agora aplica inline em todos os TDs da linha para prevalecer sobre CSS legado/hover.",
+        "Deteccao e pintura de situacao passaram a usar API compartilhada do user2 para manter comportamento consistente.",
+      ],
+    },
     {
       date: "2026-03-12",
       version: "2.15.82",
@@ -5956,18 +5967,7 @@ Atenciosamente.`;
         if (tr.querySelector("th")) return;
         const td = tr.cells[idxSituacao];
         if (!(td instanceof HTMLTableCellElement)) return;
-        const sitNode =
-          td.querySelector(".Situacao") ||
-          td.querySelector(".situacao") ||
-          td.querySelector("[class*='Situacao']") ||
-          td.querySelector("[class*='situacao']");
-        if (sitNode) {
-          upsert(sitNode.textContent || "");
-          return;
-        }
-        const clone = td.cloneNode(true);
-        clone.querySelectorAll(".hs-first-att-wrap, .hs-situacao-sinal").forEach((el) => el.remove());
-        upsert(clone.textContent || "");
+        upsert(getSituacaoCellText(td));
       });
     });
 
@@ -6110,11 +6110,18 @@ Atenciosamente.`;
     const scopedMode = resolveAppearanceThemeMode(mode);
     const configured = readSituacaoColorSettings(scopedMode);
     const borderMixerColor = scopedMode === "light" ? "#0F172A" : "#DCE6F2";
-    const supportsCssVars =
-      !!window.CSS && typeof window.CSS.supports === "function" && window.CSS.supports("--hs-sit-row-bg", "#000000");
+    const user2Api = getUser2SettingsApi();
+    const extractSituacaoTextFromCell =
+      user2Api && typeof user2Api.extractSituacaoTextFromCell === "function"
+        ? user2Api.extractSituacaoTextFromCell
+        : (td) => getSituacaoCellText(td);
 
     const applyCellTextColor = (td, entry) => {
       if (!(td instanceof HTMLTableCellElement)) return;
+      if (user2Api && typeof user2Api.applySituacaoTextPaint === "function") {
+        user2Api.applySituacaoTextPaint(td, entry?.textColor || "");
+        return;
+      }
       td.style.removeProperty("color");
       const sitNode =
         td.querySelector(".Situacao") ||
@@ -6128,24 +6135,23 @@ Atenciosamente.`;
     };
     const applyRowBackgroundColor = (tr, colorRaw) => {
       if (!(tr instanceof HTMLTableRowElement)) return;
+      if (user2Api && typeof user2Api.applySituacaoRowPaint === "function") {
+        user2Api.applySituacaoRowPaint(tr, colorRaw || "");
+        return;
+      }
       delete tr.dataset.hsSitRowBg;
       tr.style.removeProperty("--hs-sit-row-bg");
-      if (!supportsCssVars) {
-        Array.from(tr.cells || []).forEach((cell) => {
-          if (!(cell instanceof HTMLTableCellElement)) return;
-          if (cell.dataset.hsSitRowPainted !== "1") return;
-          cell.style.removeProperty("background");
-          cell.style.removeProperty("background-color");
-          delete cell.dataset.hsSitRowPainted;
-        });
-      }
+      Array.from(tr.cells || []).forEach((cell) => {
+        if (!(cell instanceof HTMLTableCellElement)) return;
+        if (cell.dataset.hsSitRowPainted !== "1") return;
+        cell.style.removeProperty("background");
+        cell.style.removeProperty("background-color");
+        delete cell.dataset.hsSitRowPainted;
+      });
       const color = normalizeHexColor(colorRaw || "");
       if (!color) return;
       tr.dataset.hsSitRowBg = color;
-      if (supportsCssVars) {
-        tr.style.setProperty("--hs-sit-row-bg", color);
-        return;
-      }
+      tr.style.setProperty("--hs-sit-row-bg", color);
       Array.from(tr.cells || []).forEach((cell) => {
         if (!(cell instanceof HTMLTableCellElement)) return;
         cell.style.setProperty("background", color, "important");
@@ -6155,17 +6161,25 @@ Atenciosamente.`;
     };
     const applyBadgeColors = (el, entry) => {
       if (!(el instanceof HTMLElement)) return;
+      const badgeBorderColor = entry?.badgeBgColor
+        ? mixHexColors(entry.badgeBgColor, borderMixerColor, scopedMode === "light" ? 0.34 : 0.52)
+        : "";
+      if (user2Api && typeof user2Api.applySituacaoBadgePaint === "function") {
+        user2Api.applySituacaoBadgePaint(el, {
+          badgeBgColor: entry?.badgeBgColor || "",
+          badgeTextColor: entry?.badgeTextColor || "",
+          textColor: entry?.textColor || "",
+          badgeBorderColor,
+        });
+        return;
+      }
       el.style.removeProperty("background");
       el.style.removeProperty("color");
       el.style.removeProperty("border-color");
       if (!entry) return;
       if (entry.badgeBgColor) {
         el.style.setProperty("background", entry.badgeBgColor, "important");
-        el.style.setProperty(
-          "border-color",
-          mixHexColors(entry.badgeBgColor, borderMixerColor, scopedMode === "light" ? 0.34 : 0.52),
-          "important"
-        );
+        el.style.setProperty("border-color", badgeBorderColor, "important");
       }
       const textColor = entry.badgeTextColor || entry.textColor || "";
       if (textColor) el.style.setProperty("color", textColor, "important");
@@ -6184,7 +6198,7 @@ Atenciosamente.`;
         if (tr.querySelector("th")) return;
         const td = tr.cells[idxSituacao];
         if (!(td instanceof HTMLTableCellElement)) return;
-        const statusText = sanitizeSituacaoColorLabel(getSituacaoCellText(td));
+        const statusText = sanitizeSituacaoColorLabel(extractSituacaoTextFromCell(td));
         const key = normalizeSituacaoColorKey(statusText);
         const entry = key ? configured[key] || null : null;
         if (key) {
@@ -12787,6 +12801,11 @@ Atenciosamente.`;
    */
   function getSituacaoCellText(td) {
     if (!(td instanceof HTMLTableCellElement)) return "";
+    const user2Api = getUser2SettingsApi();
+    if (user2Api && typeof user2Api.extractSituacaoTextFromCell === "function") {
+      const fromApi = sanitizeSituacaoColorLabel(user2Api.extractSituacaoTextFromCell(td));
+      if (fromApi) return fromApi;
+    }
     const sitNode =
       td.querySelector(".Situacao") ||
       td.querySelector(".situacao") ||

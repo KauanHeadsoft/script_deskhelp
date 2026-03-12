@@ -13,6 +13,98 @@
 
   const txt = (value) => String(value || "").replace(/\s+/g, " ").trim();
   const by = (id) => document.getElementById(id);
+  const SITUACAO_TEXT_SELECTORS = [
+    ".Situacao",
+    ".situacao",
+    "[class*='Situacao']",
+    "[class*='situacao']",
+  ];
+
+  function normalizeHexColor(value) {
+    const raw = txt(value || "").replace(/^#/, "");
+    if (!/^[0-9a-f]{3}([0-9a-f]{3})?$/i.test(raw)) return "";
+    const normalized = raw.length === 3 ? raw.replace(/./g, (ch) => ch + ch) : raw;
+    return `#${normalized.toUpperCase()}`;
+  }
+
+  function findSituacaoNode(td) {
+    if (!(td instanceof HTMLTableCellElement)) return null;
+    for (const selector of SITUACAO_TEXT_SELECTORS) {
+      const node = td.querySelector(selector);
+      if (node instanceof HTMLElement) return node;
+    }
+    return null;
+  }
+
+  function extractSituacaoTextFromCell(td) {
+    if (!(td instanceof HTMLTableCellElement)) return "";
+    const sitNode = findSituacaoNode(td);
+    if (sitNode) return txt(sitNode.textContent || "");
+    const clone = td.cloneNode(true);
+    clone
+      .querySelectorAll(".hs-first-att-wrap, .hs-situacao-sinal, .hs-ext-sla-chip, .hs-row-state-dot")
+      .forEach((el) => el.remove());
+    return txt(clone.textContent || "");
+  }
+
+  function applySituacaoTextPaint(td, textColorRaw = "") {
+    if (!(td instanceof HTMLTableCellElement)) return;
+    const textColor = normalizeHexColor(textColorRaw || "");
+    td.style.removeProperty("color");
+    const sitNode = findSituacaoNode(td);
+    if (sitNode) sitNode.style.removeProperty("color");
+    const target = sitNode || td;
+    if (!(target instanceof HTMLElement)) return;
+    if (textColor) target.style.setProperty("color", textColor, "important");
+  }
+
+  function clearSituacaoRowPaint(tr) {
+    if (!(tr instanceof HTMLTableRowElement)) return;
+    delete tr.dataset.hsSitRowBg;
+    tr.style.removeProperty("--hs-sit-row-bg");
+    Array.from(tr.cells || []).forEach((cell) => {
+      if (!(cell instanceof HTMLTableCellElement)) return;
+      if (cell.dataset.hsSitRowPainted !== "1") return;
+      cell.style.removeProperty("background");
+      cell.style.removeProperty("background-color");
+      delete cell.dataset.hsSitRowPainted;
+    });
+  }
+
+  function applySituacaoRowPaint(tr, bgColorRaw = "") {
+    if (!(tr instanceof HTMLTableRowElement)) return;
+    clearSituacaoRowPaint(tr);
+    const bgColor = normalizeHexColor(bgColorRaw || "");
+    if (!bgColor) return;
+    tr.dataset.hsSitRowBg = bgColor;
+    tr.style.setProperty("--hs-sit-row-bg", bgColor);
+    Array.from(tr.cells || []).forEach((cell) => {
+      if (!(cell instanceof HTMLTableCellElement)) return;
+      cell.style.setProperty("background", bgColor, "important");
+      cell.style.setProperty("background-color", bgColor, "important");
+      cell.dataset.hsSitRowPainted = "1";
+    });
+  }
+
+  function applySituacaoBadgePaint(el, options = {}) {
+    if (!(el instanceof HTMLElement)) return;
+    const source = options && typeof options === "object" ? options : {};
+    const badgeBgColor = normalizeHexColor(source.badgeBgColor || source.backgroundColor || "");
+    const badgeBorderColor = normalizeHexColor(source.badgeBorderColor || source.borderColor || "");
+    const badgeTextColor = normalizeHexColor(
+      source.badgeTextColor || source.textColor || source.color || ""
+    );
+    el.style.removeProperty("background");
+    el.style.removeProperty("background-color");
+    el.style.removeProperty("color");
+    el.style.removeProperty("border-color");
+    if (badgeBgColor) {
+      el.style.setProperty("background", badgeBgColor, "important");
+      el.style.setProperty("background-color", badgeBgColor, "important");
+    }
+    if (badgeBorderColor) el.style.setProperty("border-color", badgeBorderColor, "important");
+    if (badgeTextColor) el.style.setProperty("color", badgeTextColor, "important");
+  }
 
   function scheduleRender(delay = 90) {
     if (refreshTimer) window.clearTimeout(refreshTimer);
@@ -762,5 +854,10 @@
   api.openSettingsHub = openSettingsHub;
   api.closeSettingsHub = closeSettingsHub;
   api.refreshSettingsHub = () => renderActiveModel();
+  api.extractSituacaoTextFromCell = extractSituacaoTextFromCell;
+  api.applySituacaoTextPaint = applySituacaoTextPaint;
+  api.clearSituacaoRowPaint = clearSituacaoRowPaint;
+  api.applySituacaoRowPaint = applySituacaoRowPaint;
+  api.applySituacaoBadgePaint = applySituacaoBadgePaint;
   window[API_NAME] = api;
 })();

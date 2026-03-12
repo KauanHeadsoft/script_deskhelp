@@ -1,6 +1,17 @@
 ﻿[
     {
         "date":  "2026-03-12",
+        "version":  "2.15.83",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Pintura por situacao foi movida para o modulo auxiliar (.user2.js), iniciando a divisao do script principal.",
+                      "Cor de fundo da situacao agora aplica inline em todos os TDs da linha para prevalecer sobre CSS legado/hover.",
+                      "Deteccao e pintura de situacao passaram a usar API compartilhada do user2 para manter comportamento consistente."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
         "version":  "2.15.82",
         "type":  "routine",
         "mandatory":  false,
