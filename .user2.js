@@ -30,7 +30,7 @@
       #${ROOT_ID}{
         position:fixed!important;
         inset:0!important;
-        z-index:1000046!important;
+        z-index:1000031!important;
         display:none!important;
       }
       #${ROOT_ID}.open{
