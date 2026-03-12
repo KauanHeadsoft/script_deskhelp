@@ -1,5 +1,16 @@
 ﻿[
-
+    {
+        "date":  "2026-03-12",
+        "version":  "2.15.79",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Configuracoes agora abrem em modal organizado por guias e subguias, com visual mais limpo para operacao diaria.",
+                      "Nova aba de Situacoes permite personalizar cor de texto e badges por status (qualquer situacao encontrada na grade).",
+                      "Preferencias de cor por situacao ficam salvas por tema no navegador e sao reaplicadas automaticamente com log no console.",
+                      "Script principal (.user.js) passou a carregar modulo auxiliar (.user2.js) via @require para manter evolucao mais organizada."
+                  ]
+    },
     {
         "date":  "2026-03-12",
         "version":  "2.15.78",
@@ -10,7 +21,8 @@
                       "Atualizacoes rotineiras deixaram de abrir popup automatico ao recarregar a pagina; usuario decide quando atualizar manualmente.",
                       "Fluxo de alerta obrigatorio foi mantido sem mudancas para garantir aplicacao imediata de correcoes criticas."
                   ]
-    },{
+    },
+    {
         "date":  "2026-03-12",
         "version":  "2.15.77",
         "type":  "bugfix",
@@ -141,8 +153,8 @@
         "mandatory":  false,
         "notes":  [
                       "Consulta de requisicoes ganhou modo profissional opcional com painel lateral de operacao (KPIs, fila mais antiga e distribuicao de situacoes).",
-                      "Nova preferencia no menu Configuracoes: 'Painel consulta ON/OFF', desativada por padrao e salva no navegador (localStorage).",
-                      "Linhas com situacao 'Servico aprovado' agora ficam em azul para destacar chamados que faltam concluir.",
+                      "Nova preferencia no menu Configuracoes: \u0027Painel consulta ON/OFF\u0027, desativada por padrao e salva no navegador (localStorage).",
+                      "Linhas com situacao \u0027Servico aprovado\u0027 agora ficam em azul para destacar chamados que faltam concluir.",
                       "Ajuste de largura da grade considera automaticamente a coluna principal quando o painel lateral estiver ativo, evitando quebra de layout."
                   ]
     },
@@ -153,7 +165,7 @@
         "mandatory":  false,
         "notes":  [
                       "Tela visualizar_requisicao agora transforma numeros de chamados referenciados no texto em links clicaveis.",
-                      "Ao clicar no numero referenciado, o sistema abre diretamente visualizar_requisicao.php?numero=<chamado> sem precisar usar a barra de pesquisa.",
+                      "Ao clicar no numero referenciado, o sistema abre diretamente visualizar_requisicao.php?numero=\u003cchamado\u003e sem precisar usar a barra de pesquisa.",
                       "Linkificacao evita campos editaveis e ignora padroes de data para reduzir falsos positivos."
                   ]
     },
@@ -185,7 +197,7 @@
         "type":  "bugfix",
         "mandatory":  false,
         "notes":  [
-                      "Rollback do fluxo de update para o modelo manual/original com botao 'Codigo update' e copia de codigo.",
+                      "Rollback do fluxo de update para o modelo manual/original com botao \u0027Codigo update\u0027 e copia de codigo.",
                       "Removido o botao de atualizacao rapida para evitar falsos fluxos de instalacao e preservar estabilidade.",
                       "Correcao obrigatoria continua com alerta e modal forcado quando houver release marcada como mandatory/bugfix."
                   ]
@@ -216,7 +228,7 @@
         "type":  "routine",
         "mandatory":  false,
         "notes":  [
-                      "Novo botao 'Atualizar script' no menu de Configuracoes para fluxo de update em 1 clique.",
+                      "Novo botao \u0027Atualizar script\u0027 no menu de Configuracoes para fluxo de update em 1 clique.",
                       "Atualizacao agora pede confirmacao explicita e abre no mesmo separador (sem abrir nova guia).",
                       "Acoes de instalar update passaram a exibir confirmacao padrao antes de iniciar a instalacao no Tampermonkey."
                   ]
@@ -330,7 +342,7 @@
         "date":  "2026-03-09",
         "version":  "2.15.48",
         "notes":  [
-                      "Novo toggle em Configuracoes para ocultar/exibir a linha 'Sugestao de melhoria' no dashboard.",
+                      "Novo toggle em Configuracoes para ocultar/exibir a linha \u0027Sugestao de melhoria\u0027 no dashboard.",
                       "Preferencia do toggle agora fica salva no localStorage do navegador.",
                       "Reaplicacao dos filtros foi ajustada para reexibir a linha ao desativar o toggle."
                   ]
@@ -560,36 +572,3 @@
                   ]
     }
 ]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.78
+// @version      2.15.79
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -9,6 +9,7 @@
 // @homepageURL  https://github.com/KauanHeadsoft/script_deskhelp
 // @updateURL    https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js
 // @downloadURL  https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js
+// @require      https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user2.js
 // @run-at       document-start
 // @grant        none
 // ==/UserScript==
@@ -16,7 +17,7 @@
 // HeadSoft UI â€” tema, logo, filtros, cores, zebrado, contadores,
 // abrir em nova guia (clique do meio) e 1o atendimento no clique da logo
 // Regras de manutencao do projeto:
-// - Arquivos oficiais: .user.js e updates-log.json.
+// - Arquivos oficiais: .user.js (principal), .user2.js (modulo) e updates-log.json.
 // - Sempre que atualizar o .user.js, atualizar o updates-log.json com as informacoes da mudanca.
 // - Toda atualizacao/alteracao deve incrementar @version para todos receberem o update.
 
@@ -67,6 +68,10 @@
   const APPEARANCE_SETTINGS_LS_KEY = "hs2025-appearance-settings";
   const APPEARANCE_SETTINGS_LIGHT_LS_KEY = "hs2025-appearance-settings-light";
   const APPEARANCE_SETTINGS_DARK_LS_KEY = "hs2025-appearance-settings-dark";
+  const SITUACAO_COLORS_LIGHT_LS_KEY = "hs2025-situacao-colors-light";
+  const SITUACAO_COLORS_DARK_LS_KEY = "hs2025-situacao-colors-dark";
+  const SITUACAO_COLOR_LOG_PREFIX = "[HeadsoftHelper][situacao-colors]";
+  const USER2_SETTINGS_API_GLOBAL = "HSHeadsoftUser2";
   const APPEARANCE_WALLPAPER_OPACITY_DEFAULT = 0.06;
   const APPEARANCE_WALLPAPER_OPACITY_MIN = 0;
   const APPEARANCE_WALLPAPER_OPACITY_MAX = 0.18;
@@ -101,7 +106,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.78";
+  const SCRIPT_VERSION_FALLBACK = "2.15.79";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -348,6 +353,18 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-12",
+      version: "2.15.79",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Configuracoes agora abrem em modal organizado por guias e subguias, com visual mais limpo para operacao diaria.",
+        "Nova aba de Situacoes permite personalizar cor de texto e badges por status (qualquer situacao encontrada na grade).",
+        "Preferencias de cor por situacao ficam salvas por tema no navegador e sao reaplicadas automaticamente com log no console.",
+        "Script principal (.user.js) passou a carregar modulo auxiliar (.user2.js) via @require para manter evolucao mais organizada.",
+      ],
+    },
     {
       date: "2026-03-12",
       version: "2.15.78",
@@ -5720,6 +5737,378 @@ Atenciosamente.`;
     return normalized;
   }
   /**
+   * Objetivo: Recupera API opcional do modulo auxiliar (.user2.js).
+   *
+   * Contexto: usado para abrir configuracoes por guias/subguias quando disponivel.
+   * Parametros: nenhum.
+   * Retorno: object|null.
+   */
+  function getUser2SettingsApi() {
+    try {
+      const api = window?.[USER2_SETTINGS_API_GLOBAL];
+      if (api && typeof api.openSettingsHub === "function") return api;
+    } catch {}
+    return null;
+  }
+  /**
+   * Objetivo: Normaliza chave de situacao para persistencia robusta.
+   *
+   * Contexto: remove variacoes de caixa/acento/espacos nas preferencias de cor.
+   * Parametros:
+   * - value: texto bruto da situacao.
+   * Retorno: string.
+   */
+  function normalizeSituacaoColorKey(value) {
+    return norm(String(value || "").replace(/\s+/g, " ").trim());
+  }
+  /**
+   * Objetivo: Sanitiza rotulo de situacao mantendo leitura amigavel.
+   *
+   * Contexto: exibicao no modal de configuracoes por guias.
+   * Parametros:
+   * - value: texto bruto.
+   * Retorno: string.
+   */
+  function sanitizeSituacaoColorLabel(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+  /**
+   * Objetivo: Retorna chave de storage de cores por situacao no tema atual.
+   *
+   * Contexto: persistencia separada entre modo claro e escuro.
+   * Parametros:
+   * - mode: tema opcional.
+   * Retorno: string.
+   */
+  function getSituacaoColorStorageKey(mode = "") {
+    return resolveAppearanceThemeMode(mode) === "light"
+      ? SITUACAO_COLORS_LIGHT_LS_KEY
+      : SITUACAO_COLORS_DARK_LS_KEY;
+  }
+  /**
+   * Objetivo: Normaliza entrada de cor por situacao para formato seguro.
+   *
+   * Contexto: valida payloads vindos do storage e do modal.
+   * Parametros:
+   * - entry: registro bruto.
+   * - keyHint: fallback de chave.
+   * Retorno: object|null.
+   */
+  function normalizeSituacaoColorEntry(entry, keyHint = "") {
+    const source = entry && typeof entry === "object" ? entry : {};
+    const label = sanitizeSituacaoColorLabel(source.label || source.name || keyHint);
+    const key = normalizeSituacaoColorKey(source.key || label || keyHint);
+    if (!key) return null;
+    return {
+      key,
+      label: label || key,
+      textColor: normalizeHexColor(source.textColor || source.color || ""),
+      badgeBgColor: normalizeHexColor(source.badgeBgColor || source.badgeColor || source.backgroundColor || ""),
+      badgeTextColor: normalizeHexColor(source.badgeTextColor || source.badgeText || ""),
+    };
+  }
+  /**
+   * Objetivo: Normaliza mapa de cores por situacao para estrutura persistivel.
+   *
+   * Contexto: aceita objeto ou lista.
+   * Parametros:
+   * - rawMap: payload bruto.
+   * Retorno: object.
+   */
+  function normalizeSituacaoColorMap(rawMap = null) {
+    const output = {};
+    if (!rawMap || typeof rawMap !== "object") return output;
+    const list = Array.isArray(rawMap)
+      ? rawMap
+      : Object.entries(rawMap).map(([key, value]) => ({ ...(value || {}), key }));
+    list.forEach((item) => {
+      const normalized = normalizeSituacaoColorEntry(item, item?.key || "");
+      if (!normalized) return;
+      if (!normalized.textColor && !normalized.badgeBgColor && !normalized.badgeTextColor) return;
+      output[normalized.key] = normalized;
+    });
+    return output;
+  }
+  /**
+   * Objetivo: Le preferencias de cor por situacao no tema atual.
+   *
+   * Contexto: usado no dashboard e no modal de configuracoes.
+   * Parametros:
+   * - mode: tema opcional.
+   * Retorno: object.
+   */
+  function readSituacaoColorSettings(mode = "") {
+    const scopedMode = resolveAppearanceThemeMode(mode);
+    try {
+      const raw = String(localStorage.getItem(getSituacaoColorStorageKey(scopedMode)) || "").trim();
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return normalizeSituacaoColorMap(parsed);
+    } catch {
+      return {};
+    }
+  }
+  /**
+   * Objetivo: Persiste preferencias de cor por situacao no tema atual.
+   *
+   * Contexto: acionado ao salvar ajustes do modal.
+   * Parametros:
+   * - value: mapa/lista de cores.
+   * - mode: tema opcional.
+   * Retorno: object.
+   */
+  function writeSituacaoColorSettings(value, mode = "") {
+    const scopedMode = resolveAppearanceThemeMode(mode);
+    const normalized = normalizeSituacaoColorMap(value);
+    try {
+      localStorage.setItem(getSituacaoColorStorageKey(scopedMode), JSON.stringify(normalized));
+    } catch {}
+    return normalized;
+  }
+  /**
+   * Objetivo: Coleta situacoes visiveis no DOM para montar lista configuravel.
+   *
+   * Contexto: permite usuario ajustar qualquer situacao encontrada na grade.
+   * Parametros: nenhum.
+   * Retorno: Array<object>.
+   */
+  function collectVisibleSituacaoLabels() {
+    const map = new Map();
+    const upsert = (labelRaw) => {
+      const label = sanitizeSituacaoColorLabel(labelRaw);
+      const key = normalizeSituacaoColorKey(label);
+      if (!key) return;
+      if (!map.has(key)) map.set(key, label || key);
+    };
+
+    document.querySelectorAll("table.sortable").forEach((table) => {
+      const headerRow = table.tHead?.rows?.[0] || Array.from(table.rows || []).find((tr) => tr.querySelector("th"));
+      if (!(headerRow instanceof HTMLTableRowElement)) return;
+      const headers = Array.from(headerRow.cells || []).map((c) => norm(c.textContent || ""));
+      const idxSituacao = headers.findIndex((h) => SITUACAO_RX.test(h));
+      if (idxSituacao < 0) return;
+      Array.from(table.tBodies?.[0]?.rows || table.rows || []).forEach((tr) => {
+        if (!(tr instanceof HTMLTableRowElement)) return;
+        if (tr.querySelector("th")) return;
+        const td = tr.cells[idxSituacao];
+        if (!(td instanceof HTMLTableCellElement)) return;
+        const sitNode = td.querySelector(".Situacao");
+        if (sitNode) {
+          upsert(sitNode.textContent || "");
+          return;
+        }
+        const clone = td.cloneNode(true);
+        clone.querySelectorAll(".hs-first-att-wrap, .hs-situacao-sinal").forEach((el) => el.remove());
+        upsert(clone.textContent || "");
+      });
+    });
+
+    document.querySelectorAll(".hs-situacao-sinal, .hs-ext-sla-chip").forEach((el) => {
+      const label = String(el.dataset.hsSituacaoLabel || el.textContent || "");
+      upsert(label);
+    });
+
+    return Array.from(map.entries())
+      .map(([key, label]) => ({ key, label }))
+      .sort((a, b) => String(a.label || "").localeCompare(String(b.label || ""), "pt-BR"));
+  }
+  /**
+   * Objetivo: Monta lista consolidada de situacoes para o modal de configuracoes.
+   *
+   * Contexto: combina itens visiveis e itens ja salvos no navegador.
+   * Parametros:
+   * - mode: tema opcional.
+   * Retorno: Array<object>.
+   */
+  function getSituacaoColorEntriesForSettings(mode = "") {
+    const scopedMode = resolveAppearanceThemeMode(mode);
+    const saved = readSituacaoColorSettings(scopedMode);
+    const visible = collectVisibleSituacaoLabels();
+    const map = new Map();
+
+    visible.forEach((item) => {
+      const key = normalizeSituacaoColorKey(item?.key || item?.label || "");
+      if (!key) return;
+      const fromSaved = saved[key] || {};
+      map.set(key, {
+        key,
+        label: sanitizeSituacaoColorLabel(item?.label || fromSaved.label || key),
+        textColor: normalizeHexColor(fromSaved.textColor || ""),
+        badgeBgColor: normalizeHexColor(fromSaved.badgeBgColor || ""),
+        badgeTextColor: normalizeHexColor(fromSaved.badgeTextColor || ""),
+      });
+    });
+
+    Object.entries(saved).forEach(([key, value]) => {
+      const normalized = normalizeSituacaoColorEntry({ ...(value || {}), key }, key);
+      if (!normalized) return;
+      if (map.has(normalized.key)) return;
+      map.set(normalized.key, normalized);
+    });
+
+    return Array.from(map.values()).sort((a, b) =>
+      String(a.label || "").localeCompare(String(b.label || ""), "pt-BR")
+    );
+  }
+  /**
+   * Objetivo: Atualiza um campo de cor de uma situacao especifica.
+   *
+   * Contexto: usado pelo modal de configuracoes por guias/subguias.
+   * Parametros:
+   * - keyRaw: chave/label da situacao.
+   * - fieldRaw: campo alvo (textColor, badgeBgColor, badgeTextColor).
+   * - valueRaw: cor hexadecimal ou vazio para limpar.
+   * - mode: tema opcional.
+   * Retorno: object|null.
+   */
+  function setSituacaoColorFieldForKey(keyRaw, fieldRaw, valueRaw, mode = "") {
+    const scopedMode = resolveAppearanceThemeMode(mode);
+    const key = normalizeSituacaoColorKey(keyRaw);
+    if (!key) return null;
+    const field = String(fieldRaw || "").trim();
+    if (!["textColor", "badgeBgColor", "badgeTextColor"].includes(field)) return null;
+
+    const current = readSituacaoColorSettings(scopedMode);
+    const base = normalizeSituacaoColorEntry(current[key] || { key, label: key }, key) || {
+      key,
+      label: key,
+      textColor: "",
+      badgeBgColor: "",
+      badgeTextColor: "",
+    };
+    const next = {
+      ...base,
+      [field]: normalizeHexColor(valueRaw || ""),
+    };
+    if (!next.textColor && !next.badgeBgColor && !next.badgeTextColor) {
+      delete current[key];
+    } else {
+      current[key] = next;
+    }
+    const persisted = writeSituacaoColorSettings(current, scopedMode);
+    console.info(
+      `${SITUACAO_COLOR_LOG_PREFIX} tema=${scopedMode} situacao="${next.label}" campo=${field} valor="${
+        next[field] || "limpo"
+      }"`
+    );
+    applySituacaoColorCustomization(scopedMode);
+    return persisted[key] || null;
+  }
+  /**
+   * Objetivo: Remove configuracao de cor de uma situacao especifica.
+   *
+   * Contexto: botao "limpar" por linha no modal de situacoes.
+   * Parametros:
+   * - keyRaw: chave/label da situacao.
+   * - mode: tema opcional.
+   * Retorno: boolean.
+   */
+  function resetSituacaoColorForKey(keyRaw, mode = "") {
+    const scopedMode = resolveAppearanceThemeMode(mode);
+    const key = normalizeSituacaoColorKey(keyRaw);
+    if (!key) return false;
+    const current = readSituacaoColorSettings(scopedMode);
+    if (!current[key]) return false;
+    const label = sanitizeSituacaoColorLabel(current[key]?.label || key);
+    delete current[key];
+    writeSituacaoColorSettings(current, scopedMode);
+    console.info(`${SITUACAO_COLOR_LOG_PREFIX} tema=${scopedMode} situacao="${label}" reset=1`);
+    applySituacaoColorCustomization(scopedMode);
+    return true;
+  }
+  /**
+   * Objetivo: Remove todas as configuracoes de cor por situacao do tema atual.
+   *
+   * Contexto: acao global de restauracao no modal.
+   * Parametros:
+   * - mode: tema opcional.
+   * Retorno: void.
+   */
+  function resetAllSituacaoColorSettings(mode = "") {
+    const scopedMode = resolveAppearanceThemeMode(mode);
+    writeSituacaoColorSettings({}, scopedMode);
+    console.info(`${SITUACAO_COLOR_LOG_PREFIX} tema=${scopedMode} reset-geral=1`);
+    applySituacaoColorCustomization(scopedMode);
+  }
+  /**
+   * Objetivo: Aplica customizacao visual de situacoes nas grades e chips.
+   *
+   * Contexto: executado apos safeRun, troca de tema e alteracoes no modal.
+   * Parametros:
+   * - mode: tema opcional.
+   * Retorno: void.
+   */
+  function applySituacaoColorCustomization(mode = "") {
+    const scopedMode = resolveAppearanceThemeMode(mode);
+    const configured = readSituacaoColorSettings(scopedMode);
+    const borderMixerColor = scopedMode === "light" ? "#0F172A" : "#DCE6F2";
+
+    const applyCellTextColor = (td, entry) => {
+      if (!(td instanceof HTMLTableCellElement)) return;
+      td.style.removeProperty("color");
+      const sitNode = td.querySelector(".Situacao");
+      if (sitNode instanceof HTMLElement) sitNode.style.removeProperty("color");
+      const target = sitNode || td;
+      if (!(target instanceof HTMLElement)) return;
+      if (entry?.textColor) target.style.setProperty("color", entry.textColor, "important");
+    };
+    const applyBadgeColors = (el, entry) => {
+      if (!(el instanceof HTMLElement)) return;
+      el.style.removeProperty("background");
+      el.style.removeProperty("color");
+      el.style.removeProperty("border-color");
+      if (!entry) return;
+      if (entry.badgeBgColor) {
+        el.style.setProperty("background", entry.badgeBgColor, "important");
+        el.style.setProperty(
+          "border-color",
+          mixHexColors(entry.badgeBgColor, borderMixerColor, scopedMode === "light" ? 0.34 : 0.52),
+          "important"
+        );
+      }
+      const textColor = entry.badgeTextColor || entry.textColor || "";
+      if (textColor) el.style.setProperty("color", textColor, "important");
+    };
+
+    document.querySelectorAll("table.sortable").forEach((table) => {
+      const headerRow = table.tHead?.rows?.[0] || Array.from(table.rows || []).find((tr) => tr.querySelector("th"));
+      if (!(headerRow instanceof HTMLTableRowElement)) return;
+      const headers = Array.from(headerRow.cells || []).map((c) => norm(c.textContent || ""));
+      const idxSituacao = headers.findIndex((h) => SITUACAO_RX.test(h));
+      if (idxSituacao < 0) return;
+
+      Array.from(table.tBodies?.[0]?.rows || table.rows || []).forEach((tr) => {
+        if (!(tr instanceof HTMLTableRowElement)) return;
+        if (tr.querySelector("th")) return;
+        const td = tr.cells[idxSituacao];
+        if (!(td instanceof HTMLTableCellElement)) return;
+        const statusText = sanitizeSituacaoColorLabel(getSituacaoCellText(td));
+        const key = normalizeSituacaoColorKey(statusText);
+        const entry = key ? configured[key] || null : null;
+        if (key) {
+          td.dataset.hsSituacaoKey = key;
+          td.dataset.hsSituacaoLabel = statusText;
+        } else {
+          delete td.dataset.hsSituacaoKey;
+          delete td.dataset.hsSituacaoLabel;
+        }
+        applyCellTextColor(td, entry);
+      });
+    });
+
+    document.querySelectorAll(".hs-situacao-sinal, .hs-ext-sla-chip").forEach((el) => {
+      const label = sanitizeSituacaoColorLabel(el.dataset.hsSituacaoLabel || el.textContent || "");
+      const key = normalizeSituacaoColorKey(label);
+      if (key) {
+        el.dataset.hsSituacaoKey = key;
+        if (!el.dataset.hsSituacaoLabel) el.dataset.hsSituacaoLabel = label;
+      } else {
+        delete el.dataset.hsSituacaoKey;
+      }
+      applyBadgeColors(el, key ? configured[key] || null : null);
+    });
+  }
+  /**
    * Objetivo: Aplica variaveis visuais de fonte/cor/papel de fundo no documento.
    *
    * Contexto: executado apos trocar tema e ao salvar configuracao de aparencia.
@@ -8515,6 +8904,7 @@ Atenciosamente.`;
       if (localStorage.getItem(LS_KEY) !== mode) localStorage.setItem(LS_KEY, mode);
     } catch {}
     applyAppearanceSettings();
+    applySituacaoColorCustomization(mode);
     if (document.body?.classList?.contains("hs-dashboard-page")) {
       normalizeDashboardTableWidths();
     }
@@ -9423,11 +9813,200 @@ Atenciosamente.`;
         window.requestAnimationFrame(positionMenu);
       }
     };
+    const buildSettingsHubModel = () => {
+      syncGridPreviewLabel();
+      syncConsultaLayoutLabel();
+      syncAttachmentPreviewLabel();
+      syncTextAttachmentPreviewLabel();
+      syncSuggestionFilterLabel();
+
+      const isVisibleControl = (el) => {
+        if (!(el instanceof HTMLElement)) return false;
+        const inlineDisplay = String(el.style.display || "").trim().toLowerCase();
+        if (inlineDisplay === "none") return false;
+        if (el.hidden) return false;
+        return true;
+      };
+      const toControl = (id, source, description = "", tone = "") => ({
+        id,
+        source,
+        description,
+        tone,
+        hidden: !isVisibleControl(source),
+      });
+
+      const controlsVisualGrade = [
+        toControl(
+          "preview-grid",
+          gridPreviewBtn,
+          "Define se a grade abre chamado em popup interno ou em nova guia."
+        ),
+        toControl(
+          "consulta-layout",
+          consultaLayoutBtn,
+          "Ativa o painel profissional da consulta com KPIs e filtros rapidos."
+        ),
+        toControl(
+          "sugestao-filter",
+          suggestionFilterBtn,
+          "Oculta/exibe o filtro 'Sugestao de melhoria' no dashboard."
+        ),
+      ].filter((item) => !item.hidden);
+
+      const controlsVisualAnexos = [
+        toControl("preview-image", attachPreviewBtn, "Preview em modal para anexos de imagem."),
+        toControl("preview-text", attachTextPreviewBtn, "Preview textual para anexos TXT/SQL."),
+      ].filter((item) => !item.hidden);
+
+      const controlsAparencia = [
+        toControl(
+          "appearance-main",
+          appearanceBtn,
+          "Abre os controles de fonte, tema, bordas e largura da grade salvos por tema."
+        ),
+      ].filter((item) => !item.hidden);
+
+      const controlsAtualizacao = [
+        toControl("update-alert", alertBtn, "Notificacao de nova versao/correcao obrigatoria.", "warn"),
+        toControl("update-check", checkBtn, "Consulta versao remota no GitHub."),
+        toControl("update-manual", manualBtn, "Abre codigo remoto para update manual."),
+        toControl("update-log", updatesBtn, "Exibe historico completo de atualizacoes."),
+      ].filter((item) => !item.hidden);
+
+      const controlsScript = [
+        toControl("script-version", versionCard, "Versao atual e commit principal.", "card"),
+      ].filter((item) => !item.hidden);
+
+      return {
+        title: "Configuracoes",
+        subtitle: "Painel organizado por guias e subguias para ajustes rapidos.",
+        tabs: [
+          {
+            id: "visualizacao",
+            label: "Visualizacao",
+            subtabs: [
+              {
+                id: "grade",
+                label: "Grade",
+                description: "Comportamento da grade principal e filtros de operacao.",
+                controls: controlsVisualGrade,
+              },
+              {
+                id: "anexos",
+                label: "Anexos",
+                description: "Comportamento de preview para arquivos de imagem e texto.",
+                controls: controlsVisualAnexos,
+              },
+            ],
+          },
+          {
+            id: "aparencia",
+            label: "Aparencia",
+            subtabs: [
+              {
+                id: "tema",
+                label: "Tema e Layout",
+                description: "Fonte, cores gerais e dimensoes visuais do dashboard.",
+                controls: controlsAparencia,
+              },
+            ],
+          },
+          {
+            id: "situacoes",
+            label: "Situacoes",
+            subtabs: [
+              {
+                id: "cores",
+                label: "Cores por situacao",
+                description:
+                  "Personalize cor de texto e badges para qualquer situacao detectada na tela.",
+                statusColors: true,
+                controls: [],
+              },
+            ],
+          },
+          {
+            id: "atualizacao",
+            label: "Atualizacao",
+            subtabs: [
+              {
+                id: "fluxo",
+                label: "Fluxo de update",
+                description: "Acompanhe novas versoes e execute atualizacao manual quando desejar.",
+                controls: controlsAtualizacao,
+              },
+            ],
+          },
+          {
+            id: "script",
+            label: "Script",
+            subtabs: [
+              {
+                id: "versao",
+                label: "Versao",
+                description: "Informacoes tecnicas da versao instalada.",
+                controls: controlsScript,
+              },
+            ],
+          },
+        ],
+        statusColors: {
+          theme: resolveAppearanceThemeMode(),
+          entries: getSituacaoColorEntriesForSettings(resolveAppearanceThemeMode()),
+          onCreate: (payload = {}) => {
+            const label = sanitizeSituacaoColorLabel(payload.label || "");
+            if (!label) return;
+            const key = normalizeSituacaoColorKey(label);
+            const scopedMode = resolveAppearanceThemeMode();
+            const defaultTextColor = scopedMode === "light" ? "#1F3D62" : "#DCE6F2";
+            setSituacaoColorFieldForKey(key, "textColor", defaultTextColor, scopedMode);
+            toast(`Situacao '${label}' adicionada para personalizacao.`, "ok", 2200);
+          },
+          onChange: (payload = {}) => {
+            const key = String(payload.key || "").trim();
+            const field = String(payload.field || "").trim();
+            const value = String(payload.value || "").trim();
+            setSituacaoColorFieldForKey(key, field, value, resolveAppearanceThemeMode());
+          },
+          onResetEntry: (payload = {}) => {
+            const key = String(payload.key || "").trim();
+            if (!key) return;
+            if (resetSituacaoColorForKey(key, resolveAppearanceThemeMode())) {
+              const label = sanitizeSituacaoColorLabel(payload.label || key);
+              toast(`Cores da situacao '${label}' restauradas.`, "ok", 2200);
+            }
+          },
+          onResetAll: () => {
+            resetAllSituacaoColorSettings(resolveAppearanceThemeMode());
+            toast("Todas as cores de situacao foram restauradas.", "ok", 2200);
+          },
+          onRefresh: () => getSituacaoColorEntriesForSettings(resolveAppearanceThemeMode()),
+        },
+      };
+    };
+    const openSettingsHubModal = () => {
+      const api = getUser2SettingsApi();
+      if (!api || typeof api.openSettingsHub !== "function") return false;
+      try {
+        api.openSettingsHub({
+          id: "hs-settings-hub-main",
+          buildModel: buildSettingsHubModel,
+        });
+        return true;
+      } catch (err) {
+        console.warn("[HeadsoftHelper] Falha ao abrir modal de configuracoes em guias:", err);
+        return false;
+      }
+    };
     if (host.dataset.hsSettingsBind !== "1") {
       host.dataset.hsSettingsBind = "1";
       settingsBtn.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
+        if (openSettingsHubModal()) {
+          setMenuOpen(false);
+          return;
+        }
         setMenuOpen(!host.classList.contains("open"));
       });
       document.addEventListener(
@@ -12010,6 +12589,8 @@ Atenciosamente.`;
         const badge = document.createElement("span");
         badge.className = `hs-situacao-sinal ${kind}`;
         badge.textContent = label;
+        badge.dataset.hsSituacaoLabel = label;
+        badge.dataset.hsSituacaoKey = normalizeSituacaoColorKey(label);
         tdSit.appendChild(badge);
       });
 
@@ -12022,12 +12603,16 @@ Atenciosamente.`;
         const chipAprov = document.createElement("span");
         chipAprov.className = "hs-ext-sla-chip aprov-int";
         chipAprov.textContent = `Aprovaveis: ${aprovaveis}`;
+        chipAprov.dataset.hsSituacaoLabel = "Aprovacao interna";
+        chipAprov.dataset.hsSituacaoKey = normalizeSituacaoColorKey("Aprovacao interna");
         summary.appendChild(chipAprov);
       }
       if (cancelaveis > 0) {
         const chipCanc = document.createElement("span");
         chipCanc.className = "hs-ext-sla-chip ch-exp";
         chipCanc.textContent = `Cancelaveis: ${cancelaveis}`;
+        chipCanc.dataset.hsSituacaoLabel = "Chamado expirado";
+        chipCanc.dataset.hsSituacaoKey = normalizeSituacaoColorKey("Chamado expirado");
         summary.appendChild(chipCanc);
       }
       header.appendChild(summary);
@@ -17255,6 +17840,7 @@ Atenciosamente.`;
     runStep(markServiceRows, "markServiceRows");
     runStep(tagDashboardGridColumns, "tagDashboardGridColumns");
     runStep(signalExternalReturnSlaRules, "signalExternalReturnSlaRules");
+    runStep(applySituacaoColorCustomization, "applySituacaoColorCustomization");
     runStep(ensureDashboardNovasSection, "ensureDashboardNovasSection");
     runStep(ensureDashboardEmServicoSectionToggle, "ensureDashboardEmServicoSectionToggle");
     runStep(ensureAjaxGridRefresh, "ensureAjaxGridRefresh");
