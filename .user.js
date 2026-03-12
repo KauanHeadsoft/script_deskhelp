@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.83
+// @version      2.15.84
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -107,7 +107,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.83";
+  const SCRIPT_VERSION_FALLBACK = "2.15.84";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -355,6 +355,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-12",
+      version: "2.15.84",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Modulo user2 ganhou notificacao visual de atualizacao de chamado com animacao de subida (canto inferior direito).",
+        "Modal de Configuracoes agora exibe botao 'Teste notificacao' para validar rapidamente se o user2.js esta ativo.",
+        "API do user2 passou a expor showChamadoUpdateNotification/runSettingsNotificationTest para testes diretos.",
+      ],
+    },
     {
       date: "2026-03-12",
       version: "2.15.83",

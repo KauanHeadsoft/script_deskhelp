@@ -2,12 +2,15 @@
   const API_NAME = "HSHeadsoftUser2";
   const STYLE_ID = "hs-user2-settings-style";
   const ROOT_ID = "hs-user2-settings-modal";
+  const NOTIFY_HOST_ID = "hs2-notify-host";
+  const NOTIFY_DEFAULT_MS = 6800;
 
   let root = null;
   let activeHubId = "";
   let buildModelFn = null;
   let modelState = null;
   let refreshTimer = null;
+  let notifyTestCounter = 0;
   const activeTabByHub = new Map();
   const activeSubtabByHub = new Map();
 
@@ -114,6 +117,140 @@
     }, Math.max(20, Number(delay) || 90));
   }
 
+  function formatDateTimePtBr(value = null) {
+    const date = value instanceof Date ? value : new Date(value || Date.now());
+    if (Number.isNaN(date.getTime())) return txt(value || "");
+    try {
+      return new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(date);
+    } catch {
+      const p2 = (n) => String(n || 0).padStart(2, "0");
+      return `${p2(date.getDate())}/${p2(date.getMonth() + 1)}/${date.getFullYear()} ${p2(date.getHours())}:${p2(
+        date.getMinutes()
+      )}`;
+    }
+  }
+
+  function ensureNotificationHost() {
+    let host = by(NOTIFY_HOST_ID);
+    if (!(host instanceof HTMLElement)) {
+      host = document.createElement("div");
+      host.id = NOTIFY_HOST_ID;
+      document.body.appendChild(host);
+    } else if (!host.isConnected) {
+      document.body.appendChild(host);
+    }
+    return host;
+  }
+
+  function dismissNotificationCard(card) {
+    if (!(card instanceof HTMLElement)) return;
+    if (card.dataset.hs2Closing === "1") return;
+    card.dataset.hs2Closing = "1";
+    card.classList.remove("hs2-notify-show");
+    card.classList.add("hs2-notify-hide");
+    window.setTimeout(() => {
+      if (card.isConnected) card.remove();
+    }, 320);
+  }
+
+  function showChamadoUpdateNotification(payload = {}) {
+    if (!document?.body) return null;
+    injectStyle();
+    const host = ensureNotificationHost();
+    const source = payload && typeof payload === "object" ? payload : {};
+    const numero = txt(source.numero || source.chamado || "00000");
+    const situacao = txt(source.situacao || "Atualizado");
+    const resumo =
+      txt(source.resumo || source.mensagem || source.descricao) ||
+      "Foi detectada uma nova atualizacao no chamado. Confira os detalhes na grade.";
+    const responsavel = txt(source.responsavel || source.usuario || "Equipe");
+    const origem = txt(source.origem || source.source || "Teste do user2.js (Configuracoes)");
+    const updatedAt = txt(source.updatedAt || source.data || "") || formatDateTimePtBr();
+    const accent = normalizeHexColor(source.highlightColor || source.accentColor || "#22D3EE") || "#22D3EE";
+    const autoCloseMs = Math.min(30000, Math.max(1600, Number(source.autoCloseMs) || NOTIFY_DEFAULT_MS));
+
+    const card = document.createElement("article");
+    card.className = "hs2-notify-card";
+    card.style.setProperty("--hs2-notify-accent", accent);
+    card.innerHTML = `
+      <div class="hs2-notify-accent"></div>
+      <div class="hs2-notify-body">
+        <div class="hs2-notify-head">
+          <p class="hs2-notify-title">
+            <span class="hs2-notify-title-dot"></span>
+            <span>Atualizacao do chamado #${numero}</span>
+          </p>
+          <button type="button" class="hs2-notify-close" aria-label="Fechar notificacao">×</button>
+        </div>
+        <span class="hs2-notify-source">${origem}</span>
+        <p class="hs2-notify-text">${resumo}</p>
+        <div class="hs2-notify-meta">
+          <div class="hs2-notify-chip"><b>Situacao:</b> ${situacao}</div>
+          <div class="hs2-notify-chip"><b>Responsavel:</b> ${responsavel}</div>
+        </div>
+        <div class="hs2-notify-foot">Atualizado em ${updatedAt}</div>
+      </div>
+    `;
+
+    const closeBtn = card.querySelector(".hs2-notify-close");
+    let timer = window.setTimeout(() => dismissNotificationCard(card), autoCloseMs);
+    const clearAutoClose = () => {
+      if (!timer) return;
+      window.clearTimeout(timer);
+      timer = 0;
+    };
+    const restartAutoClose = () => {
+      clearAutoClose();
+      timer = window.setTimeout(() => dismissNotificationCard(card), autoCloseMs);
+    };
+
+    if (closeBtn instanceof HTMLButtonElement) {
+      closeBtn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        clearAutoClose();
+        dismissNotificationCard(card);
+      });
+    }
+    card.addEventListener("mouseenter", clearAutoClose);
+    card.addEventListener("mouseleave", restartAutoClose);
+    card.addEventListener("click", () => restartAutoClose());
+    card.addEventListener("animationend", () => {
+      if (card.classList.contains("hs2-notify-hide") && card.isConnected) card.remove();
+    });
+
+    host.appendChild(card);
+    requestAnimationFrame(() => card.classList.add("hs2-notify-show"));
+    return card;
+  }
+
+  function runSettingsNotificationTest() {
+    notifyTestCounter += 1;
+    const seq = notifyTestCounter;
+    const sampleId = String(46000 + ((seq * 13) % 999));
+    const sampleStatus = seq % 2 === 0 ? "Aprovado para servico" : "Novas informacoes";
+    const sampleOwner = seq % 2 === 0 ? "Kauan" : "Vinicius";
+    const sampleSummary =
+      seq % 2 === 0
+        ? "Nova interacao registrada no chamado. Validar aprovacao e proximo passo."
+        : "Cliente enviou resposta no chamado. Necessario revisar e retornar.";
+    const sampleAccent = seq % 2 === 0 ? "#22D3EE" : "#34D399";
+    showChamadoUpdateNotification({
+      numero: sampleId,
+      situacao: sampleStatus,
+      responsavel: sampleOwner,
+      resumo: sampleSummary,
+      highlightColor: sampleAccent,
+      origem: "Teste do user2.js em Configuracoes",
+      updatedAt: formatDateTimePtBr(),
+    });
+  }
+
   function injectStyle() {
     if (by(STYLE_ID)) return;
     const style = document.createElement("style");
@@ -170,6 +307,26 @@
         margin:6px 0 0!important;
         opacity:.86!important;
         font-size:12px!important;
+      }
+      #${ROOT_ID} .hs2-head-actions{
+        display:flex!important;
+        align-items:center!important;
+        gap:8px!important;
+      }
+      #${ROOT_ID} .hs2-head-test-notify{
+        min-height:34px!important;
+        border-radius:10px!important;
+        border:1px solid rgba(108,164,228,.64)!important;
+        background:linear-gradient(180deg, rgba(40,76,118,.92), rgba(27,57,92,.95))!important;
+        color:#eaf4ff!important;
+        padding:0 12px!important;
+        font-weight:800!important;
+        font-size:11px!important;
+        cursor:pointer!important;
+      }
+      #${ROOT_ID} .hs2-head-test-notify:hover{
+        border-color:rgba(134,188,245,.82)!important;
+        box-shadow:0 0 0 1px rgba(108,164,228,.34)!important;
       }
       #${ROOT_ID} .hs2-close{
         min-height:34px!important;
@@ -397,6 +554,126 @@
         font-weight:800!important;
         cursor:pointer!important;
       }
+      #${NOTIFY_HOST_ID}{
+        position:fixed!important;
+        right:18px!important;
+        bottom:18px!important;
+        z-index:1000043!important;
+        display:flex!important;
+        flex-direction:column!important;
+        align-items:flex-end!important;
+        gap:10px!important;
+        pointer-events:none!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-card{
+        width:min(390px, calc(100vw - 28px))!important;
+        border-radius:14px!important;
+        border:1px solid rgba(98,146,206,.56)!important;
+        background:
+          linear-gradient(145deg, rgba(16,33,56,.96), rgba(10,23,40,.98)),
+          linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01))!important;
+        color:#eaf4ff!important;
+        box-shadow:0 20px 42px rgba(0,0,0,.46)!important;
+        pointer-events:auto!important;
+        overflow:hidden!important;
+        transform:translateY(115px) scale(.96)!important;
+        opacity:0!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-card.hs2-notify-show{
+        animation:hs2NotifyIn .34s cubic-bezier(.2,.88,.2,1) forwards!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-card.hs2-notify-hide{
+        animation:hs2NotifyOut .3s ease forwards!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-accent{
+        height:3px!important;
+        background:linear-gradient(90deg, var(--hs2-notify-accent, #38bdf8), rgba(255,255,255,.2))!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-body{
+        padding:11px 12px 12px!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-head{
+        display:flex!important;
+        align-items:flex-start!important;
+        justify-content:space-between!important;
+        gap:10px!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-title{
+        margin:0!important;
+        font-size:13px!important;
+        font-weight:900!important;
+        letter-spacing:.01em!important;
+        display:flex!important;
+        align-items:center!important;
+        gap:7px!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-title-dot{
+        width:8px!important;
+        height:8px!important;
+        border-radius:50%!important;
+        background:var(--hs2-notify-accent, #38bdf8)!important;
+        box-shadow:0 0 0 4px rgba(56,189,248,.14)!important;
+        flex:none!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-close{
+        min-height:24px!important;
+        min-width:24px!important;
+        border-radius:7px!important;
+        border:1px solid rgba(118,157,208,.5)!important;
+        background:rgba(22,44,71,.78)!important;
+        color:#dbeafe!important;
+        font-size:13px!important;
+        line-height:1!important;
+        cursor:pointer!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-source{
+        margin:7px 0 0!important;
+        display:inline-flex!important;
+        align-items:center!important;
+        padding:2px 8px!important;
+        border-radius:999px!important;
+        border:1px solid rgba(116,163,221,.52)!important;
+        background:rgba(20,45,74,.6)!important;
+        color:#d7eaff!important;
+        font-size:10px!important;
+        font-weight:800!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-text{
+        margin:8px 0 0!important;
+        font-size:12px!important;
+        line-height:1.42!important;
+        color:#dbeafe!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-meta{
+        margin-top:9px!important;
+        display:grid!important;
+        grid-template-columns:repeat(2, minmax(0,1fr))!important;
+        gap:6px!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-chip{
+        border:1px solid rgba(103,149,206,.48)!important;
+        background:rgba(17,38,62,.7)!important;
+        border-radius:8px!important;
+        padding:4px 6px!important;
+        font-size:10px!important;
+        color:#cfe4ff!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-chip b{
+        color:#f8fbff!important;
+      }
+      #${NOTIFY_HOST_ID} .hs2-notify-foot{
+        margin-top:8px!important;
+        font-size:10px!important;
+        color:#9fbfdf!important;
+      }
+      @keyframes hs2NotifyIn{
+        from{ opacity:0; transform:translateY(115px) scale(.96); }
+        to{ opacity:1; transform:translateY(0) scale(1); }
+      }
+      @keyframes hs2NotifyOut{
+        from{ opacity:1; transform:translateY(0) scale(1); }
+        to{ opacity:0; transform:translateY(70px) scale(.97); }
+      }
       @media (max-width: 980px){
         #${ROOT_ID} .hs2-card{
           inset:2vh 2vw!important;
@@ -415,6 +692,15 @@
         #${ROOT_ID} .hs2-tab{
           min-width:max-content!important;
           margin-bottom:0!important;
+        }
+        #${NOTIFY_HOST_ID}{
+          right:8px!important;
+          left:8px!important;
+          bottom:8px!important;
+          align-items:stretch!important;
+        }
+        #${NOTIFY_HOST_ID} .hs2-notify-card{
+          width:100%!important;
         }
       }
     `;
@@ -435,7 +721,10 @@
               <h2 data-slot="title">Configuracoes</h2>
               <p data-slot="subtitle"></p>
             </div>
-            <button type="button" class="hs2-close" data-action="close">Fechar</button>
+            <div class="hs2-head-actions">
+              <button type="button" class="hs2-head-test-notify" data-action="notify-test">Teste notificacao</button>
+              <button type="button" class="hs2-close" data-action="close">Fechar</button>
+            </div>
           </header>
           <div class="hs2-body">
             <aside class="hs2-tabs" data-slot="tabs"></aside>
@@ -453,6 +742,12 @@
     if (root.dataset.hs2Bound !== "1") {
       root.dataset.hs2Bound = "1";
       root.addEventListener("click", (ev) => {
+        const notifyTestTarget = ev.target instanceof HTMLElement ? ev.target.closest("[data-action='notify-test']") : null;
+        if (notifyTestTarget) {
+          ev.preventDefault();
+          runSettingsNotificationTest();
+          return;
+        }
         const closeTarget = ev.target instanceof HTMLElement ? ev.target.closest("[data-action='close']") : null;
         if (closeTarget) {
           ev.preventDefault();
@@ -859,5 +1154,7 @@
   api.clearSituacaoRowPaint = clearSituacaoRowPaint;
   api.applySituacaoRowPaint = applySituacaoRowPaint;
   api.applySituacaoBadgePaint = applySituacaoBadgePaint;
+  api.showChamadoUpdateNotification = showChamadoUpdateNotification;
+  api.runSettingsNotificationTest = runSettingsNotificationTest;
   window[API_NAME] = api;
 })();

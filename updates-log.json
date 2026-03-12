@@ -1,6 +1,17 @@
 ﻿[
     {
         "date":  "2026-03-12",
+        "version":  "2.15.84",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Modulo user2 ganhou notificacao visual de atualizacao de chamado com animacao de subida (canto inferior direito).",
+                      "Modal de Configuracoes agora exibe botao 'Teste notificacao' para validar rapidamente se o user2.js esta ativo.",
+                      "API do user2 passou a expor showChamadoUpdateNotification/runSettingsNotificationTest para testes diretos."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
         "version":  "2.15.83",
         "type":  "routine",
         "mandatory":  false,
