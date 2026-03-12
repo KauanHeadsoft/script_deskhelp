@@ -2,6 +2,19 @@
     
     {
         "date":  "2026-03-12",
+        "version":  "2.15.70",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Dashboard ganhou novo filtro \"Exibir Em servico\" no bloco principal para ligar/desligar a secao sem mexer nos outros filtros.",
+                      "Deteccao de status agora separa corretamente \"Servico aprovado\" de \"Aprovado para servico\", evitando destaque indevido.",
+                      "Linhas em situacao \"Servico aprovado\" passaram a receber destaque branco chamativo para reforcar chamados pendentes de conclusao.",
+                      "Na acao Concluir, o formulario agora exibe alerta visual para revisar consumo/minutos antes do envio, sem popup de confirmacao.",
+                      "Preview de anexos TXT/SQL foi reforcado com fallback adicional para abrir no modal-editor e manter o conteudo copiavel em mais cenarios."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
         "version":  "2.15.69",
         "type":  "routine",
         "mandatory":  false,

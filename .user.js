@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.69
+// @version      2.15.70
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -55,6 +55,8 @@
   const ATTACH_IMAGE_PREVIEW_LS_KEY = "hs2025-attach-image-preview";
   const ATTACH_TEXT_PREVIEW_DEFAULT = true;
   const ATTACH_TEXT_PREVIEW_LS_KEY = "hs2025-attach-text-preview";
+  const DASHBOARD_EM_SERVICO_SECTION_DEFAULT = true;
+  const DASHBOARD_EM_SERVICO_SECTION_LS_KEY = "hs2025-dashboard-em-servico-section";
   const ACOMP_TEXTAREA_SIZE_LS_KEY = "hs2025-acomp-textarea-size";
   const HIDE_SUGGESTION_FILTER_DEFAULT = true;
   const HIDE_SUGGESTION_FILTER_LS_KEY = "hs2025-hide-suggestion-filter";
@@ -95,7 +97,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.69";
+  const SCRIPT_VERSION_FALLBACK = "2.15.70";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -342,6 +344,19 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-12",
+      version: "2.15.70",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Dashboard ganhou novo filtro 'Exibir Em servico' no bloco principal para ligar/desligar a secao sem mexer nos outros filtros.",
+        "Deteccao de status agora separa corretamente 'Servico aprovado' de 'Aprovado para servico', evitando destaque indevido.",
+        "Linhas em situacao 'Servico aprovado' passaram a receber destaque branco chamativo para reforcar chamados pendentes de conclusao.",
+        "Na acao Concluir, o formulario agora exibe alerta visual para revisar consumo/minutos antes do envio, sem popup de confirmacao.",
+        "Preview de anexos TXT/SQL foi reforcado com fallback adicional para abrir no modal-editor e manter o conteudo copiavel em mais cenarios.",
+      ],
+    },
     {
       date: "2026-03-12",
       version: "2.15.69",
@@ -1374,9 +1389,11 @@ Atenciosamente.`;
   tr.hs-em:not(.req_at):not(.hs-em100) td,
   tr.hs-em:not(.req_at):not(.hs-em100) td *{ color:var(--neutral)!important; font-weight:600!important; }
   tr.hs-servico-aprovado:not(.req_at) td,
-  tr.hs-servico-aprovado:not(.req_at) td *{ color:#1f5fb4!important; font-weight:700!important; }
-  html[data-hs-theme="dark"] tr.hs-servico-aprovado:not(.req_at) td,
-  html[data-hs-theme="dark"] tr.hs-servico-aprovado:not(.req_at) td *{ color:#7ec3ff!important; }
+  tr.hs-servico-aprovado:not(.req_at) td *{
+    color:#ffffff!important;
+    font-weight:800!important;
+    text-shadow:0 0 1px rgba(0,0,0,.88), 0 0 8px rgba(255,255,255,.62)!important;
+  }
 
   #cabecalho_menu #${BTN_ID}{
     display:inline-flex; align-items:center; gap:6px;
@@ -2534,6 +2551,34 @@ Atenciosamente.`;
   }
   body.hs-request-page #interno .hs-qa-host > br{
     display:none!important;
+  }
+  body.hs-request-page #interno .hs-concluir-consumo-alert{
+    display:none;
+    width:100%;
+    margin-top:6px;
+    padding:7px 10px;
+    border-radius:8px;
+    border:1px solid #f2cf62;
+    background:linear-gradient(180deg, rgba(255,232,158,.26), rgba(255,204,92,.14));
+    color:#fff3bf;
+    font-size:11px;
+    font-weight:800;
+    line-height:1.35;
+    box-shadow:0 0 0 1px rgba(242,207,98,.2) inset;
+  }
+  body.hs-request-page #interno .hs-concluir-consumo-alert strong{
+    color:#ffffff!important;
+  }
+  body.hs-request-page #interno .hs-concluir-consumo-alert.is-visible{
+    display:block!important;
+  }
+  body.hs-request-page #interno .hs-concluir-consumo-alert.is-pulse{
+    animation:hs-concluir-consumo-pulse .84s ease;
+  }
+  @keyframes hs-concluir-consumo-pulse{
+    0%{ transform:translateY(0); box-shadow:0 0 0 1px rgba(242,207,98,.2) inset; }
+    35%{ transform:translateY(-1px); box-shadow:0 0 0 1px rgba(255,238,176,.42) inset, 0 0 16px rgba(255,228,138,.22); }
+    100%{ transform:translateY(0); box-shadow:0 0 0 1px rgba(242,207,98,.2) inset; }
   }
   @media (max-width:980px){
     body.hs-request-page #interno .hs-qa-host{
@@ -4334,6 +4379,25 @@ Atenciosamente.`;
     transform:translateY(1px)!important;
     margin-right:6px!important;
   }
+  body.hs-dashboard-page form[name="filtros"] .hs-dashboard-extra-toggle-wrap{
+    display:block!important;
+    width:100%!important;
+    margin-top:4px!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-dashboard-extra-toggle{
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:6px!important;
+    color:var(--fg)!important;
+    font-size:11px!important;
+    font-weight:700!important;
+    line-height:1.2!important;
+    cursor:pointer!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-dashboard-extra-toggle input[type="checkbox"]{
+    margin:0!important;
+    transform:translateY(0)!important;
+  }
   body.hs-dashboard-page form[name="filtros"] td :is(img, input[type="image"]){
     float:none!important;
     position:static!important;
@@ -5188,6 +5252,34 @@ Atenciosamente.`;
     } catch {}
   }
   /**
+   * Objetivo: Le preferencia de exibicao da secao "Em servico" no dashboard.
+   *
+   * Contexto: controla checkbox adicional no bloco principal de filtros.
+   * Parametros: nenhum.
+   * Retorno: boolean.
+   */
+  function isDashboardEmServicoSectionEnabled() {
+    try {
+      const raw = String(localStorage.getItem(DASHBOARD_EM_SERVICO_SECTION_LS_KEY) || "").trim().toLowerCase();
+      if (raw === "1" || raw === "true" || raw === "on") return true;
+      if (raw === "0" || raw === "false" || raw === "off") return false;
+    } catch {}
+    return DASHBOARD_EM_SERVICO_SECTION_DEFAULT;
+  }
+  /**
+   * Objetivo: Persiste preferencia de exibicao da secao "Em servico".
+   *
+   * Contexto: acionado pelo novo checkbox no formulario de filtros.
+   * Parametros:
+   * - enabled: estado desejado da secao.
+   * Retorno: void.
+   */
+  function setDashboardEmServicoSectionEnabled(enabled) {
+    try {
+      localStorage.setItem(DASHBOARD_EM_SERVICO_SECTION_LS_KEY, enabled ? "1" : "0");
+    } catch {}
+  }
+  /**
    * Objetivo: Normaliza altura do textarea de acompanhamento em faixa segura.
    *
    * Contexto: usada para persistir/reaplicar resize manual entre chamados.
@@ -5698,19 +5790,31 @@ Atenciosamente.`;
     const mime = String(fileType || "").trim().toLowerCase();
     if (/^(text\/plain|application\/sql|text\/sql|application\/x-sql)$/i.test(mime)) return true;
 
+    const textExtRx = /\.(txt|sql|log|csv|json|xml|md|ini)$/i;
+    const decodeMaybe = (value) => {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      try {
+        return decodeURIComponent(raw);
+      } catch {
+        return raw;
+      }
+    };
+
     const name = String(fileName || "").trim().toLowerCase();
-    if (/\.(txt|sql)$/.test(name)) return true;
+    if (textExtRx.test(name)) return true;
 
     const src = String(source || "").trim().toLowerCase();
     if (!src) return false;
     if (/^data:text\/plain(?:;|,)/.test(src)) return true;
-    if (/\.(txt|sql)(?:[?#].*)?$/.test(src)) return true;
+    if (textExtRx.test(src)) return true;
     try {
       const url = new URL(String(source || ""), location.href);
-      const queryNames = ["name", "filename", "file", "arquivo", "anexo"];
+      if (textExtRx.test(String(url.pathname || "").toLowerCase())) return true;
+      const queryNames = ["name", "filename", "file", "arquivo", "anexo", "nome", "titulo"];
       for (const key of queryNames) {
-        const value = String(url.searchParams.get(key) || "").trim().toLowerCase();
-        if (/\.(txt|sql)$/.test(value)) return true;
+        const value = decodeMaybe(url.searchParams.get(key));
+        if (textExtRx.test(String(value || "").toLowerCase())) return true;
       }
     } catch {}
     return false;
@@ -5742,8 +5846,11 @@ Atenciosamente.`;
    * Efeitos colaterais: leitura opcional de localStorage.
    */
   function isAttachmentTextModalPreviewAllowed(source, fileName = "", fileType = "") {
-    if (!isAttachmentTextPreviewEnabled()) return false;
-    return isTextOrSqlPreviewCandidate(source, fileName, fileType);
+    const candidate = isTextOrSqlPreviewCandidate(source, fileName, fileType);
+    if (!candidate) return false;
+    if (isAttachmentTextPreviewEnabled()) return true;
+    const rawSource = String(source || "").trim();
+    return /(?:^|\/)anexo(?:\.php)?(?:[?#]|$)/i.test(rawSource) || /[?&](?:guid|anexo|id_anexo)=/i.test(rawSource);
   }
   /**
    * Objetivo: Le versao de notificacao ja vista no menu de configuracoes.
@@ -9709,6 +9816,142 @@ Atenciosamente.`;
     });
   }
   /**
+   * Objetivo: Resolve secao "Em servico" (cabecalho + grade) no dashboard.
+   *
+   * Contexto: usado pelo novo checkbox para exibir/ocultar o bloco no grid principal.
+   * Parametros: nenhum.
+   * Retorno: Array<{header:HTMLElement, table:HTMLTableElement, between:HTMLElement[]}>.
+   */
+  function getDashboardEmServicoSectionTargets() {
+    if (!document.body.classList.contains("hs-dashboard-page")) return [];
+    const targets = [];
+    const seenTables = new Set();
+    const headers = Array.from(
+      document.querySelectorAll("#conteudo h1, #conteudo h2, #conteudo h3, #conteudo div, #conteudo span, #conteudo strong, #conteudo b")
+    ).filter((el) => {
+      if (!(el instanceof HTMLElement)) return false;
+      const txt = norm(el.textContent || "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!/^em\s+servic/.test(txt)) return false;
+      if (/servic.*aprovad/.test(txt)) return false;
+      return true;
+    });
+    headers.forEach((header) => {
+      let sib = header.nextElementSibling;
+      const between = [];
+      let table = null;
+      while (sib) {
+        if (sib.matches && sib.matches("table.sortable")) {
+          table = sib;
+          break;
+        }
+        if (/^h[1-3]$/i.test(String(sib.tagName || ""))) break;
+        if (sib instanceof HTMLElement) between.push(sib);
+        sib = sib.nextElementSibling;
+      }
+      if (!(table instanceof HTMLTableElement)) return;
+      if (seenTables.has(table)) return;
+      seenTables.add(table);
+      targets.push({ header, table, between });
+    });
+    return targets;
+  }
+  /**
+   * Objetivo: Aplica visibilidade da secao "Em servico" no dashboard.
+   *
+   * Contexto: refletido pelo checkbox customizado no formulario de filtros.
+   * Parametros:
+   * - forceEnabled: boolean opcional para sobrescrever preferencia salva.
+   * Retorno: void.
+   */
+  function applyDashboardEmServicoSectionVisibility(forceEnabled = null) {
+    if (!document.body.classList.contains("hs-dashboard-page")) return;
+    const enabled = typeof forceEnabled === "boolean" ? forceEnabled : isDashboardEmServicoSectionEnabled();
+    const markNode = (node, visible) => {
+      if (!(node instanceof HTMLElement)) return;
+      if (visible) {
+        if (node.dataset.hsEmServicoHidden !== "1") return;
+        const prev = String(node.dataset.hsEmServicoPrevDisplay || "");
+        if (prev) node.style.setProperty("display", prev, "important");
+        else node.style.removeProperty("display");
+        delete node.dataset.hsEmServicoHidden;
+        delete node.dataset.hsEmServicoPrevDisplay;
+        return;
+      }
+      if (node.dataset.hsEmServicoHidden !== "1") {
+        node.dataset.hsEmServicoPrevDisplay = node.style.display || "";
+      }
+      node.dataset.hsEmServicoHidden = "1";
+      node.style.setProperty("display", "none", "important");
+    };
+
+    getDashboardEmServicoSectionTargets().forEach((target) => {
+      markNode(target.header, enabled);
+      target.between.forEach((node) => markNode(node, enabled));
+      markNode(target.table, enabled);
+    });
+  }
+  /**
+   * Objetivo: Injeta checkbox "Exibir Em servico" junto aos filtros principais.
+   *
+   * Contexto: permite ligar/desligar a secao de atendimento em servico no dashboard.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function ensureDashboardEmServicoSectionToggle() {
+    if (!document.body.classList.contains("hs-dashboard-page")) return;
+    const form = document.querySelector("#conteudo .filtros form[name='filtros'], form[name='filtros']");
+    if (!(form instanceof HTMLFormElement)) {
+      applyDashboardEmServicoSectionVisibility();
+      return;
+    }
+
+    const resolveHost = () => {
+      const wrappers = Array.from(form.querySelectorAll("label,td,div,span,p,strong,b,font"));
+      const anchor = wrappers.find((el) => {
+        const txt = norm(el.textContent || "");
+        return /sem\s+responsavel|retorno\s+externo|exibir\s+historic/.test(txt);
+      });
+      const host = anchor?.closest("td,div,p,span,label");
+      if (host instanceof HTMLElement) {
+        if (host.tagName === "LABEL" && host.parentElement instanceof HTMLElement) return host.parentElement;
+        return host;
+      }
+      const firstTd = form.querySelector("td");
+      return firstTd instanceof HTMLElement ? firstTd : form;
+    };
+
+    const host = resolveHost();
+    let wrap = form.querySelector("#hs2025-dashboard-em-servico-wrap");
+    if (!(wrap instanceof HTMLElement)) {
+      wrap = document.createElement("div");
+      wrap.id = "hs2025-dashboard-em-servico-wrap";
+      wrap.className = "hs-dashboard-extra-toggle-wrap";
+      wrap.innerHTML =
+        '<label class="hs-dashboard-extra-toggle"><input type="checkbox" id="hs2025-dashboard-em-servico-toggle" /><span>Exibir Em servico</span></label>';
+    }
+    if (wrap.parentElement !== host) host.appendChild(wrap);
+
+    const checkbox = wrap.querySelector("#hs2025-dashboard-em-servico-toggle");
+    if (!(checkbox instanceof HTMLInputElement)) {
+      applyDashboardEmServicoSectionVisibility();
+      return;
+    }
+    checkbox.checked = isDashboardEmServicoSectionEnabled();
+    if (checkbox.dataset.hsBound !== "1") {
+      checkbox.dataset.hsBound = "1";
+      checkbox.addEventListener("change", () => {
+        const enabled = !!checkbox.checked;
+        setDashboardEmServicoSectionEnabled(enabled);
+        applyDashboardEmServicoSectionVisibility(enabled);
+        toast(enabled ? "Secao 'Em servico' exibida." : "Secao 'Em servico' ocultada.", "ok", 2200);
+      });
+    }
+
+    applyDashboardEmServicoSectionVisibility(!!checkbox.checked);
+  }
+  /**
    * Objetivo: Classifica a tela como visualizar requisiÃ§Ã£o para regras especÃ­ficas.
    *
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
@@ -10506,21 +10749,20 @@ Atenciosamente.`;
     }
   }
   /**
-   * Objetivo: Detecta situacao "Servico aprovado" de forma tolerante.
+   * Objetivo: Detecta situacao "Servico aprovado" sem confundir com "Aprovado para servico".
    *
-   * Contexto: usado para coloracao azul e contagem do painel da consulta.
+   * Contexto: usado para coloracao de destaque e contagem do painel da consulta.
    * Parametros:
    * - situacaoValue: texto de situacao bruto/normalizado.
    * Retorno: boolean.
    */
   function isServicoAprovadoStatus(situacaoValue) {
-    const sit = norm(situacaoValue || "").trim();
+    const sit = norm(situacaoValue || "")
+      .replace(/\s+/g, " ")
+      .trim();
     if (!sit) return false;
-    const hasServicoAprovado =
-      /\bservic\w*\b.*\baprovad\w*\b/.test(sit) || /\baprovad\w*\b.*\bservic\w*\b/.test(sit);
-    if (!hasServicoAprovado) return false;
-    if (/em\s+aprovac/.test(sit)) return false;
-    if (/solicitac/.test(sit) && /aprovac/.test(sit)) return false;
+    if (!/^(?:situac(?:ao|a)?\s*[:\-]?\s*)?servic\w*\s+aprovad\w*\b/.test(sit)) return false;
+    if (/\baprovad\w*\s+para\s+servic\w*\b/.test(sit)) return false;
     return true;
   }
   /**
@@ -12328,6 +12570,80 @@ Atenciosamente.`;
     return text;
   }
   /**
+   * Objetivo: Tenta ler conteudo textual de anexo via iframe oculto como fallback.
+   *
+   * Contexto: cobre cenarios em que fetch direto falha, mas a sessao ainda permite renderizacao do arquivo.
+   * Parametros:
+   * - fileUrl: URL do anexo.
+   * Retorno: Promise<string>.
+   */
+  function fetchAttachmentTextPreviewContentViaIframe(fileUrl) {
+    const raw = String(fileUrl || "").trim();
+    if (!raw) return Promise.reject(new Error("URL vazia."));
+    return new Promise((resolve, reject) => {
+      let absolute = raw;
+      try {
+        absolute = new URL(raw, location.href).toString();
+      } catch {}
+
+      const iframe = document.createElement("iframe");
+      iframe.setAttribute("aria-hidden", "true");
+      iframe.setAttribute("tabindex", "-1");
+      iframe.style.position = "fixed";
+      iframe.style.left = "-99999px";
+      iframe.style.top = "-99999px";
+      iframe.style.width = "1px";
+      iframe.style.height = "1px";
+      iframe.style.opacity = "0";
+      iframe.style.pointerEvents = "none";
+
+      let settled = false;
+      const finish = (ok, value) => {
+        if (settled) return;
+        settled = true;
+        try {
+          iframe.remove();
+        } catch {}
+        if (ok) resolve(value);
+        else reject(value instanceof Error ? value : new Error(String(value || "Falha no iframe.")));
+      };
+
+      const timer = window.setTimeout(() => {
+        finish(false, new Error("Timeout ao carregar anexo em iframe."));
+      }, 12000);
+      const safeFinish = (ok, value) => {
+        window.clearTimeout(timer);
+        finish(ok, value);
+      };
+
+      iframe.onerror = () => safeFinish(false, new Error("Falha ao carregar iframe do anexo."));
+      iframe.onload = () => {
+        (async () => {
+          try {
+            const doc = iframe.contentDocument || iframe.contentWindow?.document;
+            if (!doc) throw new Error("Documento do iframe indisponivel.");
+            const htmlPayload = String(doc.documentElement?.outerHTML || "");
+            const embeddedUrl = extractEmbeddedAttachmentUrl(htmlPayload, absolute);
+            if (embeddedUrl && embeddedUrl !== absolute) {
+              const nested = await fetchAttachmentTextPreviewContent(embeddedUrl, 0);
+              safeFinish(true, nested);
+              return;
+            }
+            const pre = doc.querySelector("pre");
+            const text = String(pre?.textContent || doc.body?.textContent || "");
+            if (!text.trim()) throw new Error("Iframe sem texto legivel.");
+            safeFinish(true, text);
+          } catch (err) {
+            safeFinish(false, err);
+          }
+        })().catch((err) => safeFinish(false, err));
+      };
+
+      document.body.appendChild(iframe);
+      iframe.src = absolute;
+    });
+  }
+  /**
    * Objetivo: Abre preview textual de anexo remoto (TXT/SQL) com sessao autenticada.
    *
    * Contexto: anexos recebidos no chamado.
@@ -12337,13 +12653,13 @@ Atenciosamente.`;
    * Retorno: Promise<void>.
    */
   async function openTextAttachmentPreviewFromUrl(fileUrl, label = "") {
-    if (!isAttachmentTextPreviewEnabled()) {
-      const rawDirect = String(fileUrl || "").trim();
-      if (rawDirect) window.open(rawDirect, "_blank", "noopener,noreferrer");
-      return;
-    }
     const raw = String(fileUrl || "").trim();
     if (!raw) return;
+    const textCandidate = isTextOrSqlPreviewCandidate(raw, label, "");
+    if (!textCandidate) {
+      window.open(raw, "_blank", "noopener,noreferrer");
+      return;
+    }
     let absolute = raw;
     try {
       absolute = new URL(raw, location.href).toString();
@@ -12374,13 +12690,23 @@ Atenciosamente.`;
         stateEl.textContent = "";
       }
     } catch {
-      if (stateEl instanceof HTMLElement) {
-        stateEl.style.display = "block";
-        stateEl.textContent = "Nao foi possivel carregar o texto no preview interno.";
+      try {
+        const textIframe = await fetchAttachmentTextPreviewContentViaIframe(absolute);
+        codeEl.textContent = normalizeTextPreviewContent(textIframe) || "// arquivo vazio";
+        if (stateEl instanceof HTMLElement) {
+          stateEl.style.display = "none";
+          stateEl.textContent = "";
+        }
+        toast("Preview TXT/SQL carregado com fallback interno.", "ok", 2200);
+      } catch {
+        if (stateEl instanceof HTMLElement) {
+          stateEl.style.display = "block";
+          stateEl.textContent = "Nao foi possivel carregar o texto no preview interno.";
+        }
+        toast("Falha no preview TXT/SQL. Abrindo em nova guia.", "err", 2600);
+        window.open(absolute, "_blank", "noopener,noreferrer");
+        closeTextPreviewModal();
       }
-      toast("Falha no preview TXT/SQL. Abrindo em nova guia.", "err", 2600);
-      window.open(absolute, "_blank", "noopener,noreferrer");
-      closeTextPreviewModal();
     }
   }
   /**
@@ -14669,6 +14995,89 @@ Atenciosamente.`;
     sendBtn.click();
   }
   /**
+   * Objetivo: Detecta se label/opcao representa acao de conclusao.
+   *
+   * Contexto: evita alerta em opcoes que apenas mencionam "nao concluir".
+   * Parametros:
+   * - value: texto da opcao/acao.
+   * Retorno: boolean.
+   */
+  function isConcluirActionLabel(value) {
+    const txt = norm(String(value || ""))
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!txt) return false;
+    if (/nao[^a-z0-9]*conclu/.test(txt)) return false;
+    return /\bconclu\w*\b/.test(txt) || /\bfinaliz\w*\b/.test(txt);
+  }
+  /**
+   * Objetivo: Informa se acao selecionada no formulario e "Concluir".
+   *
+   * Contexto: utilizado para exibir alerta de conferencia de consumo.
+   * Parametros:
+   * - select: campo de acao do acompanhamento.
+   * Retorno: boolean.
+   */
+  function isConcluirActionSelected(select) {
+    if (!(select instanceof HTMLSelectElement)) return false;
+    const selected = select.selectedOptions?.[0] || select.options?.[select.selectedIndex] || null;
+    const valueRaw = String(selected?.value ?? "").trim();
+    if (valueRaw === "5") return true;
+    return isConcluirActionLabel(selected?.textContent || selected?.label || "");
+  }
+  /**
+   * Objetivo: Mostra alerta visual para revisar consumo antes de concluir chamado.
+   *
+   * Contexto: tela visualizar_requisicao, abaixo da barra de acao do acompanhamento.
+   * Parametros: nenhum.
+   * Retorno: void.
+   */
+  function ensureConcluirConsumoAlert() {
+    if (!isRequestVisualizarPage()) return;
+    const elements = findRequestActionElements() || findLegacyRequestActionElements();
+    if (!elements?.actionSelect || !elements?.sendBtn) return;
+    const actionSelect = elements.actionSelect;
+    const sendBtn = elements.sendBtn;
+    const host =
+      (elements.actionHost instanceof HTMLElement && elements.actionHost) ||
+      sendBtn.closest("td,div,p") ||
+      sendBtn.parentElement;
+    if (!(host instanceof HTMLElement)) return;
+
+    let warn = host.querySelector("#hs-concluir-consumo-alert");
+    if (!(warn instanceof HTMLElement)) {
+      warn = document.createElement("div");
+      warn.id = "hs-concluir-consumo-alert";
+      warn.className = "hs-concluir-consumo-alert";
+      warn.innerHTML =
+        "<strong>Concluir chamado:</strong> confirme se o consumo/minutos foi preenchido corretamente antes de enviar.";
+      host.appendChild(warn);
+    } else if (warn.parentElement !== host) {
+      host.appendChild(warn);
+    }
+
+    const sync = (pulse = false) => {
+      const shouldShow = isConcluirActionSelected(actionSelect);
+      warn.classList.toggle("is-visible", shouldShow);
+      if (!shouldShow || !pulse) return;
+      warn.classList.remove("is-pulse");
+      void warn.offsetWidth;
+      warn.classList.add("is-pulse");
+    };
+
+    if (actionSelect.dataset.hsConcluirAlertBound !== "1") {
+      actionSelect.dataset.hsConcluirAlertBound = "1";
+      actionSelect.addEventListener("change", () => sync(true));
+      actionSelect.addEventListener("input", () => sync(false));
+    }
+    if (sendBtn instanceof HTMLElement && sendBtn.dataset.hsConcluirAlertBound !== "1") {
+      sendBtn.dataset.hsConcluirAlertBound = "1";
+      sendBtn.addEventListener("click", () => sync(true), true);
+    }
+
+    sync(false);
+  }
+  /**
    * Objetivo: Monta barra de atalhos e regras de automaÃ§Ã£o da requisiÃ§Ã£o.
    *
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
@@ -15426,6 +15835,7 @@ Atenciosamente.`;
     markServiceRows();
     tagDashboardGridColumns();
     signalExternalReturnSlaRules();
+    applyDashboardEmServicoSectionVisibility();
     registerCurrentNovaRows();
     renderRowAlerts();
     ensureCountBadges();
@@ -16219,6 +16629,7 @@ Atenciosamente.`;
     runStep(tagDashboardGridColumns, "tagDashboardGridColumns");
     runStep(signalExternalReturnSlaRules, "signalExternalReturnSlaRules");
     runStep(ensureDashboardNovasSection, "ensureDashboardNovasSection");
+    runStep(ensureDashboardEmServicoSectionToggle, "ensureDashboardEmServicoSectionToggle");
     runStep(ensureAjaxGridRefresh, "ensureAjaxGridRefresh");
     runStep(registerCurrentNovaRows, "registerCurrentNovaRows");
     runStep(renderRowAlerts, "renderRowAlerts");
@@ -16230,6 +16641,7 @@ Atenciosamente.`;
     runStep(ensureSingleImageAttachments, "ensureSingleImageAttachments");
     runStep(bindAcompanhamentoTextareaSizePersistence, "bindAcompanhamentoTextareaSizePersistence");
     runStep(ensureRequestQuickActions, "ensureRequestQuickActions");
+    runStep(ensureConcluirConsumoAlert, "ensureConcluirConsumoAlert");
     runStep(layoutRequestCalendarAndConsumption, "layoutRequestCalendarAndConsumption");
     runStep(highlightAcompanhamentosResponsavelEspecial, "highlightAcompanhamentosResponsavelEspecial");
     runStep(disableAcompanhamentosHoverEffects, "disableAcompanhamentosHoverEffects");
