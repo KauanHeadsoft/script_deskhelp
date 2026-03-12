@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.80
+// @version      2.15.81
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -20,6 +20,7 @@
 // - Arquivos oficiais: .user.js (principal), .user2.js (modulo) e updates-log.json.
 // - Sempre que atualizar o .user.js, atualizar o updates-log.json com as informacoes da mudanca.
 // - Toda atualizacao/alteracao deve incrementar @version para todos receberem o update.
+// - Qualquer mudanca no .user2.js tambem exige incremento de versao no .user.js.
 
 (() => {
   const BTN_ID = "hs2025-theme-btn";
@@ -106,7 +107,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.80";
+  const SCRIPT_VERSION_FALLBACK = "2.15.81";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -122,6 +123,7 @@
     "Regra 2: toda nova versao deve adicionar uma entrada no RECENT_UPDATES.",
     "Regra 3: manter notas objetivas do que mudou em cada versao.",
     "Regra 4: para correcao obrigatoria, preencher type='bugfix' e mandatory=true.",
+    "Regra 5: mudanca no .user2.js exige nova versao no .user.js para liberar update na extensao.",
   ]);
   const THEME_LABEL_WHEN_DARK = "Modo Claro";
   const THEME_LABEL_WHEN_LIGHT = "Modo Escuro";
@@ -353,6 +355,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-12",
+      version: "2.15.81",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Layout dos filtros do dashboard foi realinhado para manter os blocos superiores e checkboxes organizados.",
+        "A celula de checkboxes nao recebe mais forca de layout flex do topo (Responsavel/Cliente), evitando desalinhamento.",
+        "Regra de versionamento consolidada: toda mudanca no .user2.js exige incremento de versao no .user.js.",
+      ],
+    },
     {
       date: "2026-03-12",
       version: "2.15.80",
@@ -4496,6 +4509,9 @@ Atenciosamente.`;
     min-width:244px!important;
     max-width:244px!important;
     white-space:nowrap!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] td:nth-child(2):has(select, input[type="text"]),
+  body.hs-dashboard-page form[name="filtros"] td:nth-child(4):has(select, input[type="text"]){
     display:flex!important;
     align-items:center!important;
     gap:3px!important;
@@ -4518,6 +4534,20 @@ Atenciosamente.`;
   body.hs-dashboard-page form[name="filtros"] input[type="checkbox"]{
     transform:translateY(1px)!important;
     margin-right:6px!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] td:has(input[type="checkbox"]){
+    white-space:normal!important;
+    display:block!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] td label{
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:6px!important;
+    margin:2px 0!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] td label input[type="checkbox"]{
+    margin:0!important;
+    transform:none!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-dashboard-extra-toggle-wrap{
     display:block!important;

@@ -1,6 +1,17 @@
 ﻿[
     {
         "date":  "2026-03-12",
+        "version":  "2.15.81",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Layout dos filtros do dashboard foi realinhado para manter os blocos superiores e checkboxes organizados.",
+                      "A celula de checkboxes nao recebe mais forca de layout flex do topo (Responsavel/Cliente), evitando desalinhamento.",
+                      "Regra de versionamento consolidada: toda mudanca no .user2.js exige incremento de versao no .user.js para liberar update na extensao."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
         "version":  "2.15.80",
         "type":  "routine",
         "mandatory":  false,
