@@ -499,7 +499,7 @@
     info.className = "hs2-subtitle";
     info.textContent =
       txt(subtab?.description) ||
-      "Defina as cores de texto e badges para cada situacao visivel no sistema.";
+      "Defina as cores da linha inteira, texto e badges para cada situacao visivel no sistema.";
     panel.appendChild(info);
 
     const head = document.createElement("div");
@@ -606,7 +606,7 @@
         };
 
         grid.appendChild(mkField("textColor", "Texto"));
-        grid.appendChild(mkField("badgeBgColor", "Badge fundo"));
+        grid.appendChild(mkField("badgeBgColor", "Linha + badge fundo"));
         grid.appendChild(mkField("badgeTextColor", "Badge texto"));
         card.appendChild(grid);
 

@@ -1,6 +1,17 @@
 ﻿[
     {
         "date":  "2026-03-12",
+        "version":  "2.15.82",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Cores por situacao agora aplicam o campo de fundo na linha inteira da grade (todos os TDs), mantendo badge e texto sincronizados.",
+                      "Aplicacao de cor por situacao ganhou fallback sem variaveis CSS para navegadores mais restritos, reduzindo diferencas de renderizacao.",
+                      "Leitura da coluna Situacao foi reforcada com limpeza de badges auxiliares e normalizacao resiliente para reconhecer mais cenarios."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
         "version":  "2.15.81",
         "type":  "routine",
         "mandatory":  false,

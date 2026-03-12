@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.81
+// @version      2.15.82
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -107,7 +107,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.81";
+  const SCRIPT_VERSION_FALLBACK = "2.15.82";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -355,6 +355,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-12",
+      version: "2.15.82",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Cores por situacao agora aplicam o campo de fundo na linha inteira da grade (todos os TDs), mantendo badge e texto sincronizados.",
+        "Aplicacao de cor por situacao ganhou fallback sem variaveis CSS para navegadores mais restritos, reduzindo diferencas de renderizacao.",
+        "Leitura da coluna Situacao foi reforcada com limpeza de badges auxiliares e normalizacao resiliente para reconhecer mais cenarios.",
+      ],
+    },
     {
       date: "2026-03-12",
       version: "2.15.81",
@@ -1356,6 +1367,10 @@ Atenciosamente.`;
   }
   table.sortable tbody tr:nth-child(odd) td{ background:var(--row1)!important; }
   table.sortable tbody tr:nth-child(even) td{ background:var(--row2)!important; }
+  table.sortable tbody tr[data-hs-sit-row-bg] > td{
+    background:var(--hs-sit-row-bg)!important;
+    background-color:var(--hs-sit-row-bg)!important;
+  }
 
   /* Tabelas internas da tela de visualizacao (nao sortable) */
   html[data-hs-theme="dark"] body:not(.hs-dashboard-page) #conteudo table:not(.sortable){
@@ -5235,11 +5250,14 @@ Atenciosamente.`;
    * - remocao de acentos
    * - preservacao de caracteres nao acentuados para buscas por token
    */
-  const norm = (s) =>
-    (s || "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
+  const norm = (s) => {
+    const raw = String(s || "").toLowerCase();
+    try {
+      return raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    } catch {
+      return raw;
+    }
+  };
   /**
    * Objetivo: Informa se o diagnostico de abertura duplicada esta ativo.
    *
@@ -5932,12 +5950,17 @@ Atenciosamente.`;
       const headers = Array.from(headerRow.cells || []).map((c) => norm(c.textContent || ""));
       const idxSituacao = headers.findIndex((h) => SITUACAO_RX.test(h));
       if (idxSituacao < 0) return;
-      Array.from(table.tBodies?.[0]?.rows || table.rows || []).forEach((tr) => {
+      const bodyRows = Array.from(table.tBodies || []).flatMap((tbody) => Array.from(tbody.rows || []));
+      (bodyRows.length ? bodyRows : Array.from(table.rows || [])).forEach((tr) => {
         if (!(tr instanceof HTMLTableRowElement)) return;
         if (tr.querySelector("th")) return;
         const td = tr.cells[idxSituacao];
         if (!(td instanceof HTMLTableCellElement)) return;
-        const sitNode = td.querySelector(".Situacao");
+        const sitNode =
+          td.querySelector(".Situacao") ||
+          td.querySelector(".situacao") ||
+          td.querySelector("[class*='Situacao']") ||
+          td.querySelector("[class*='situacao']");
         if (sitNode) {
           upsert(sitNode.textContent || "");
           return;
@@ -6087,15 +6110,48 @@ Atenciosamente.`;
     const scopedMode = resolveAppearanceThemeMode(mode);
     const configured = readSituacaoColorSettings(scopedMode);
     const borderMixerColor = scopedMode === "light" ? "#0F172A" : "#DCE6F2";
+    const supportsCssVars =
+      !!window.CSS && typeof window.CSS.supports === "function" && window.CSS.supports("--hs-sit-row-bg", "#000000");
 
     const applyCellTextColor = (td, entry) => {
       if (!(td instanceof HTMLTableCellElement)) return;
       td.style.removeProperty("color");
-      const sitNode = td.querySelector(".Situacao");
+      const sitNode =
+        td.querySelector(".Situacao") ||
+        td.querySelector(".situacao") ||
+        td.querySelector("[class*='Situacao']") ||
+        td.querySelector("[class*='situacao']");
       if (sitNode instanceof HTMLElement) sitNode.style.removeProperty("color");
       const target = sitNode || td;
       if (!(target instanceof HTMLElement)) return;
       if (entry?.textColor) target.style.setProperty("color", entry.textColor, "important");
+    };
+    const applyRowBackgroundColor = (tr, colorRaw) => {
+      if (!(tr instanceof HTMLTableRowElement)) return;
+      delete tr.dataset.hsSitRowBg;
+      tr.style.removeProperty("--hs-sit-row-bg");
+      if (!supportsCssVars) {
+        Array.from(tr.cells || []).forEach((cell) => {
+          if (!(cell instanceof HTMLTableCellElement)) return;
+          if (cell.dataset.hsSitRowPainted !== "1") return;
+          cell.style.removeProperty("background");
+          cell.style.removeProperty("background-color");
+          delete cell.dataset.hsSitRowPainted;
+        });
+      }
+      const color = normalizeHexColor(colorRaw || "");
+      if (!color) return;
+      tr.dataset.hsSitRowBg = color;
+      if (supportsCssVars) {
+        tr.style.setProperty("--hs-sit-row-bg", color);
+        return;
+      }
+      Array.from(tr.cells || []).forEach((cell) => {
+        if (!(cell instanceof HTMLTableCellElement)) return;
+        cell.style.setProperty("background", color, "important");
+        cell.style.setProperty("background-color", color, "important");
+        cell.dataset.hsSitRowPainted = "1";
+      });
     };
     const applyBadgeColors = (el, entry) => {
       if (!(el instanceof HTMLElement)) return;
@@ -6122,7 +6178,8 @@ Atenciosamente.`;
       const idxSituacao = headers.findIndex((h) => SITUACAO_RX.test(h));
       if (idxSituacao < 0) return;
 
-      Array.from(table.tBodies?.[0]?.rows || table.rows || []).forEach((tr) => {
+      const bodyRows = Array.from(table.tBodies || []).flatMap((tbody) => Array.from(tbody.rows || []));
+      (bodyRows.length ? bodyRows : Array.from(table.rows || [])).forEach((tr) => {
         if (!(tr instanceof HTMLTableRowElement)) return;
         if (tr.querySelector("th")) return;
         const td = tr.cells[idxSituacao];
@@ -6131,13 +6188,18 @@ Atenciosamente.`;
         const key = normalizeSituacaoColorKey(statusText);
         const entry = key ? configured[key] || null : null;
         if (key) {
+          tr.dataset.hsSituacaoKey = key;
+          tr.dataset.hsSituacaoLabel = statusText;
           td.dataset.hsSituacaoKey = key;
           td.dataset.hsSituacaoLabel = statusText;
         } else {
+          delete tr.dataset.hsSituacaoKey;
+          delete tr.dataset.hsSituacaoLabel;
           delete td.dataset.hsSituacaoKey;
           delete td.dataset.hsSituacaoLabel;
         }
         applyCellTextColor(td, entry);
+        applyRowBackgroundColor(tr, entry?.badgeBgColor || "");
       });
     });
 
@@ -9964,7 +10026,7 @@ Atenciosamente.`;
                 id: "cores",
                 label: "Cores por situacao",
                 description:
-                  "Personalize cor de texto e badges para qualquer situacao detectada na tela.",
+                  "Personalize cor da linha inteira, texto e badges para qualquer situacao detectada na tela.",
                 statusColors: true,
                 controls: [],
               },
@@ -12725,12 +12787,18 @@ Atenciosamente.`;
    */
   function getSituacaoCellText(td) {
     if (!(td instanceof HTMLTableCellElement)) return "";
-    const sitNode = td.querySelector(".Situacao");
-    if (sitNode) return String(sitNode.textContent || "").trim();
+    const sitNode =
+      td.querySelector(".Situacao") ||
+      td.querySelector(".situacao") ||
+      td.querySelector("[class*='Situacao']") ||
+      td.querySelector("[class*='situacao']");
+    if (sitNode) return sanitizeSituacaoColorLabel(sitNode.textContent || "");
 
     const clone = td.cloneNode(true);
-    clone.querySelectorAll(".hs-first-att-wrap").forEach((el) => el.remove());
-    return String(clone.textContent || "").trim();
+    clone
+      .querySelectorAll(".hs-first-att-wrap, .hs-situacao-sinal, .hs-ext-sla-chip, .hs-row-state-dot")
+      .forEach((el) => el.remove());
+    return sanitizeSituacaoColorLabel(clone.textContent || "");
   }
   /**
    * Objetivo: Garante botÃ£o de 1Âº atendimento na consulta de requisiÃ§Ãµes.
