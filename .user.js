@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.84
+// @version      2.15.85
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -107,7 +107,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.84";
+  const SCRIPT_VERSION_FALLBACK = "2.15.85";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -355,6 +355,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-12",
+      version: "2.15.85",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Teste de notificacao do user2 foi reforcado com fallback visual direto (canto inferior direito) para confirmar clique mesmo em ambientes restritos.",
+        "Animacao de entrada do card agora possui acionamento redundante (requestAnimationFrame + fallback temporal) para evitar sumico silencioso.",
+        "API do user2 passou a expor showPlainNotificationFallback para diagnostico rapido de renderizacao.",
+      ],
+    },
     {
       date: "2026-03-12",
       version: "2.15.84",

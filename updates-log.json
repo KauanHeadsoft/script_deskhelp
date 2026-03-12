@@ -1,6 +1,17 @@
 ﻿[
     {
         "date":  "2026-03-12",
+        "version":  "2.15.85",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Teste de notificacao do user2 foi reforcado com fallback visual direto (canto inferior direito) para confirmar clique mesmo em ambientes restritos.",
+                      "Animacao de entrada do card agora possui acionamento redundante (requestAnimationFrame + fallback temporal) para evitar sumico silencioso.",
+                      "API do user2 passou a expor showPlainNotificationFallback para diagnostico rapido de renderizacao."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
         "version":  "2.15.84",
         "type":  "routine",
         "mandatory":  false,

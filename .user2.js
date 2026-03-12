@@ -159,6 +159,31 @@
     }, 320);
   }
 
+  function showPlainNotificationFallback(message = "") {
+    if (!document?.body) return null;
+    const box = document.createElement("div");
+    box.textContent = txt(message || "Notificacao de teste acionada.");
+    box.style.position = "fixed";
+    box.style.right = "12px";
+    box.style.bottom = "12px";
+    box.style.zIndex = "1000044";
+    box.style.maxWidth = "min(360px, calc(100vw - 24px))";
+    box.style.padding = "10px 12px";
+    box.style.borderRadius = "10px";
+    box.style.border = "1px solid rgba(109,181,243,.82)";
+    box.style.background = "rgba(12,28,46,.98)";
+    box.style.color = "#EAF4FF";
+    box.style.boxShadow = "0 14px 28px rgba(0,0,0,.45)";
+    box.style.fontSize = "12px";
+    box.style.fontWeight = "700";
+    box.style.lineHeight = "1.35";
+    document.body.appendChild(box);
+    window.setTimeout(() => {
+      if (box.isConnected) box.remove();
+    }, 2600);
+    return box;
+  }
+
   function showChamadoUpdateNotification(payload = {}) {
     if (!document?.body) return null;
     injectStyle();
@@ -225,30 +250,56 @@
     });
 
     host.appendChild(card);
-    requestAnimationFrame(() => card.classList.add("hs2-notify-show"));
+    const showNow = () => {
+      card.classList.add("hs2-notify-show");
+      card.style.opacity = "1";
+      card.style.transform = "translateY(0) scale(1)";
+    };
+    const raf =
+      typeof window.requestAnimationFrame === "function"
+        ? window.requestAnimationFrame.bind(window)
+        : (cb) => window.setTimeout(cb, 16);
+    try {
+      raf(showNow);
+      window.setTimeout(() => {
+        if (!card.classList.contains("hs2-notify-show")) showNow();
+      }, 90);
+    } catch {
+      showNow();
+    }
     return card;
   }
 
   function runSettingsNotificationTest() {
-    notifyTestCounter += 1;
-    const seq = notifyTestCounter;
-    const sampleId = String(46000 + ((seq * 13) % 999));
-    const sampleStatus = seq % 2 === 0 ? "Aprovado para servico" : "Novas informacoes";
-    const sampleOwner = seq % 2 === 0 ? "Kauan" : "Vinicius";
-    const sampleSummary =
-      seq % 2 === 0
-        ? "Nova interacao registrada no chamado. Validar aprovacao e proximo passo."
-        : "Cliente enviou resposta no chamado. Necessario revisar e retornar.";
-    const sampleAccent = seq % 2 === 0 ? "#22D3EE" : "#34D399";
-    showChamadoUpdateNotification({
-      numero: sampleId,
-      situacao: sampleStatus,
-      responsavel: sampleOwner,
-      resumo: sampleSummary,
-      highlightColor: sampleAccent,
-      origem: "Teste do user2.js em Configuracoes",
-      updatedAt: formatDateTimePtBr(),
-    });
+    try {
+      notifyTestCounter += 1;
+      const seq = notifyTestCounter;
+      const sampleId = String(46000 + ((seq * 13) % 999));
+      const sampleStatus = seq % 2 === 0 ? "Aprovado para servico" : "Novas informacoes";
+      const sampleOwner = seq % 2 === 0 ? "Kauan" : "Vinicius";
+      const sampleSummary =
+        seq % 2 === 0
+          ? "Nova interacao registrada no chamado. Validar aprovacao e proximo passo."
+          : "Cliente enviou resposta no chamado. Necessario revisar e retornar.";
+      const sampleAccent = seq % 2 === 0 ? "#22D3EE" : "#34D399";
+      const rendered = showChamadoUpdateNotification({
+        numero: sampleId,
+        situacao: sampleStatus,
+        responsavel: sampleOwner,
+        resumo: sampleSummary,
+        highlightColor: sampleAccent,
+        origem: "Teste do user2.js em Configuracoes",
+        updatedAt: formatDateTimePtBr(),
+      });
+      if (!(rendered instanceof HTMLElement)) {
+        showPlainNotificationFallback("Teste user2 acionado, mas card principal nao renderizou.");
+      }
+      return true;
+    } catch (err) {
+      console.warn("[HSUser2] Falha no teste de notificacao:", err);
+      showPlainNotificationFallback("Teste user2 acionado com fallback visual.");
+      return false;
+    }
   }
 
   function injectStyle() {
@@ -1156,5 +1207,6 @@
   api.applySituacaoBadgePaint = applySituacaoBadgePaint;
   api.showChamadoUpdateNotification = showChamadoUpdateNotification;
   api.runSettingsNotificationTest = runSettingsNotificationTest;
+  api.showPlainNotificationFallback = showPlainNotificationFallback;
   window[API_NAME] = api;
 })();
