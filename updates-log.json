@@ -2,6 +2,18 @@
     
     {
         "date":  "2026-03-12",
+        "version":  "2.15.69",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Painel profissional da consulta foi reformulado com foco operacional: KPIs clicaveis para filtros rapidos e acao direta nos chamados.",
+                      "Novo card \"Chamados em foco\" prioriza itens criticos (sem responsavel, parados, aguardando retorno/info) com abertura em 1 clique.",
+                      "Card \"Fila mais antiga\" agora e totalmente interativo, com linha clicavel e botao Abrir para agilizar atendimento.",
+                      "Calculos do painel passaram a considerar chamados unicos por numero, reduzindo risco de contagem duplicada na grade."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
         "version":  "2.15.68",
         "type":  "bugfix",
         "mandatory":  false,

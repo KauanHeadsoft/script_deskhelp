@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.68
+// @version      2.15.69
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -95,7 +95,7 @@
     monospace: "'Consolas', 'Courier New', monospace",
   });
   const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.68";
+  const SCRIPT_VERSION_FALLBACK = "2.15.69";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -342,6 +342,18 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-12",
+      version: "2.15.69",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Painel profissional da consulta foi reformulado com foco operacional: KPIs clicaveis para filtros rapidos e acao direta nos chamados.",
+        "Novo card 'Chamados em foco' prioriza itens criticos (sem responsavel, parados, aguardando retorno/info) com abertura em 1 clique.",
+        "Card 'Fila mais antiga' agora e totalmente interativo, com linha clicavel e botao Abrir para agilizar atendimento.",
+        "Calculos do painel passaram a considerar chamados unicos por numero, reduzindo risco de contagem duplicada na grade.",
+      ],
+    },
     {
       date: "2026-03-12",
       version: "2.15.68",
@@ -3911,6 +3923,19 @@ Atenciosamente.`;
     gap:3px!important;
     min-width:0!important;
   }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi.is-clickable{
+    cursor:pointer!important;
+    transition:transform .14s ease, border-color .14s ease, filter .14s ease!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi.is-clickable:hover{
+    transform:translateY(-1px)!important;
+    border-color:rgba(128,174,222,.6)!important;
+    filter:brightness(1.04)!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi.is-clickable:focus-visible{
+    outline:2px solid rgba(140,193,247,.78)!important;
+    outline-offset:1px!important;
+  }
   body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-kpi .kpi-label{
     font-size:10px!important;
     font-weight:700!important;
@@ -3956,12 +3981,85 @@ Atenciosamente.`;
     font-size:11px!important;
     line-height:1.32!important;
   }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li.hs-consulta-ticket-item{
+    cursor:pointer!important;
+    transition:border-color .14s ease, background-color .14s ease, transform .14s ease!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li.hs-consulta-ticket-item:hover{
+    border-color:rgba(136,184,235,.5)!important;
+    background:rgba(20,42,68,.46)!important;
+    transform:translateY(-1px)!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li.hs-consulta-ticket-item:focus-visible{
+    outline:2px solid rgba(140,193,247,.82)!important;
+    outline-offset:1px!important;
+  }
   body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-main{
     display:flex!important;
     align-items:center!important;
     justify-content:space-between!important;
     gap:8px!important;
     font-weight:800!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-ticket-num{
+    font-weight:900!important;
+    letter-spacing:.01em!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-ticket-main-right{
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:7px!important;
+    flex:0 0 auto!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-ticket-open{
+    min-height:22px!important;
+    height:22px!important;
+    border-radius:6px!important;
+    border:1px solid #5f82ab!important;
+    background:linear-gradient(180deg, #2d5279, #25496d)!important;
+    color:#dcecff!important;
+    font-size:10px!important;
+    font-weight:800!important;
+    padding:2px 7px!important;
+    cursor:pointer!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-ticket-open:hover{
+    border-color:#83acd7!important;
+    filter:brightness(1.05)!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-tag-row{
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:5px!important;
+    margin-top:4px!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-tag{
+    display:inline-flex!important;
+    align-items:center!important;
+    border-radius:999px!important;
+    border:1px solid rgba(121,165,211,.45)!important;
+    background:rgba(26,62,98,.45)!important;
+    color:#d9eaff!important;
+    font-size:10px!important;
+    font-weight:800!important;
+    line-height:1!important;
+    padding:2px 7px!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-tag.is-warning{
+    border-color:rgba(214,175,90,.58)!important;
+    background:rgba(112,84,26,.45)!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-tag.is-danger{
+    border-color:rgba(209,108,108,.6)!important;
+    background:rgba(112,44,44,.44)!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-tag.is-approved{
+    border-color:rgba(96,152,216,.64)!important;
+    background:rgba(36,82,130,.42)!important;
+  }
+  body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-tag.is-new{
+    border-color:rgba(108,174,126,.58)!important;
+    background:rgba(40,90,52,.44)!important;
   }
   body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-sub{
     margin-top:3px!important;
@@ -4123,6 +4221,10 @@ Atenciosamente.`;
     border-color:#d9e6f3!important;
     background:#f8fbff!important;
   }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li.hs-consulta-ticket-item:hover{
+    border-color:#bad0e7!important;
+    background:#eff6ff!important;
+  }
   html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-action-btn{
     border-color:#bcd0e4!important;
     background:linear-gradient(180deg, #edf4fc, #dfeaf8)!important;
@@ -4137,6 +4239,36 @@ Atenciosamente.`;
     border-color:#8fb7df!important;
     background:linear-gradient(180deg, #eaf3ff, #dcecff)!important;
     box-shadow:0 0 0 1px rgba(77,127,182,.2)!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-ticket-open{
+    border-color:#b7cfe8!important;
+    background:linear-gradient(180deg, #edf5ff, #dceaf9)!important;
+    color:#20476d!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-tag{
+    border-color:#bdd4eb!important;
+    background:#eaf3ff!important;
+    color:#214a70!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-tag.is-warning{
+    border-color:#e5cf9f!important;
+    background:#fff6e6!important;
+    color:#75531f!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-tag.is-danger{
+    border-color:#e3b8b8!important;
+    background:#fff0f0!important;
+    color:#7c3535!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-tag.is-approved{
+    border-color:#a9c8e7!important;
+    background:#edf5ff!important;
+    color:#295a89!important;
+  }
+  html[data-hs-theme="light"] body.hs-dashboard-page.hs-consulta-page #hs-consulta-side .hs-consulta-list li .hs-tag.is-new{
+    border-color:#b4d8c0!important;
+    background:#edf9f0!important;
+    color:#2c6f3e!important;
   }
   body.hs-dashboard-page form[name="filtros"]{
     border-radius:14px!important;
@@ -10418,6 +10550,66 @@ Atenciosamente.`;
     renderConsultaProLayoutPanel(roots.side, roots.main);
   }
   /**
+   * Objetivo: Abre chamado a partir de elementos interativos do painel lateral.
+   *
+   * Contexto: respeita modo preview (popup) e atalhos de abertura em nova guia.
+   * Parametros:
+   * - numero: numero da requisicao.
+   * - options: {forceNewTab}.
+   * Retorno: void.
+   */
+  function openConsultaTicketFromPanel(numero, options = {}) {
+    const reqNum = String(numero || "").trim();
+    if (!reqNum) return;
+    const forceNewTab = !!options?.forceNewTab;
+    if (forceNewTab || !isPreviewOnlyModeEnabled()) {
+      openNewTab(reqNum);
+      return;
+    }
+    openReqPopup(reqNum);
+  }
+  /**
+   * Objetivo: Liga eventos de clique/teclado para abrir chamado direto do painel.
+   *
+   * Contexto: usado por listas de foco/fila para tornar toda linha clicavel.
+   * Parametros:
+   * - target: elemento clicavel.
+   * - numero: numero da requisicao alvo.
+   * Retorno: void.
+   */
+  function bindConsultaPanelTicketActivator(target, numero) {
+    if (!(target instanceof HTMLElement)) return;
+    const reqNum = String(numero || "").trim();
+    if (!reqNum) return;
+    const openFromEvent = (ev, forceNewTab = false) => {
+      ev?.preventDefault?.();
+      ev?.stopPropagation?.();
+      const shouldOpenInNewTab =
+        forceNewTab ||
+        !!ev?.ctrlKey ||
+        !!ev?.metaKey ||
+        !!ev?.shiftKey ||
+        Number(ev?.button) === 1;
+      openConsultaTicketFromPanel(reqNum, { forceNewTab: shouldOpenInNewTab });
+    };
+    target.addEventListener("click", (ev) => {
+      if (ev.defaultPrevented) return;
+      if (Number(ev.button || 0) !== 0) return;
+      openFromEvent(ev, false);
+    });
+    target.addEventListener("auxclick", (ev) => {
+      if (ev.defaultPrevented) return;
+      if (Number(ev.button) !== 1) return;
+      openFromEvent(ev, true);
+    });
+    target.addEventListener("keydown", (ev) => {
+      if (ev.defaultPrevented) return;
+      const key = String(ev.key || "");
+      if (key !== "Enter" && key !== " ") return;
+      openFromEvent(ev, false);
+    });
+  }
+  /**
    * Objetivo: Aplica filtro rapido por situacao direto na grade da consulta.
    *
    * Contexto: acionado por cliques no painel lateral.
@@ -10533,6 +10725,8 @@ Atenciosamente.`;
 
     const statusCounter = new Map();
     const oldestRows = [];
+    const focusRows = [];
+    const seenNumeros = new Set();
     let total = 0;
     let novas = 0;
     let emServico = 0;
@@ -10561,36 +10755,80 @@ Atenciosamente.`;
         if (tr.querySelector("th")) return;
         if (tr.offsetParent === null) return;
 
-        total += 1;
+        const numero = String(extractNumero(tr) || "").trim();
+        if (!numero) return;
+        if (seenNumeros.has(numero)) return;
+        seenNumeros.add(numero);
 
         const tdSituacao = idxSituacao >= 0 ? tr.cells[idxSituacao] : null;
         const situacaoRaw = tdSituacao ? cleanCellText(tdSituacao) : "";
         const situacaoNorm = norm(situacaoRaw);
+        const isNova = NOVA_RX.test(situacaoNorm);
+        const isEmServico = /em\s*serv/.test(situacaoNorm);
+        const isAguardandoRetorno = /aguardando.*retorno/.test(situacaoNorm);
+        const isAguardandoInformacoes = /aguardando.*informac/.test(situacaoNorm);
+        const isServicoAprovado = isServicoAprovadoStatus(situacaoNorm);
 
-        if (NOVA_RX.test(situacaoNorm)) novas += 1;
-        if (/em\s*serv/.test(situacaoNorm)) emServico += 1;
-        if (isServicoAprovadoStatus(situacaoNorm)) servicoAprovado += 1;
-        if (/aguardando.*retorno/.test(situacaoNorm)) aguardandoRetorno += 1;
-        if (/aguardando.*informac/.test(situacaoNorm)) aguardandoInformacoes += 1;
-
-        const statusLabel = situacaoRaw || "Sem situacao";
-        statusCounter.set(statusLabel, (statusCounter.get(statusLabel) || 0) + 1);
-
-        const responsavel = idxResponsavel >= 0 ? cleanCellText(tr.cells[idxResponsavel]) : "";
-        if (!responsavel) semResponsavel += 1;
+        const responsavelRaw = idxResponsavel >= 0 ? cleanCellText(tr.cells[idxResponsavel]) : "";
+        const responsavelNorm = norm(responsavelRaw);
+        const isSemResponsavel =
+          !responsavelNorm ||
+          responsavelNorm === "-" ||
+          responsavelNorm === "--" ||
+          responsavelNorm === "na" ||
+          responsavelNorm === "n/a" ||
+          /^sem\b/.test(responsavelNorm);
 
         const dataUltTxt = idxUltAcomp >= 0 ? cleanCellText(tr.cells[idxUltAcomp]) : "";
         const dataUlt = parsePtBrDateTime(dataUltTxt);
-        if (hasElapsedDays(dataUlt, 5)) parados5dias += 1;
+        const ageDays =
+          dataUlt instanceof Date
+            ? Math.max(0, Math.floor((Date.now() - dataUlt.getTime()) / (24 * 60 * 60 * 1000)))
+            : -1;
+        const isParado5Dias = ageDays >= 5;
+        const statusLabel = situacaoRaw || "Sem situacao";
+        const titulo = idxTitulo >= 0 ? cleanCellText(tr.cells[idxTitulo]) : "";
 
-        const numero = String(extractNumero(tr) || "").trim();
-        if (!(dataUlt instanceof Date) || !numero) return;
+        total += 1;
+        if (isNova) novas += 1;
+        if (isEmServico) emServico += 1;
+        if (isServicoAprovado) servicoAprovado += 1;
+        if (isAguardandoRetorno) aguardandoRetorno += 1;
+        if (isAguardandoInformacoes) aguardandoInformacoes += 1;
+        if (isSemResponsavel) semResponsavel += 1;
+        if (isParado5Dias) parados5dias += 1;
 
-        oldestRows.push({
+        statusCounter.set(statusLabel, (statusCounter.get(statusLabel) || 0) + 1);
+
+        if (dataUlt instanceof Date) {
+          oldestRows.push({
+            numero,
+            situacao: statusLabel,
+            titulo,
+            ageDays,
+          });
+        }
+
+        let focusScore = 0;
+        if (isSemResponsavel) focusScore += 3;
+        if (isParado5Dias) focusScore += 2;
+        if (isServicoAprovado) focusScore += 1;
+        if (isAguardandoRetorno || isAguardandoInformacoes) focusScore += 1;
+        if (isNova) focusScore += 1;
+        if (focusScore <= 0) return;
+        focusRows.push({
           numero,
           situacao: statusLabel,
-          titulo: idxTitulo >= 0 ? cleanCellText(tr.cells[idxTitulo]) : "",
-          ageDays: Math.max(0, Math.floor((Date.now() - dataUlt.getTime()) / (24 * 60 * 60 * 1000))),
+          titulo,
+          responsavel: responsavelRaw,
+          ageDays,
+          score: focusScore,
+          isNova,
+          isAguardandoRetorno,
+          isAguardandoInformacoes,
+          isServicoAprovado,
+          isSemResponsavel,
+          isParado5Dias,
         });
       });
     });
@@ -10598,6 +10836,9 @@ Atenciosamente.`;
     const oldestTop = oldestRows
       .sort((a, b) => b.ageDays - a.ageDays)
       .slice(0, 5);
+    const focusTop = focusRows
+      .sort((a, b) => b.score - a.score || b.ageDays - a.ageDays || String(a.numero).localeCompare(String(b.numero)))
+      .slice(0, 6);
     const statusTop = Array.from(statusCounter.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
@@ -10616,6 +10857,7 @@ Atenciosamente.`;
       semResponsavel,
       parados5dias,
       oldestTop: oldestTop.map((x) => `${x.numero}:${x.ageDays}`),
+      focusTop: focusTop.map((x) => `${x.numero}:${x.score}:${x.ageDays}`),
       statusTop,
       ajaxBusy: hsAjaxRefreshBusy,
       ajaxLastAt: hsAjaxRefreshLastAt,
@@ -10624,6 +10866,7 @@ Atenciosamente.`;
       ajaxChanged: hsAjaxRefreshLastChangedCount,
       ajaxError: hsAjaxRefreshLastError,
       filtroAtual: hsConsultaStatusFilterNorm,
+      filtroAtualLabel: hsConsultaStatusFilterLabel,
       nextInSec,
     });
     if (sideRoot.dataset.hsConsultaDigest === digest) return;
@@ -10645,7 +10888,7 @@ Atenciosamente.`;
       }
       return card;
     };
-    const appendKpi = (parent, label, value, tone = "") => {
+    const appendKpi = (parent, label, value, tone = "", onClick = null, allowWhenZero = false) => {
       const item = document.createElement("article");
       item.className = `hs-consulta-kpi${tone ? ` is-${tone}` : ""}`;
       const labelEl = document.createElement("span");
@@ -10656,21 +10899,104 @@ Atenciosamente.`;
       valueEl.textContent = String(value);
       item.appendChild(labelEl);
       item.appendChild(valueEl);
+      if (typeof onClick === "function" && (allowWhenZero || Number(value) > 0)) {
+        item.classList.add("is-clickable");
+        item.setAttribute("role", "button");
+        item.tabIndex = 0;
+        item.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          onClick();
+        });
+        item.addEventListener("keydown", (ev) => {
+          const key = String(ev.key || "");
+          if (key !== "Enter" && key !== " ") return;
+          ev.preventDefault();
+          onClick();
+        });
+      }
       parent.appendChild(item);
     };
     const now = formatShortDateTime(new Date().toISOString()) || "agora";
+    const openPriorityTicket = (matcher, emptyMessage) => {
+      const target = focusRows
+        .filter((item) => typeof matcher === "function" && matcher(item))
+        .sort((a, b) => b.score - a.score || b.ageDays - a.ageDays)[0];
+      if (!target?.numero) {
+        toast(emptyMessage || "Nenhum chamado correspondente encontrado.", "info", 2200);
+        return;
+      }
+      openConsultaTicketFromPanel(target.numero);
+    };
+    const createTicketOpenButton = (numero) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "hs-ticket-open";
+      btn.textContent = "Abrir";
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const forceNewTab = !!ev.ctrlKey || !!ev.metaKey || !!ev.shiftKey;
+        openConsultaTicketFromPanel(numero, { forceNewTab });
+      });
+      btn.addEventListener("auxclick", (ev) => {
+        if (Number(ev.button) !== 1) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        openConsultaTicketFromPanel(numero, { forceNewTab: true });
+      });
+      return btn;
+    };
+    const summaryMeta = hsConsultaStatusFilterLabel
+      ? `Atualizado em ${now} | Filtro: ${hsConsultaStatusFilterLabel}`
+      : `Atualizado em ${now}`;
 
-    const summaryCard = createCard("Painel de operacao", `Atualizado em ${now}`);
+    const summaryCard = createCard("Painel de operacao", summaryMeta);
     const kpiGrid = document.createElement("div");
     kpiGrid.className = "hs-consulta-kpi-grid";
-    appendKpi(kpiGrid, "Total visiveis", total);
-    appendKpi(kpiGrid, "Novas", novas, "new");
-    appendKpi(kpiGrid, "Em servico", emServico);
-    appendKpi(kpiGrid, "Servico aprovado", servicoAprovado, "approved");
-    appendKpi(kpiGrid, "Aguard. retorno", aguardandoRetorno, "warning");
-    appendKpi(kpiGrid, "Aguard. info", aguardandoInformacoes, "warning");
-    appendKpi(kpiGrid, "Parados 5+ dias", parados5dias, "danger");
-    appendKpi(kpiGrid, "Sem responsavel", semResponsavel, "danger");
+    appendKpi(kpiGrid, "Total visiveis", total, "", () => applyConsultaStatusQuickFilter("", { preserve: false }), true);
+    appendKpi(kpiGrid, "Novas", novas, "new", () => applyConsultaStatusQuickFilter("Nova", { preserve: false }));
+    appendKpi(
+      kpiGrid,
+      "Em servico",
+      emServico,
+      "",
+      () => applyConsultaStatusQuickFilter("Em servico", { preserve: false })
+    );
+    appendKpi(
+      kpiGrid,
+      "Servico aprovado",
+      servicoAprovado,
+      "approved",
+      () => applyConsultaStatusQuickFilter("Servico aprovado", { preserve: false })
+    );
+    appendKpi(
+      kpiGrid,
+      "Aguard. retorno",
+      aguardandoRetorno,
+      "warning",
+      () => applyConsultaStatusQuickFilter("Aguardando retorno", { preserve: false })
+    );
+    appendKpi(
+      kpiGrid,
+      "Aguard. info",
+      aguardandoInformacoes,
+      "warning",
+      () => applyConsultaStatusQuickFilter("Aguardando informacoes", { preserve: false })
+    );
+    appendKpi(
+      kpiGrid,
+      "Parados 5+ dias",
+      parados5dias,
+      "danger",
+      () => openPriorityTicket((item) => item.isParado5Dias, "Nenhum chamado parado 5+ dias na grade atual.")
+    );
+    appendKpi(
+      kpiGrid,
+      "Sem responsavel",
+      semResponsavel,
+      "danger",
+      () => openPriorityTicket((item) => item.isSemResponsavel, "Nenhum chamado sem responsavel na grade atual.")
+    );
     summaryCard.appendChild(kpiGrid);
     sideRoot.appendChild(summaryCard);
 
@@ -10734,26 +11060,102 @@ Atenciosamente.`;
     syncCard.appendChild(syncActions);
     sideRoot.appendChild(syncCard);
 
+    const focusCard = createCard("Chamados em foco", "Prioridades operacionais com abertura em 1 clique.");
+    if (focusTop.length) {
+      const ul = document.createElement("ul");
+      ul.className = "hs-consulta-list";
+      focusTop.forEach((item) => {
+        const li = document.createElement("li");
+        li.className = "hs-consulta-ticket-item";
+        li.tabIndex = 0;
+        li.setAttribute("role", "button");
+        bindConsultaPanelTicketActivator(li, item.numero);
+
+        const main = document.createElement("div");
+        main.className = "hs-main";
+
+        const numEl = document.createElement("span");
+        numEl.className = "hs-ticket-num";
+        numEl.textContent = `#${item.numero}`;
+
+        const right = document.createElement("span");
+        right.className = "hs-ticket-main-right";
+        if (item.ageDays >= 0) {
+          const age = document.createElement("span");
+          age.textContent = `${item.ageDays}d`;
+          right.appendChild(age);
+        }
+        right.appendChild(createTicketOpenButton(item.numero));
+
+        main.appendChild(numEl);
+        main.appendChild(right);
+
+        const tagRow = document.createElement("div");
+        tagRow.className = "hs-tag-row";
+        const addTag = (label, tone = "") => {
+          const tag = document.createElement("span");
+          tag.className = `hs-tag${tone ? ` is-${tone}` : ""}`;
+          tag.textContent = label;
+          tagRow.appendChild(tag);
+        };
+        if (item.isSemResponsavel) addTag("Sem responsavel", "danger");
+        if (item.isParado5Dias) addTag(`${item.ageDays}d sem update`, "warning");
+        if (item.isAguardandoRetorno) addTag("Aguard. retorno", "warning");
+        if (item.isAguardandoInformacoes) addTag("Aguard. info", "warning");
+        if (item.isNova) addTag("Nova", "new");
+        if (item.isServicoAprovado) addTag("Servico aprovado", "approved");
+        if (!tagRow.childElementCount && item.ageDays >= 0) addTag(`${item.ageDays}d`);
+
+        const sub = document.createElement("div");
+        sub.className = "hs-sub";
+        sub.textContent = clip(
+          `${item.situacao || "Sem situacao"}${item.responsavel ? ` | ${item.responsavel}` : ""}${
+            item.titulo ? ` | ${item.titulo}` : ""
+          }`,
+          98
+        );
+
+        li.appendChild(main);
+        if (tagRow.childElementCount) li.appendChild(tagRow);
+        li.appendChild(sub);
+        ul.appendChild(li);
+      });
+      focusCard.appendChild(ul);
+    } else {
+      const empty = document.createElement("p");
+      empty.className = "hs-consulta-empty";
+      empty.textContent = "Sem chamados criticos no momento.";
+      focusCard.appendChild(empty);
+    }
+    sideRoot.appendChild(focusCard);
+
     const oldestCard = createCard("Fila mais antiga", "Chamados com maior tempo sem atualizacao.");
     if (oldestTop.length) {
       const ul = document.createElement("ul");
       ul.className = "hs-consulta-list";
       oldestTop.forEach((item) => {
         const li = document.createElement("li");
+        li.className = "hs-consulta-ticket-item";
+        li.tabIndex = 0;
+        li.setAttribute("role", "button");
+        bindConsultaPanelTicketActivator(li, item.numero);
+
         const main = document.createElement("div");
         main.className = "hs-main";
 
-        const link = document.createElement("a");
-        link.href = `${location.origin}/visualizar_requisicao.php?numero=${encodeURIComponent(item.numero)}`;
-        link.target = "_blank";
-        link.rel = "noopener";
-        link.textContent = `#${item.numero}`;
+        const numEl = document.createElement("span");
+        numEl.className = "hs-ticket-num";
+        numEl.textContent = `#${item.numero}`;
 
+        const right = document.createElement("span");
+        right.className = "hs-ticket-main-right";
         const age = document.createElement("span");
         age.textContent = `${item.ageDays}d`;
+        right.appendChild(age);
+        right.appendChild(createTicketOpenButton(item.numero));
 
-        main.appendChild(link);
-        main.appendChild(age);
+        main.appendChild(numEl);
+        main.appendChild(right);
 
         const sub = document.createElement("div");
         sub.className = "hs-sub";
