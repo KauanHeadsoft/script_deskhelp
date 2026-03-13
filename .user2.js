@@ -1,7 +1,16 @@
 (() => {
   const API_NAME = "HSHeadsoftUser2";
-  const USER2_VERSION = "3.00.03";
+  const USER2_VERSION = "3.00.04";
   const USER2_UPDATES = Object.freeze([
+    {
+      version: "3.00.04",
+      date: "2026-03-13",
+      notes: [
+        "A v2 deixou de depender visualmente da tabela antiga e passou a montar uma lista moderna de chamados em cards.",
+        "Preview lateral ficou mais dominante e coerente com a proposta de um workspace novo, sem competir com a grade legada.",
+        "Dashboard ganhou filtros locais da v2 e leitura mais limpa para triagem diaria.",
+      ],
+    },
     {
       version: "3.00.03",
       date: "2026-03-13",
@@ -28,6 +37,7 @@
   const SHELL_ID = "hsu2-shell";
   const MAIN_ID = "hsu2-main";
   const PREVIEW_ID = "hsu2-preview";
+  const LIST_ID = "hsu2-list";
   const BOARD_ID = "hsu2-board";
   const REQUEST_BADGE_ID = "hsu2-request-badge";
   const TABLE_SELECTOR = "#conteudo table.sortable";
@@ -51,12 +61,14 @@
   let lastStats = null;
   let lastSignature = "";
   let selectedKey = "";
+  let activeBoardFilter = "all";
 
   const SEARCH_PARAMS = new URLSearchParams(location.search || "");
   const IS_PREVIEW_FRAME = SEARCH_PARAMS.get(PREVIEW_PARAM) === "1";
 
   const txt = (value) => String(value || "").replace(/\s+/g, " ").trim();
   const by = (id) => document.getElementById(id);
+  const escAttr = (value) => String(value || "").replace(/["\\]/g, "\\$&");
   const norm = (value) =>
     txt(value)
       .normalize("NFD")
@@ -210,6 +222,217 @@
     document.head.appendChild(style);
   }
 
+  function ensureModernOverrides() {
+    if (by(`${STYLE_ID}-modern`)) return;
+    const style = document.createElement("style");
+    style.id = `${STYLE_ID}-modern`;
+    style.textContent = `
+      body.${ROOT_CLASS} #${SHELL_ID}{
+        grid-template-columns:minmax(0, 1fr) 400px!important;
+        gap:20px!important;
+      }
+      body.${ROOT_CLASS} table.sortable.hsu2-source-table{
+        display:none!important;
+      }
+      body.${ROOT_CLASS} #${LIST_ID}{
+        display:grid!important;
+        gap:14px!important;
+      }
+      body.${ROOT_CLASS} .hsu2-ticket{
+        border:1px solid rgba(90,95,122,.92)!important;
+        border-radius:24px!important;
+        background:
+          radial-gradient(circle at top right, rgba(114,216,255,.06), transparent 24%),
+          linear-gradient(180deg, rgba(33,34,44,.99), rgba(28,30,40,.98))!important;
+        box-shadow:0 18px 40px rgba(8,10,18,.28)!important;
+        padding:16px!important;
+        display:grid!important;
+        gap:14px!important;
+        transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease!important;
+      }
+      body.${ROOT_CLASS} .hsu2-ticket:hover{
+        transform:translateY(-1px)!important;
+        border-color:rgba(114,216,255,.42)!important;
+        box-shadow:0 22px 48px rgba(8,10,18,.34)!important;
+      }
+      body.${ROOT_CLASS} .hsu2-ticket.selected{
+        border-color:rgba(114,216,255,.52)!important;
+        box-shadow:0 0 0 1px rgba(114,216,255,.22), 0 24px 48px rgba(8,10,18,.38)!important;
+      }
+      body.${ROOT_CLASS} .hsu2-ticket-head{
+        display:flex!important;
+        align-items:flex-start!important;
+        justify-content:space-between!important;
+        gap:14px!important;
+      }
+      body.${ROOT_CLASS} .hsu2-ticket-main{
+        min-width:0!important;
+        display:grid!important;
+        gap:8px!important;
+      }
+      body.${ROOT_CLASS} .hsu2-ticket-kicker{
+        display:flex!important;
+        flex-wrap:wrap!important;
+        gap:8px!important;
+      }
+      body.${ROOT_CLASS} .hsu2-ticket-title{
+        margin:0!important;
+        color:var(--text)!important;
+        font:900 17px/1.22 'Segoe UI',Tahoma,sans-serif!important;
+        letter-spacing:-.01em!important;
+      }
+      body.${ROOT_CLASS} .hsu2-ticket-summary{
+        margin:0!important;
+        color:var(--muted)!important;
+        font:600 12px/1.5 'Segoe UI',Tahoma,sans-serif!important;
+      }
+      body.${ROOT_CLASS} .hsu2-ticket-side{
+        display:grid!important;
+        justify-items:end!important;
+        gap:8px!important;
+        min-width:150px!important;
+      }
+      body.${ROOT_CLASS} .hsu2-priority{
+        display:inline-flex!important;
+        align-items:center!important;
+        gap:6px!important;
+        min-height:28px!important;
+        padding:0 12px!important;
+        border-radius:999px!important;
+        background:rgba(47,51,65,.92)!important;
+        border:1px solid rgba(68,71,90,.9)!important;
+        color:var(--text)!important;
+        font:900 10px/1 'Segoe UI',Tahoma,sans-serif!important;
+        letter-spacing:.08em!important;
+        text-transform:uppercase!important;
+      }
+      body.${ROOT_CLASS} .hsu2-priority.high{
+        border-color:rgba(255,123,136,.58)!important;
+        color:#ffe2e8!important;
+      }
+      body.${ROOT_CLASS} .hsu2-priority.medium{
+        border-color:rgba(255,202,128,.58)!important;
+        color:#ffe8bd!important;
+      }
+      body.${ROOT_CLASS} .hsu2-ticket-grid{
+        display:grid!important;
+        grid-template-columns:repeat(4, minmax(0,1fr))!important;
+        gap:10px!important;
+      }
+      body.${ROOT_CLASS} .hsu2-metric{
+        border:1px solid rgba(68,71,90,.72)!important;
+        border-radius:16px!important;
+        background:rgba(47,51,65,.48)!important;
+        padding:10px 12px!important;
+      }
+      body.${ROOT_CLASS} .hsu2-metric .k{
+        margin:0!important;
+        color:var(--muted)!important;
+        font:800 10px/1.2 'Segoe UI',Tahoma,sans-serif!important;
+        text-transform:uppercase!important;
+        letter-spacing:.08em!important;
+      }
+      body.${ROOT_CLASS} .hsu2-metric .v{
+        margin:6px 0 0!important;
+        color:var(--text)!important;
+        font:800 13px/1.35 'Segoe UI',Tahoma,sans-serif!important;
+        word-break:break-word!important;
+      }
+      body.${ROOT_CLASS} .hsu2-ticket-actions{
+        display:flex!important;
+        flex-wrap:wrap!important;
+        gap:8px!important;
+      }
+      body.${ROOT_CLASS} .hsu2-action.subtle{
+        color:var(--muted)!important;
+      }
+      body.${ROOT_CLASS} #${PREVIEW_ID}{
+        gap:14px!important;
+      }
+      body.${ROOT_CLASS} #${PREVIEW_ID} .hsu2-card{
+        border-radius:24px!important;
+      }
+      body.${ROOT_CLASS} .hsu2-preview-frame{
+        min-height:640px!important;
+        border-radius:18px!important;
+      }
+      body.${ROOT_CLASS} .hsu2-empty{
+        min-height:96px!important;
+        display:flex!important;
+        align-items:center!important;
+      }
+      body.${ROOT_CLASS} .hsu2-board-grid{
+        grid-template-columns:repeat(4, minmax(0,1fr))!important;
+      }
+      body.${ROOT_CLASS} .hsu2-board-filters{
+        display:flex!important;
+        flex-wrap:wrap!important;
+        gap:8px!important;
+        margin-top:12px!important;
+      }
+      body.${ROOT_CLASS} .hsu2-board-filter{
+        display:inline-flex!important;
+        align-items:center!important;
+        gap:8px!important;
+        min-height:30px!important;
+        padding:0 12px!important;
+        border-radius:999px!important;
+        border:1px solid rgba(68,71,90,.88)!important;
+        background:rgba(47,51,65,.86)!important;
+        color:var(--muted)!important;
+        font:900 10px/1 'Segoe UI',Tahoma,sans-serif!important;
+        text-transform:uppercase!important;
+        letter-spacing:.08em!important;
+        cursor:pointer!important;
+      }
+      body.${ROOT_CLASS} .hsu2-board-filter.active{
+        color:var(--text)!important;
+        border-color:rgba(114,216,255,.42)!important;
+        background:linear-gradient(180deg, rgba(63,71,95,.94), rgba(44,48,62,.96))!important;
+      }
+      @media (max-width: 1280px){
+        body.${ROOT_CLASS} .hsu2-ticket-grid{
+          grid-template-columns:repeat(2, minmax(0,1fr))!important;
+        }
+      }
+      @media (max-width: 1180px){
+        body.${ROOT_CLASS} #${SHELL_ID}{
+          grid-template-columns:1fr!important;
+        }
+        body.${ROOT_CLASS} .hsu2-board-grid{
+          grid-template-columns:repeat(2, minmax(0,1fr))!important;
+        }
+      }
+      @media (max-width: 760px){
+        body.${ROOT_CLASS} .hsu2-ticket-head,
+        body.${ROOT_CLASS} .hsu2-ticket-side{
+          display:grid!important;
+          justify-items:start!important;
+        }
+        body.${ROOT_CLASS} .hsu2-ticket-grid,
+        body.${ROOT_CLASS} .hsu2-board-grid{
+          grid-template-columns:1fr!important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function matchesBoardFilter(data) {
+    switch (activeBoardFilter) {
+      case "new":
+        return data.statusClass === "new";
+      case "waiting":
+        return data.statusClass === "waiting";
+      case "unassigned":
+        return data.isUnassigned;
+      case "old":
+        return data.isOld;
+      default:
+        return true;
+    }
+  }
+
   function getCellText(cell) {
     if (!(cell instanceof HTMLTableCellElement)) return "";
     const clone = cell.cloneNode(true);
@@ -291,8 +514,10 @@
 
   function cleanupDashboardDecorations() {
     by(BOARD_ID)?.remove();
+    by(LIST_ID)?.remove();
     document.querySelectorAll(`${TABLE_SELECTOR}.hsu2-table`).forEach((table) => {
-      table.classList.remove("hsu2-table");
+      table.classList.remove("hsu2-table", "hsu2-source-table");
+      table.style.removeProperty("display");
       table.querySelectorAll("td").forEach((cell) => {
         if (cell.dataset.hsu2OriginalHtml) {
           cell.innerHTML = cell.dataset.hsu2OriginalHtml;
@@ -340,7 +565,10 @@
     if (!(row instanceof HTMLTableRowElement) || !row.__hsu2Data) return;
     selectedKey = txt(row.dataset.hsu2Key || row.__hsu2Data.key || "");
     document.querySelectorAll(`${TABLE_SELECTOR} tbody tr.hsu2-row-selected`).forEach((item) => item.classList.remove("hsu2-row-selected"));
+    document.querySelectorAll(`#${LIST_ID} .hsu2-ticket.selected`).forEach((item) => item.classList.remove("selected"));
     row.classList.add("hsu2-row-selected");
+    const card = document.querySelector(`#${LIST_ID} .hsu2-ticket[data-key="${escAttr(selectedKey)}"]`);
+    if (card instanceof HTMLElement) card.classList.add("selected");
     renderPreview(row.__hsu2Data);
   }
 
@@ -453,11 +681,11 @@
   }
 
   function decorateTables() {
-    const settings = readSettings();
     const tables = Array.from(document.querySelectorAll(TABLE_SELECTOR)).filter((table) => table instanceof HTMLTableElement);
     const rows = [];
     tables.forEach((table) => {
-      table.classList.add("hsu2-table");
+      table.classList.add("hsu2-table", "hsu2-source-table");
+      table.style.setProperty("display", "none", "important");
       const idx = getIndices(table);
       Array.from(table.tBodies?.[0]?.rows || []).forEach((row) => {
         if (!(row instanceof HTMLTableRowElement)) return;
@@ -467,36 +695,90 @@
         row.classList.toggle("hsu2-row-new", data.statusClass === "new");
         row.classList.toggle("hsu2-row-old", data.isOld);
         row.classList.toggle("hsu2-row-unassigned", data.isUnassigned);
-        if (idx.title >= 0 && row.cells[idx.title]) {
-          const cell = row.cells[idx.title];
-          if (!cell.dataset.hsu2OriginalHtml) cell.dataset.hsu2OriginalHtml = cell.innerHTML;
-          cell.innerHTML = `<div class="hsu2-title-main">${cell.dataset.hsu2OriginalHtml}</div><div class="hsu2-meta"><span class="hsu2-chip">#${data.number || "-"}</span><span class="hsu2-chip${data.isUnassigned ? " empty" : ""}">${data.owner || "Sem responsavel"}</span>${settings.showAge && data.ageLabel ? `<span class="hsu2-chip${data.isOld ? " old" : ""}">${data.ageLabel}</span>` : ""}<button type="button" class="hsu2-preview-btn" data-hsu2-preview>Preview</button></div>`;
-        }
-        if (idx.status >= 0 && row.cells[idx.status]) {
-          const cell = row.cells[idx.status];
-          if (!cell.dataset.hsu2OriginalHtml) cell.dataset.hsu2OriginalHtml = cell.innerHTML;
-          cell.innerHTML = `<span class="hsu2-status ${data.statusClass}">${txt(data.status || "Nao informado")}</span>`;
-        }
-        if (row.dataset.hsu2Bound !== "1") {
-          row.dataset.hsu2Bound = "1";
-          row.addEventListener("mouseenter", () => {
-            if (readSettings().livePreview) selectRow(row);
-          });
-          row.addEventListener("focusin", () => selectRow(row));
-          row.addEventListener("click", (ev) => {
-            const target = ev.target instanceof HTMLElement ? ev.target : null;
-            if (target?.closest("[data-hsu2-preview]")) {
-              ev.preventDefault();
-              ev.stopPropagation();
-            }
-            if (target && target.closest("a,button,input,select,textarea,label") && !target.closest("[data-hsu2-preview]")) return;
-            selectRow(row);
-          });
-        }
         rows.push(data);
       });
     });
     return rows;
+  }
+
+  function ensureListHost() {
+    const main = by(MAIN_ID);
+    if (!(main instanceof HTMLElement)) return null;
+    let host = by(LIST_ID);
+    if (!(host instanceof HTMLElement)) {
+      host = document.createElement("section");
+      host.id = LIST_ID;
+      main.appendChild(host);
+    }
+    return host;
+  }
+
+  function renderTicketList(rows) {
+    const host = ensureListHost();
+    if (!(host instanceof HTMLElement)) return;
+    const settings = readSettings();
+    const filtered = rows.filter(matchesBoardFilter);
+    if (!filtered.length) {
+      host.innerHTML = `<div class="hsu2-empty">Nenhum chamado corresponde ao filtro local da v2.</div>`;
+      return;
+    }
+    host.innerHTML = filtered
+      .map((data) => {
+        const priority =
+          data.priorityScore >= 5 ? "high" : data.priorityScore >= 3 ? "medium" : "normal";
+        const priorityLabel =
+          priority === "high" ? "Prioridade alta" : priority === "medium" ? "Prioridade media" : "Prioridade normal";
+        return `
+          <article class="hsu2-ticket${selectedKey === data.key ? " selected" : ""}" data-key="${escAttr(data.key)}">
+            <div class="hsu2-ticket-head">
+              <div class="hsu2-ticket-main">
+                <div class="hsu2-ticket-kicker">
+                  ${data.number ? `<span class="hsu2-chip">#${data.number}</span>` : ""}
+                  ${data.status ? `<span class="hsu2-status ${data.statusClass}">${data.status}</span>` : ""}
+                  ${data.owner ? `<span class="hsu2-chip">${data.owner}</span>` : `<span class="hsu2-chip empty">Sem responsavel</span>`}
+                </div>
+                <h3 class="hsu2-ticket-title">${data.title || "Chamado sem titulo"}</h3>
+                <p class="hsu2-ticket-summary">${data.client || "Cliente nao informado"}${data.dateRaw ? ` • aberto em ${data.dateRaw}` : ""}</p>
+              </div>
+              <div class="hsu2-ticket-side">
+                <span class="hsu2-priority ${priority}">${priorityLabel}</span>
+                <div class="hsu2-tags">
+                  <button type="button" class="hsu2-preview-btn" data-action="preview">Preview</button>
+                  ${
+                    data.href
+                      ? `<a class="hsu2-action subtle" href="${data.href}" target="_blank" rel="noopener">Abrir</a>`
+                      : ""
+                  }
+                </div>
+              </div>
+            </div>
+            <div class="hsu2-ticket-grid">
+              <div class="hsu2-metric"><p class="k">Cliente</p><p class="v">${data.client || "Nao informado"}</p></div>
+              <div class="hsu2-metric"><p class="k">Responsavel</p><p class="v">${data.owner || "Sem responsavel"}</p></div>
+              <div class="hsu2-metric"><p class="k">Data</p><p class="v">${data.dateRaw || "Nao informada"}</p></div>
+              <div class="hsu2-metric"><p class="k">Idade</p><p class="v">${
+                settings.showAge ? data.ageLabel || "n/d" : "Oculta"
+              }</p></div>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+    host.querySelectorAll(".hsu2-ticket").forEach((card) => {
+      card.addEventListener("mouseenter", () => {
+        const key = txt(card.getAttribute("data-key"));
+        const row = rows.find((item) => item.key === key)?.row || null;
+        if (row instanceof HTMLTableRowElement && readSettings().livePreview) selectRow(row);
+      });
+      card.addEventListener("click", (ev) => {
+        const key = txt(card.getAttribute("data-key"));
+        const row = rows.find((item) => item.key === key)?.row || null;
+        if (!(row instanceof HTMLTableRowElement)) return;
+        const target = ev.target instanceof HTMLElement ? ev.target : null;
+        if (target?.closest('a[href]')) return;
+        selectRow(row);
+      });
+    });
   }
 
   function buildStats(rows) {
@@ -543,9 +825,22 @@
           <span class="hsu2-chip">${stats.antigas} acima de 24h</span>
           <span class="hsu2-chip">${stats.mediaHoras ? `${stats.mediaHoras.toFixed(1)}h` : "n/d"} de tempo medio</span>
         </div>
+        <div class="hsu2-board-filters">
+          <button type="button" class="hsu2-board-filter ${activeBoardFilter === "all" ? "active" : ""}" data-filter="all">Todos</button>
+          <button type="button" class="hsu2-board-filter ${activeBoardFilter === "new" ? "active" : ""}" data-filter="new">Novos</button>
+          <button type="button" class="hsu2-board-filter ${activeBoardFilter === "waiting" ? "active" : ""}" data-filter="waiting">Aguardando</button>
+          <button type="button" class="hsu2-board-filter ${activeBoardFilter === "unassigned" ? "active" : ""}" data-filter="unassigned">Sem responsavel</button>
+          <button type="button" class="hsu2-board-filter ${activeBoardFilter === "old" ? "active" : ""}" data-filter="old">Antigos</button>
+        </div>
       </div>
     `;
     board.querySelector('[data-action="panel"]')?.addEventListener("click", () => openPanel(lastPayload));
+    board.querySelectorAll(".hsu2-board-filter").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        activeBoardFilter = txt(btn.getAttribute("data-filter") || "all");
+        refreshDashboard(true);
+      });
+    });
   }
 
   function ensureRequestBadge() {
@@ -579,6 +874,7 @@
     const rows = decorateTables();
     lastStats = buildStats(rows);
     ensureBoard(lastStats);
+    renderTicketList(rows);
     const chosen =
       rows.find((row) => row.key === selectedKey)?.row ||
       rows.sort((a, b) => b.priorityScore - a.priorityScore)[0]?.row ||
@@ -747,6 +1043,7 @@
     if (!document.body || !document.head) return false;
     lastPayload = { ...lastPayload, ...(payload || {}) };
     ensureStyle();
+    ensureModernOverrides();
     applyPreferences();
     ensureObserver();
     ensureHeartbeat();
@@ -770,6 +1067,7 @@
     by(BADGE_ID)?.remove();
     by(PANEL_ID)?.remove();
     selectedKey = "";
+    activeBoardFilter = "all";
     lastStats = null;
     lastSignature = "";
     return true;

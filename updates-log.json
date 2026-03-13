@@ -1,6 +1,17 @@
 ﻿[
     {
         "date":  "2026-03-13",
+        "version":  "2.15.98",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Release acompanha o user2 v3.00.04, que troca a tabela visual da v2 por uma lista moderna de cards com leitura mais limpa.",
+                      "Preview lateral da nova versao ficou mais forte e a triagem local da v2 agora conta com filtros rapidos no proprio workspace.",
+                      "A experiencia nova deixa de parecer apenas um tema e passa a assumir melhor a proposta de outro sistema para chamados."
+                  ]
+    },
+    {
+        "date":  "2026-03-13",
         "version":  "2.15.97",
         "type":  "routine",
         "mandatory":  false,
