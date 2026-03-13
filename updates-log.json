@@ -1,17 +1,6 @@
 ﻿[
     {
         "date":  "2026-03-13",
-        "version":  "2.17.00",
-        "type":  "routine",
-        "mandatory":  false,
-        "notes":  [
-                      "Arquitetura do userscript foi dividida em bootstrap minimo local (.user.js) e modulo remoto da versao legada (.user.core.js).",
-                      "Arquivo principal da extensao agora fica so com a ligacao entre o modulo remoto legado e o modulo remoto user2, mantendo o .user.js como cabeca do projeto.",
-                      "Carregamento remoto dos dois modulos usa URL versionada para seguir o modelo de ponte/API e facilitar a publicacao no GitHub."
-                  ]
-    },
-    {
-        "date":  "2026-03-13",
         "version":  "2.16.02",
         "type":  "routine",
         "mandatory":  false,
