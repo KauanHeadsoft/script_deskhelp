@@ -1,6 +1,17 @@
 ﻿[
     {
         "date":  "2026-03-13",
+        "version":  "2.16.02",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Release acompanha o user2 v3.01.02, que corrige a organizacao da shell da V2 para a lateral nao invadir a fila.",
+                      "Lista de chamados agora fica travada na coluna esquerda com largura e overflow controlados para os cards nao vazarem sob o preview.",
+                      "Chamado em foco ganhou coluna fixa no desktop e cai para baixo da fila apenas quando a tela realmente aperta."
+                  ]
+    },
+    {
+        "date":  "2026-03-13",
         "version":  "2.16.01",
         "type":  "routine",
         "mandatory":  false,
