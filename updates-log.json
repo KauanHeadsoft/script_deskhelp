@@ -5,9 +5,9 @@
         "type":  "routine",
         "mandatory":  false,
         "notes":  [
-                      "O .user.js voltou a carregar o modulo remoto .user2.js via @require para iniciar a separacao do script gigante.",
+                      "O .user.js voltou a carregar o modulo remoto .user2.js via @require e passou a servir como base da versao 2.15.95.",
                       "Configuracoes agora exibem o toggle \u0027Nova versao teste user2\u0027 para cada usuario optar por ligar ou nao a experiencia experimental.",
-                      "Novo .user2.js publica um painel visual de teste para validar a comunicacao entre user.js e user2.js antes da migracao completa."
+                      "Novo .user2.js inaugura versao propria 3.00.01 com layout independente da grade, metricas e preferencias salvas separadamente da versao antiga."
                   ]
     },
     {
