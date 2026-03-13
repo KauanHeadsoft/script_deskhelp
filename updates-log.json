@@ -1,6 +1,17 @@
 ﻿[
     {
         "date":  "2026-03-13",
+        "version":  "2.16.00",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Release acompanha o user2 v3.01.00, que refaz a V2 como uma central operacional de chamados com command center, busca local e ordenacao por prioridade.",
+                      "Lista da nova versao foi reconstruida em cards profissionais com leitura de risco, ownership, cliente, idade e acao sugerida.",
+                      "Preview lateral e tela da requisicao agora compartilham uma linguagem visual nova, mais fluida e mais forte para uso diario."
+                  ]
+    },
+    {
+        "date":  "2026-03-13",
         "version":  "2.15.98",
         "type":  "routine",
         "mandatory":  false,

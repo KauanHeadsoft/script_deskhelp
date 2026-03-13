@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.98
+// @version      2.16.00
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -113,7 +113,7 @@
     lucida: "'Lucida Sans Unicode', 'Lucida Grande', sans-serif",
     monospace: "'Consolas', 'Courier New', monospace",
   });
-  const SCRIPT_VERSION_FALLBACK = "2.15.98";
+  const SCRIPT_VERSION_FALLBACK = "2.16.00";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -405,6 +405,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-13",
+      version: "2.16.00",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Release acompanha o user2 v3.01.00, que refaz a V2 como uma central operacional de chamados com command center, busca local e ordenacao por prioridade.",
+        "Lista da nova versao foi reconstruida em cards profissionais com leitura de risco, ownership, cliente, idade e acao sugerida.",
+        "Preview lateral e tela da requisicao agora compartilham uma linguagem visual nova, mais fluida e mais forte para uso diario.",
+      ],
+    },
     {
       date: "2026-03-13",
       version: "2.15.98",
