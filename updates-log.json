@@ -1,6 +1,17 @@
 ﻿[
     {
         "date":  "2026-03-12",
+        "version":  "2.15.86",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Codigo do modulo user2 foi incorporado diretamente no arquivo principal (.user.js), eliminando dependencia externa.",
+                      "Diretiva @require do metadata foi removida para operar em arquivo unico e evitar falhas de carregamento do modulo.",
+                      "Hub de configuracoes, teste de notificacao e APIs auxiliares agora rodam localmente dentro do proprio user.js."
+                  ]
+    },
+    {
+        "date":  "2026-03-12",
         "version":  "2.15.85",
         "type":  "routine",
         "mandatory":  false,
