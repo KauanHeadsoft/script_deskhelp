@@ -1,5 +1,93 @@
 ﻿[
     {
+        "date":  "2026-03-13",
+        "version":  "2.15.94",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "visualizar_usuario.php recebeu ajuste direto no cabecalho para reservar espaco fixo do botao de tema na lateral direita.",
+                      "Botao Modo Claro/Modo Escuro agora fica ancorado em posicao segura nessa tela, sem recortar nem disputar layout com o bloco do usuario logado.",
+                      "Correcao foi mantida isolada ao cabecalho da tela de usuario para nao reabrir os problemas do formulario repaginado."
+                  ]
+    },
+    {
+        "date":  "2026-03-13",
+        "version":  "2.15.93",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Cabecalho interno recebeu alinhamento mais estavel para a faixa da direita, evitando conflito visual entre usuario logado e o botao Modo Claro/Modo Escuro.",
+                      "Botao de tema agora se comporta como item normal do menu superior, com espacamento, altura e fluxo mais previsiveis nas telas internas.",
+                      "Ajuste corrige especialmente a sobreposicao percebida na visualizar_usuario.php sem mexer na logica dos campos ou das acoes."
+                  ]
+    },
+    {
+        "date":  "2026-03-13",
+        "version":  "2.15.92",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "visualizar_usuario.php foi repaginada sobre uma camada nova, escondendo a tabela legada que ainda gerava faixas quebradas e colunas desalinhadas.",
+                      "Campos do usuario agora sao montados em grid proprio com cards, labels consistentes, checkboxes com estado legivel e acoes reorganizadas sem depender do HTML antigo.",
+                      "Ajuste deixa a tela muito mais estavel em desktop e mobile, inclusive nos blocos de senha e nos botoes secundarios."
+                  ]
+    },
+    {
+        "date":  "2026-03-13",
+        "version":  "2.15.91",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "consulta_usuario.php agora restaura automaticamente a empresa e a busca digitada, reaplicando o filtro salvo ao voltar para a pagina.",
+                      "Persistencia dos filtros da consulta de usuarios foi reforcada com gravacao em mudancas e na saida da tela, mantendo o contexto do usuario no navegador.",
+                      "visualizar_usuario.php ganhou organizacao em cards compactos, linhas melhor alinhadas e responsividade real para telas menores sem elementos gigantes."
+                  ]
+    },
+    {
+        "date":  "2026-03-13",
+        "version":  "2.15.90",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Grade da consulta/dashboard recebeu refinamento visual discreto, com cabecalho mais suave, hover leve e leitura mais confortavel.",
+                      "Links e textos legados da tabela passaram a herdar a paleta da linha, reduzindo o excesso de vermelho e deixando a UI mais profissional.",
+                      "Modal de Aparencia ganhou novos controles para estilo da grade, densidade das linhas e intensidade do hover, salvos por tema."
+                  ]
+    },
+    {
+        "date":  "2026-03-13",
+        "version":  "2.15.89",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Correcao precisa no bloco de flags do dashboard para respeitar a estrutura legada input + label + quebra de linha.",
+                      "Filtro 'Exibir Em servico' passou a usar o mesmo formato visual e de markup dos demais checkboxes do formulario.",
+                      "Ajuste remove a organizacao em flex da celula de flags, evitando separar checkbox e label em linhas diferentes."
+                  ]
+    },
+    {
+        "date":  "2026-03-13",
+        "version":  "2.15.88",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Bloco de flags do dashboard foi reorganizado para alinhar melhor os checkboxes no filtro principal.",
+                      "Filtro 'Exibir Em servico' agora segue o mesmo empilhamento, espacamento e alinhamento visual dos demais flags.",
+                      "Ajuste foi mantido apenas na apresentacao do formulario, sem alterar a logica dos filtros nem do grid."
+                  ]
+    },
+    {
+        "date":  "2026-03-13",
+        "version":  "2.15.87",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Limpeza conservadora removeu constantes e helpers legados sem referencia no fluxo atual do site.",
+                      "Residuos do badge antigo da logo e persistencias de update sem leitura efetiva foram retirados do arquivo principal.",
+                      "Credenciais/chaves Gemini nao utilizadas deixaram de existir no script, mantendo apenas os modos de IA realmente ativos."
+                  ]
+    },
+    {
         "date":  "2026-03-12",
         "version":  "2.15.86",
         "type":  "routine",

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.86
+// @version      2.15.94
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -16,10 +16,10 @@
 // HeadSoft UI â€” tema, logo, filtros, cores, zebrado, contadores,
 // abrir em nova guia (clique do meio) e 1o atendimento no clique da logo
 // Regras de manutencao do projeto:
-// - Arquivos oficiais: .user.js (principal), .user2.js (modulo) e updates-log.json.
+// - Arquivos oficiais: .user.js (principal) e updates-log.json.
 // - Sempre que atualizar o .user.js, atualizar o updates-log.json com as informacoes da mudanca.
 // - Toda atualizacao/alteracao deve incrementar @version para todos receberem o update.
-// - Qualquer mudanca no .user2.js tambem exige incremento de versao no .user.js.
+// - A distribuicao atual e em arquivo unico, entao toda mudanca funcional deve sair no .user.js.
 
 (() => {
   const BTN_ID = "hs2025-theme-btn";
@@ -31,13 +31,9 @@
 
   const SITUACAO_RX = /situac|situa[cÃ§][aÃ£]o/i;
   const NOVA_RX = /^ *nova\b/i;
-  const NAV_TOKENS = new Set(["<<", "<", ">", ">>", "&lt;&lt;", "&lt;", "&gt;", "&gt;&gt;"]);
-  const NAV_ONLY_RX = /^(<<|>>|<|>|&lt;&lt;|&lt;|&gt;|&gt;&gt;)+$/;
   const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
   const FREE_AI_API_URL = "https://text.pollinations.ai/openai";
-  const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
   const OPENAI_API_KEY_LS = "hs2025-openai-api-key";
-  const GEMINI_API_KEY_LS = "hs2025-gemini-api-key";
   const AI_MODE_LS = "hs2025-ai-mode";
   const AI_MODE_FREE_GEMINI = "free_gemini";
   const AI_MODE_PAID_OPENAI = "paid_openai";
@@ -62,6 +58,7 @@
   const ATTACH_TEXT_PREVIEW_LS_KEY = "hs2025-attach-text-preview";
   const DASHBOARD_EM_SERVICO_SECTION_DEFAULT = true;
   const DASHBOARD_EM_SERVICO_SECTION_LS_KEY = "hs2025-dashboard-em-servico-section";
+  const USERS_PAGE_FILTERS_LS_KEY = "hs2025-users-page-filters-v1";
   const ACOMP_TEXTAREA_SIZE_LS_KEY = "hs2025-acomp-textarea-size";
   const HIDE_SUGGESTION_FILTER_DEFAULT = true;
   const HIDE_SUGGESTION_FILTER_LS_KEY = "hs2025-hide-suggestion-filter";
@@ -83,6 +80,12 @@
   const APPEARANCE_BORDER_WIDTH_MAX = 4;
   const APPEARANCE_DASHBOARD_GRID_WIDTH_MIN = 920;
   const APPEARANCE_DASHBOARD_GRID_WIDTH_MAX = 2600;
+  const APPEARANCE_GRID_TONE_DEFAULT = "soft";
+  const APPEARANCE_GRID_TONE_OPTIONS = Object.freeze(["soft", "balanced", "contrast"]);
+  const APPEARANCE_GRID_DENSITY_DEFAULT = "comfortable";
+  const APPEARANCE_GRID_DENSITY_OPTIONS = Object.freeze(["compact", "comfortable", "airy"]);
+  const APPEARANCE_GRID_HOVER_DEFAULT = "soft";
+  const APPEARANCE_GRID_HOVER_OPTIONS = Object.freeze(["off", "soft", "focus"]);
   const EARLY_THEME_STYLE_ID = "hs2025-early-theme-style";
   const APPEARANCE_DEFAULTS = Object.freeze({
     fontFamily: "default",
@@ -95,6 +98,9 @@
     borderRadius: APPEARANCE_BORDER_RADIUS_DEFAULT,
     borderWidth: APPEARANCE_BORDER_WIDTH_DEFAULT,
     dashboardGridWidth: 0,
+    dashboardGridTone: APPEARANCE_GRID_TONE_DEFAULT,
+    dashboardGridDensity: APPEARANCE_GRID_DENSITY_DEFAULT,
+    dashboardGridHover: APPEARANCE_GRID_HOVER_DEFAULT,
   });
   const APPEARANCE_FONT_MAP = Object.freeze({
     default: "'Segoe UI', Tahoma, sans-serif",
@@ -105,8 +111,7 @@
     lucida: "'Lucida Sans Unicode', 'Lucida Grande', sans-serif",
     monospace: "'Consolas', 'Courier New', monospace",
   });
-  const SETTINGS_NOTICE_LAST_SEEN_LS_KEY = "hs2025-settings-notice-seen-version";
-  const SCRIPT_VERSION_FALLBACK = "2.15.86";
+  const SCRIPT_VERSION_FALLBACK = "2.15.94";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -122,7 +127,7 @@
     "Regra 2: toda nova versao deve adicionar uma entrada no RECENT_UPDATES.",
     "Regra 3: manter notas objetivas do que mudou em cada versao.",
     "Regra 4: para correcao obrigatoria, preencher type='bugfix' e mandatory=true.",
-    "Regra 5: mudanca no .user2.js exige nova versao no .user.js para liberar update na extensao.",
+    "Regra 5: a distribuicao atual e em arquivo unico; toda mudanca funcional precisa sair em nova versao do .user.js.",
   ]);
   const THEME_LABEL_WHEN_DARK = "Modo Claro";
   const THEME_LABEL_WHEN_LIGHT = "Modo Escuro";
@@ -136,7 +141,6 @@
   const UPDATE_CHECK_MANDATORY_LS_KEY = "hs2025-update-mandatory";
   const UPDATE_CHECK_MANDATORY_VERSION_LS_KEY = "hs2025-update-mandatory-version";
   const UPDATE_CHECK_MANDATORY_REASON_LS_KEY = "hs2025-update-mandatory-reason";
-  const UPDATE_POPUP_LAST_VERSION_LS_KEY = "hs2025-update-popup-last-version";
   const UPDATE_INSTALL_BRIDGE_BASE_URL = "https://www.tampermonkey.net/script_installation.php#url=";
   const MANUAL_UPDATE_SOURCE_URL = "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js";
   const MANUAL_UPDATE_GITHUB_RAW_URL = "https://github.com/KauanHeadsoft/script_deskhelp/raw/main/.user.js";
@@ -245,7 +249,7 @@
       const scopedRaw = String(localStorage.getItem(scopedKey) || "").trim();
       const legacyRaw = String(localStorage.getItem(APPEARANCE_SETTINGS_LS_KEY) || "").trim();
       const raw = scopedRaw || legacyRaw;
-      if (raw) appearance = JSON.parse(raw);
+      if (raw) appearance = normalizeAppearanceSettings(JSON.parse(raw));
     } catch {
       appearance = null;
     }
@@ -257,6 +261,22 @@
     const bg = normalizeHex(appearance?.bgColor, defaults.bg) || defaults.bg;
     const fg = normalizeHex(appearance?.textColor, defaults.fg) || defaults.fg;
     const accent = normalizeHex(appearance?.accentColor, defaults.accent) || defaults.accent;
+    const panel = mixHexColors(bg, fg, mode === "light" ? 0.04 : 0.08);
+    const panel2 = mixHexColors(bg, fg, mode === "light" ? 0.08 : 0.13);
+    const border = mixHexColors(bg, fg, mode === "light" ? 0.18 : 0.24);
+    const chipBg = mixHexColors(panel2, bg, mode === "light" ? 0.54 : 0.38);
+    const neutral = mixHexColors(fg, bg, mode === "light" ? 0.06 : 0.09);
+    const link = mixHexColors(accent, fg, mode === "light" ? 0.2 : 0.38);
+    const linkHover = mixHexColors(accent, fg, mode === "light" ? 0.34 : 0.56);
+    const gridAppearance = buildDashboardGridAppearanceTokens({
+      ...(appearance || {}),
+      mode,
+      bg,
+      fg,
+      accent,
+      panel,
+      panel2,
+    });
     const wallpaperUrl = sanitizeWallpaper(appearance?.wallpaperUrl || "");
     const wallpaperOpacityRaw = Number(appearance?.wallpaperOpacity);
     const wallpaperOpacity = Number.isFinite(wallpaperOpacityRaw)
@@ -299,7 +319,14 @@
     html.style.setProperty("--bg", bg);
     html.setAttribute("data-hs-corner", borderShape === "square" ? "square" : "rounded");
     html.style.setProperty("--fg", fg);
+    html.style.setProperty("--panel", panel);
+    html.style.setProperty("--panel2", panel2);
+    html.style.setProperty("--border", border);
+    html.style.setProperty("--chip-bg", chipBg);
+    html.style.setProperty("--neutral", neutral);
     html.style.setProperty("--accent", accent);
+    html.style.setProperty("--link", link);
+    html.style.setProperty("--link-hover", linkHover);
     html.style.setProperty("--hs-body-font", fontCss);
     html.style.setProperty(
       "--hs-wallpaper-image",
@@ -310,6 +337,25 @@
     html.style.setProperty("--hs-radius-control", `${Math.max(0, borderRadiusBase)}px`);
     html.style.setProperty("--hs-radius-card", `${Math.max(0, Math.round(borderRadiusBase * 1.35))}px`);
     html.style.setProperty("--hs-radius-table", `${Math.max(0, Math.round(borderRadiusBase * 1.7))}px`);
+    html.setAttribute("data-hs-table-hover", gridAppearance.hover);
+    html.style.setProperty("--row1", gridAppearance.row1);
+    html.style.setProperty("--row2", gridAppearance.row2);
+    html.style.setProperty("--hs-table-row1", gridAppearance.row1);
+    html.style.setProperty("--hs-table-row2", gridAppearance.row2);
+    html.style.setProperty("--hs-table-surface", gridAppearance.tableSurface);
+    html.style.setProperty("--hs-table-border", gridAppearance.tableBorder);
+    html.style.setProperty("--hs-table-head-bg", gridAppearance.headBg);
+    html.style.setProperty("--hs-table-head-fg", gridAppearance.headFg);
+    html.style.setProperty("--hs-table-head-border", gridAppearance.headBorder);
+    html.style.setProperty("--hs-table-body-border", gridAppearance.bodyBorder);
+    html.style.setProperty("--hs-table-hover-bg", gridAppearance.hoverBg);
+    html.style.setProperty("--hs-table-shadow", gridAppearance.shadow);
+    html.style.setProperty("--hs-table-head-py", gridAppearance.headPy);
+    html.style.setProperty("--hs-table-head-px", gridAppearance.headPx);
+    html.style.setProperty("--hs-table-cell-py", gridAppearance.cellPy);
+    html.style.setProperty("--hs-table-cell-px", gridAppearance.cellPx);
+    html.style.setProperty("--hs-table-font-size", gridAppearance.fontSize);
+    html.style.setProperty("--hs-table-line-height", gridAppearance.lineHeight);
     html.style.setProperty(
       "--hs-dashboard-grid-user-width",
       dashboardGridWidth > 0 ? `${dashboardGridWidth}px` : "auto"
@@ -354,6 +400,94 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-13",
+      version: "2.15.94",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "visualizar_usuario.php recebeu ajuste direto no cabecalho para reservar espaco fixo do botao de tema na lateral direita.",
+        "Botao Modo Claro/Modo Escuro agora fica ancorado em posicao segura nessa tela, sem recortar nem disputar layout com o bloco do usuario logado.",
+        "Correcao foi mantida isolada ao cabecalho da tela de usuario para nao reabrir os problemas do formulario repaginado.",
+      ],
+    },
+    {
+      date: "2026-03-13",
+      version: "2.15.93",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Cabecalho interno recebeu alinhamento mais estavel para a faixa da direita, evitando conflito visual entre usuario logado e o botao Modo Claro/Modo Escuro.",
+        "Botao de tema agora se comporta como item normal do menu superior, com espacamento, altura e fluxo mais previsiveis nas telas internas.",
+        "Ajuste corrige especialmente a sobreposicao percebida na visualizar_usuario.php sem mexer na logica dos campos ou das acoes.",
+      ],
+    },
+    {
+      date: "2026-03-13",
+      version: "2.15.92",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "visualizar_usuario.php foi repaginada sobre uma camada nova, escondendo a tabela legada que ainda gerava faixas quebradas e colunas desalinhadas.",
+        "Campos do usuario agora sao montados em grid proprio com cards, labels consistentes, checkboxes com estado legivel e acoes reorganizadas sem depender do HTML antigo.",
+        "Ajuste deixa a tela muito mais estavel em desktop e mobile, inclusive nos blocos de senha e nos botoes secundarios.",
+      ],
+    },
+    {
+      date: "2026-03-13",
+      version: "2.15.91",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "consulta_usuario.php agora restaura automaticamente a empresa e a busca digitada, reaplicando o filtro salvo ao voltar para a pagina.",
+        "Persistencia dos filtros da consulta de usuarios foi reforcada com gravacao em mudancas e na saida da tela, mantendo o contexto do usuario no navegador.",
+        "visualizar_usuario.php ganhou organizacao em cards compactos, linhas melhor alinhadas e responsividade real para telas menores sem elementos gigantes.",
+      ],
+    },
+    {
+      date: "2026-03-13",
+      version: "2.15.90",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Grade da consulta/dashboard recebeu refinamento visual discreto, com cabecalho mais suave, hover leve e leitura mais confortavel.",
+        "Links e textos legados da tabela passaram a herdar a paleta da linha, reduzindo o excesso de vermelho e deixando a UI mais profissional.",
+        "Modal de Aparencia ganhou novos controles para estilo da grade, densidade das linhas e intensidade do hover, salvos por tema.",
+      ],
+    },
+    {
+      date: "2026-03-13",
+      version: "2.15.89",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Correcao precisa no bloco de flags do dashboard para respeitar a estrutura legada input + label + quebra de linha.",
+        "Filtro 'Exibir Em servico' passou a usar o mesmo formato visual e de markup dos demais checkboxes do formulario.",
+        "Ajuste remove a organizacao em flex da celula de flags, evitando separar checkbox e label em linhas diferentes.",
+      ],
+    },
+    {
+      date: "2026-03-13",
+      version: "2.15.88",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Bloco de flags do dashboard foi reorganizado para alinhar melhor os checkboxes no filtro principal.",
+        "Filtro 'Exibir Em servico' agora segue o mesmo empilhamento, espacamento e alinhamento visual dos demais flags.",
+        "Ajuste foi mantido apenas na apresentacao do formulario, sem alterar a logica dos filtros nem do grid.",
+      ],
+    },
+    {
+      date: "2026-03-13",
+      version: "2.15.87",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Limpeza conservadora removeu constantes e helpers legados sem referencia no fluxo atual do site.",
+        "Residuos do badge antigo da logo e persistencias de update sem leitura efetiva foram retirados do arquivo principal.",
+        "Credenciais/chaves Gemini nao utilizadas deixaram de existir no script, mantendo apenas os modos de IA realmente ativos.",
+      ],
+    },
     {
       date: "2026-03-12",
       version: "2.15.86",
@@ -1033,7 +1167,6 @@ Atenciosamente.`;
    *   - hs2025-acomp-textarea-size
    *   - hs2025-hide-suggestion-filter
    *   - hs2025-openai-api-key
-   *   - hs2025-gemini-api-key
    *   - hs2025-ai-mode
    *   - hs2025-req-open-debug (diagnostico de abertura duplicada)
    * - sessionStorage:
@@ -1333,6 +1466,22 @@ Atenciosamente.`;
     --row1:#121b29; --row2:#172334;
     --accent:#3a6fae;
     --link:#8db8ee; --link-hover:#b8d3f3;
+    --hs-table-row1:#121b29;
+    --hs-table-row2:#162131;
+    --hs-table-surface:#131c29;
+    --hs-table-border:#33475c;
+    --hs-table-head-bg:#162536;
+    --hs-table-head-fg:#dce6f2;
+    --hs-table-head-border:#39516a;
+    --hs-table-body-border:#304459;
+    --hs-table-hover-bg:#1a293b;
+    --hs-table-shadow:0 8px 18px rgba(0,0,0,.14);
+    --hs-table-head-py:8.5px;
+    --hs-table-head-px:11px;
+    --hs-table-cell-py:9px;
+    --hs-table-cell-px:11px;
+    --hs-table-font-size:13px;
+    --hs-table-line-height:1.56;
     --hs-body-font:'Segoe UI', Tahoma, sans-serif;
     --hs-wallpaper-image:none;
     --hs-wallpaper-overlay:rgba(14,20,29,.96);
@@ -1350,6 +1499,16 @@ Atenciosamente.`;
     --row1:#ffffff; --row2:#f6f8fa;
     --accent:#1f5fb4;
     --link:#0b57d0; --link-hover:#0842a0;
+    --hs-table-row1:#ffffff;
+    --hs-table-row2:#f6f9fd;
+    --hs-table-surface:#fbfdff;
+    --hs-table-border:#d7e3f1;
+    --hs-table-head-bg:#edf3fb;
+    --hs-table-head-fg:#16385d;
+    --hs-table-head-border:#d2dfee;
+    --hs-table-body-border:#dde6f2;
+    --hs-table-hover-bg:#eef5ff;
+    --hs-table-shadow:0 8px 18px rgba(20,45,90,.06);
     --hs-wallpaper-overlay:rgba(255,255,255,.95);
   }
   html[data-hs-corner="square"] :is(
@@ -1399,17 +1558,26 @@ Atenciosamente.`;
   }
   a, h1,h2,h3,strong,b{ color:var(--fg)!important; }
 
-  table.sortable{ border-collapse:separate!important; border-spacing:0!important; width:100%!important; }
+  table.sortable{
+    border-collapse:separate!important;
+    border-spacing:0!important;
+    width:100%!important;
+    background:var(--hs-table-surface)!important;
+  }
   table.sortable thead th{
-    background:var(--panel2)!important; color:var(--fg)!important; border-bottom:var(--hs-border-width) solid var(--border)!important;
-    padding:6px 10px!important;
+    background:var(--hs-table-head-bg)!important;
+    color:var(--hs-table-head-fg)!important;
+    border-bottom:var(--hs-border-width) solid var(--hs-table-head-border)!important;
+    padding:var(--hs-table-head-py) var(--hs-table-head-px)!important;
   }
   table.sortable tbody td{
-    border-bottom:var(--hs-border-width) solid var(--border)!important; padding:6px 10px!important; color:var(--neutral)!important;
+    border-bottom:var(--hs-border-width) solid var(--hs-table-body-border)!important;
+    padding:var(--hs-table-cell-py) var(--hs-table-cell-px)!important;
+    color:var(--neutral)!important;
     overflow-wrap:anywhere;
   }
-  table.sortable tbody tr:nth-child(odd) td{ background:var(--row1)!important; }
-  table.sortable tbody tr:nth-child(even) td{ background:var(--row2)!important; }
+  table.sortable tbody tr:nth-child(odd) td{ background:var(--hs-table-row1)!important; }
+  table.sortable tbody tr:nth-child(even) td{ background:var(--hs-table-row2)!important; }
   table.sortable tbody tr[data-hs-sit-row-bg] > td{
     background:var(--hs-sit-row-bg)!important;
     background-color:var(--hs-sit-row-bg)!important;
@@ -3649,6 +3817,47 @@ Atenciosamente.`;
       min-width:0!important;
     }
   }
+  body.hs-users-page .hs-users-grid-wrap{
+    overflow:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  body.hs-users-page .hs-users-grid-wrap thead th,
+  body.hs-users-page .hs-users-grid-wrap tr:first-child > th{
+    position:sticky!important;
+    top:0!important;
+    z-index:2!important;
+  }
+  @media (max-width:860px){
+    body.hs-users-page #conteudo{
+      padding:calc(var(--hs-users-top-offset, 72px) + 8px) 8px 18px!important;
+    }
+    body.hs-users-page .hs-users-toolbar{
+      gap:10px!important;
+      padding:10px!important;
+    }
+    body.hs-users-page .hs-users-filters{
+      width:100%!important;
+      gap:8px!important;
+    }
+    body.hs-users-page .hs-users-field,
+    body.hs-users-page .hs-users-search{
+      width:100%!important;
+      min-width:0!important;
+      max-width:none!important;
+    }
+    body.hs-users-page .hs-users-actions{
+      width:100%!important;
+      justify-content:stretch!important;
+    }
+    body.hs-users-page .hs-users-novo-btn{
+      width:100%!important;
+      min-width:0!important;
+      max-width:none!important;
+    }
+    body.hs-users-page .hs-users-grid-wrap table{
+      min-width:820px!important;
+    }
+  }
 
   /* Cabecalho unificado (todas as paginas internas) */
   body:not(.hs-login-page) #cabecalho{
@@ -3669,56 +3878,28 @@ Atenciosamente.`;
     position:relative!important;
     z-index:1000011!important;
   }
-  body:not(.hs-login-page) #cabecalho_logo .hs-logo-version{
-    display:inline-flex!important;
-    align-items:center!important;
-    gap:8px!important;
-    margin-left:10px!important;
-    padding:4px 10px!important;
-    border-radius:999px!important;
-    border:1px solid rgba(185,215,248,.44)!important;
-    background:linear-gradient(180deg, rgba(15,34,57,.96), rgba(10,25,44,.94))!important;
-    color:#eaf2ff!important;
-    box-shadow:0 6px 16px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.18)!important;
-    vertical-align:middle!important;
-    white-space:nowrap!important;
-    user-select:none!important;
-    cursor:pointer!important;
-    transition:transform .15s ease, box-shadow .2s ease, filter .2s ease!important;
-  }
-  body:not(.hs-login-page) #cabecalho_logo .hs-logo-version:hover{
-    transform:translateY(-1px)!important;
-    filter:brightness(1.04)!important;
-    box-shadow:0 8px 20px rgba(0,0,0,.33), inset 0 1px 0 rgba(255,255,255,.2)!important;
-  }
-  body:not(.hs-login-page) #cabecalho_logo .hs-logo-version .hs-logo-version-main{
-    font-weight:900!important;
-    font-size:11px!important;
-    line-height:1!important;
-    letter-spacing:.02em!important;
-    color:#f3f8ff!important;
-  }
-  body:not(.hs-login-page) #cabecalho_logo .hs-logo-version .hs-logo-version-meta{
-    font-size:10px!important;
-    line-height:1!important;
-    font-weight:700!important;
-    color:#bfd7f7!important;
-    font-family:Consolas, "Courier New", monospace!important;
-    opacity:.98!important;
-  }
-  body:not(.hs-login-page) #cabecalho_logo .hs-logo-version .hs-logo-version-dot{
-    width:5px!important;
-    height:5px!important;
-    border-radius:50%!important;
-    background:#7db1ed!important;
-    box-shadow:0 0 0 2px rgba(125,177,237,.18)!important;
-    flex:0 0 auto!important;
-  }
   body:not(.hs-login-page) #cabecalho_menu{
     background:#1f2948!important;
     border-top:1px solid rgba(255,255,255,.08)!important;
     position:relative!important;
     z-index:1000011!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    flex-wrap:wrap!important;
+    gap:8px 10px!important;
+    min-height:40px!important;
+    padding:6px 10px!important;
+    box-sizing:border-box!important;
+  }
+  body:not(.hs-login-page) #cabecalho_menu > *{
+    flex:0 0 auto!important;
+    margin:0!important;
+    max-width:100%!important;
+  }
+  body:not(.hs-login-page) #cabecalho_menu > table{
+    width:auto!important;
+    margin-left:auto!important;
   }
   body:not(.hs-login-page) #cabecalho_menu,
   body:not(.hs-login-page) #cabecalho_menu *{
@@ -3728,6 +3909,13 @@ Atenciosamente.`;
     background:linear-gradient(180deg, #ffffff, #edf3fb)!important;
     color:#17395f!important;
     border:1px solid #bccce0!important;
+    margin-left:0!important;
+    align-self:center!important;
+    flex:0 0 auto!important;
+    position:relative!important;
+    top:auto!important;
+    right:auto!important;
+    white-space:nowrap!important;
   }
   body:not(.hs-login-page) #cabecalho_menu :is(input,select,textarea){
     background:linear-gradient(180deg, #f8fbff, #e9eff8)!important;
@@ -3753,6 +3941,8 @@ Atenciosamente.`;
   body.hs-user-form-page #cabecalho_menu{
     background:#1f2948!important;
     border-top:1px solid rgba(255,255,255,.08)!important;
+    justify-content:flex-end!important;
+    padding-right:150px!important;
   }
   body.hs-user-form-page #cabecalho_menu,
   body.hs-user-form-page #cabecalho_menu *{
@@ -3762,6 +3952,17 @@ Atenciosamente.`;
     background:linear-gradient(180deg, #ffffff, #edf3fb)!important;
     color:#17395f!important;
     border:1px solid #bccce0!important;
+    position:fixed!important;
+    top:10px!important;
+    right:12px!important;
+    z-index:1000013!important;
+    margin:0!important;
+    min-height:30px!important;
+    padding:4px 12px!important;
+    box-shadow:0 8px 18px rgba(0,0,0,.22)!important;
+  }
+  body.hs-user-form-page #cabecalho_menu > table{
+    margin-right:0!important;
   }
   body.hs-user-form-page #cabecalho_menu :is(input,select,textarea){
     background:linear-gradient(180deg, #f8fbff, #e9eff8)!important;
@@ -4108,6 +4309,396 @@ Atenciosamente.`;
     body.hs-user-form-page #conteudo form .hs-user-legacy-action-btn{
       flex:1 1 200px!important;
       width:auto!important;
+    }
+  }
+  body.hs-user-form-page #conteudo{
+    max-width:1280px!important;
+    padding:calc(var(--hs-user-form-top-offset, 72px) + 10px) clamp(10px, 2vw, 18px) 24px!important;
+  }
+  body.hs-user-form-page .hs-user-form-shell{
+    width:min(1080px, 100%)!important;
+    padding:clamp(10px, 2vw, 18px)!important;
+    border-radius:20px!important;
+  }
+  body.hs-user-form-page #conteudo form{
+    max-width:none!important;
+    gap:14px!important;
+  }
+  body.hs-user-form-page #conteudo form > br,
+  body.hs-user-form-page #conteudo form .hs-user-legacy-title-source{
+    display:none!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-section-card{
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    border-radius:18px!important;
+    overflow:hidden!important;
+    border:1px solid var(--border)!important;
+    background:var(--panel)!important;
+    box-shadow:0 14px 28px rgba(0,0,0,.14)!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-section-card-body{
+    padding:0 18px 18px!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-section-card .hs-user-section-title{
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:18px 18px 12px!important;
+    font-size:clamp(18px, 2vw, 24px)!important;
+    line-height:1.25!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-section-card :is(.hs-user-info-table, .hs-user-pass-table){
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    table-layout:fixed!important;
+    background:transparent!important;
+    border:0!important;
+    box-shadow:none!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr,
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tr{
+    display:grid!important;
+    grid-template-columns:minmax(170px, 230px) minmax(0, 1fr)!important;
+    align-items:center!important;
+    gap:0!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr > :is(td,th),
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tr > :is(td,th){
+    width:auto!important;
+    min-width:0!important;
+    padding:11px 14px!important;
+    border:0!important;
+    box-shadow:none!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr > .hs-user-form-label-cell,
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tr > .hs-user-form-label-cell{
+    font-size:12px!important;
+    line-height:1.35!important;
+    letter-spacing:.01em!important;
+    border-radius:12px 0 0 12px!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr > .hs-user-form-value-cell,
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tr > .hs-user-form-value-cell{
+    border-radius:0 12px 12px 0!important;
+    padding-left:16px!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr.hs-user-row-full > :is(td,th):first-child,
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tr.hs-user-row-full > :is(td,th):first-child{
+    grid-column:1 / -1!important;
+    border-radius:12px!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr.hs-user-row-checkbox > .hs-user-form-value-cell,
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tr.hs-user-row-checkbox > .hs-user-form-value-cell{
+    display:flex!important;
+    align-items:center!important;
+    gap:10px!important;
+    min-height:44px!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr.hs-user-row-select > .hs-user-form-value-cell,
+  body.hs-user-form-page #conteudo form .hs-user-main-table > tr.hs-user-row-select > .hs-user-form-value-cell{
+    overflow:hidden!important;
+  }
+  body.hs-user-form-page #conteudo form :is(.hs-user-info-table, .hs-user-pass-table)
+    :is(input[type="text"], input[type="email"], input[type="password"], select){
+    min-height:34px!important;
+    height:34px!important;
+    font-size:13px!important;
+    padding:6px 10px!important;
+  }
+  body.hs-user-form-page #conteudo form input[type="checkbox"]{
+    width:15px!important;
+    height:15px!important;
+    min-height:15px!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-actions,
+  body.hs-user-form-page #conteudo form .hs-user-actions-secondary{
+    max-width:none!important;
+    width:100%!important;
+    margin:0!important;
+    justify-content:flex-start!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-action-btn{
+    min-width:138px!important;
+    min-height:36px!important;
+    height:36px!important;
+    padding:6px 14px!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-legacy-action-btn{
+    min-width:190px!important;
+    min-height:36px!important;
+    height:36px!important;
+    padding:6px 14px!important;
+  }
+  html[data-hs-theme="dark"] body.hs-user-form-page #conteudo form .hs-user-section-card{
+    background:linear-gradient(180deg, rgba(14,24,39,.98), rgba(11,20,32,.96))!important;
+    border-color:#2a3b51!important;
+    box-shadow:0 16px 30px rgba(0,0,0,.28)!important;
+  }
+  html[data-hs-theme="dark"] body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr:not(:last-child) > :is(td,th),
+  html[data-hs-theme="dark"] body.hs-user-form-page #conteudo form .hs-user-main-table > tr:not(:last-child) > :is(td,th){
+    box-shadow:inset 0 -1px 0 #2b3c52!important;
+  }
+  html[data-hs-theme="dark"] body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr > .hs-user-form-label-cell,
+  html[data-hs-theme="dark"] body.hs-user-form-page #conteudo form .hs-user-main-table > tr > .hs-user-form-label-cell{
+    background:#162a42!important;
+    color:#eaf2ff!important;
+  }
+  html[data-hs-theme="dark"] body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr > .hs-user-form-value-cell,
+  html[data-hs-theme="dark"] body.hs-user-form-page #conteudo form .hs-user-main-table > tr > .hs-user-form-value-cell{
+    background:#0f1b2b!important;
+    color:#dce9fb!important;
+  }
+  html[data-hs-theme="light"] body.hs-user-form-page #conteudo form .hs-user-section-card{
+    background:linear-gradient(180deg, #ffffff, #f6f9ff)!important;
+    border-color:#d4e0ee!important;
+    box-shadow:0 12px 24px rgba(20,45,90,.1)!important;
+  }
+  html[data-hs-theme="light"] body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr:not(:last-child) > :is(td,th),
+  html[data-hs-theme="light"] body.hs-user-form-page #conteudo form .hs-user-main-table > tr:not(:last-child) > :is(td,th){
+    box-shadow:inset 0 -1px 0 #d8e3f2!important;
+  }
+  html[data-hs-theme="light"] body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr > .hs-user-form-label-cell,
+  html[data-hs-theme="light"] body.hs-user-form-page #conteudo form .hs-user-main-table > tr > .hs-user-form-label-cell{
+    background:#ecf3fd!important;
+    color:#17395f!important;
+  }
+  html[data-hs-theme="light"] body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr > .hs-user-form-value-cell,
+  html[data-hs-theme="light"] body.hs-user-form-page #conteudo form .hs-user-main-table > tr > .hs-user-form-value-cell{
+    background:#ffffff!important;
+    color:#1f3d62!important;
+  }
+  @media (max-width:880px){
+    body.hs-user-form-page #conteudo{
+      padding:calc(var(--hs-user-form-top-offset, 72px) + 8px) 9px 18px!important;
+    }
+    body.hs-user-form-page .hs-user-form-shell{
+      padding:10px!important;
+      border-radius:16px!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-section-card{
+      border-radius:16px!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-section-card-body{
+      padding:0 12px 12px!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-section-card .hs-user-section-title{
+      padding:14px 12px 10px!important;
+      font-size:18px!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr,
+    body.hs-user-form-page #conteudo form .hs-user-main-table > tr{
+      grid-template-columns:1fr!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr > .hs-user-form-label-cell,
+    body.hs-user-form-page #conteudo form .hs-user-main-table > tr > .hs-user-form-label-cell{
+      border-radius:12px 12px 0 0!important;
+      padding-bottom:6px!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-main-table > tbody > tr > .hs-user-form-value-cell,
+    body.hs-user-form-page #conteudo form .hs-user-main-table > tr > .hs-user-form-value-cell{
+      border-radius:0 0 12px 12px!important;
+      padding-top:0!important;
+      padding-left:14px!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-actions,
+    body.hs-user-form-page #conteudo form .hs-user-actions-secondary{
+      justify-content:stretch!important;
+      gap:8px!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-action-btn,
+    body.hs-user-form-page #conteudo form .hs-user-legacy-action-btn{
+      width:100%!important;
+      min-width:0!important;
+      flex:1 1 100%!important;
+    }
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-hidden{
+    display:none!important;
+  }
+  body.hs-user-form-page #conteudo form #hs-user-layout-v2{
+    width:100%!important;
+    display:grid!important;
+    gap:16px!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-page-title{
+    margin:0!important;
+    font-size:clamp(20px, 2.4vw, 28px)!important;
+    line-height:1.2!important;
+    font-weight:900!important;
+    letter-spacing:.01em!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-card{
+    width:100%!important;
+    border:1px solid var(--border)!important;
+    border-radius:18px!important;
+    overflow:hidden!important;
+    background:var(--panel)!important;
+    box-shadow:0 14px 28px rgba(0,0,0,.14)!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-card-head{
+    padding:18px 18px 10px!important;
+    font-size:clamp(18px, 2vw, 24px)!important;
+    line-height:1.2!important;
+    font-weight:900!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-card-body{
+    padding:0 18px 18px!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-grid{
+    display:grid!important;
+    gap:12px!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-row{
+    display:grid!important;
+    grid-template-columns:minmax(170px, 220px) minmax(0, 1fr)!important;
+    gap:12px!important;
+    align-items:stretch!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-label,
+  body.hs-user-form-page #conteudo form .hs-user-v2-value{
+    min-width:0!important;
+    border-radius:14px!important;
+    padding:12px 14px!important;
+    box-sizing:border-box!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-label{
+    font-size:12px!important;
+    line-height:1.35!important;
+    font-weight:800!important;
+    display:flex!important;
+    align-items:center!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-value{
+    display:flex!important;
+    align-items:center!important;
+    gap:10px!important;
+    flex-wrap:wrap!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-row.is-checkbox .hs-user-v2-value{
+    min-height:48px!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-value > :is(input[type="text"], input[type="email"], input[type="password"], select, textarea){
+    width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-text{
+    font-size:13px!important;
+    line-height:1.45!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-checkbox-state{
+    display:inline-flex!important;
+    align-items:center!important;
+    min-height:26px!important;
+    padding:4px 10px!important;
+    border-radius:999px!important;
+    font-size:11px!important;
+    font-weight:800!important;
+    line-height:1!important;
+    white-space:nowrap!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-actions{
+    display:grid!important;
+    gap:10px!important;
+  }
+  body.hs-user-form-page #conteudo form .hs-user-v2-actions .hs-user-actions,
+  body.hs-user-form-page #conteudo form .hs-user-v2-actions .hs-user-actions-secondary{
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:10px!important;
+    justify-content:flex-start!important;
+  }
+  html[data-hs-theme="dark"] body.hs-user-form-page #conteudo form .hs-user-v2-card{
+    background:linear-gradient(180deg, rgba(14,24,39,.98), rgba(11,20,32,.96))!important;
+    border-color:#2a3b51!important;
+    box-shadow:0 16px 30px rgba(0,0,0,.28)!important;
+  }
+  html[data-hs-theme="dark"] body.hs-user-form-page #conteudo form .hs-user-v2-label{
+    background:#162a42!important;
+    color:#eaf2ff!important;
+  }
+  html[data-hs-theme="dark"] body.hs-user-form-page #conteudo form .hs-user-v2-value{
+    background:#0f1b2b!important;
+    color:#dce9fb!important;
+    box-shadow:inset 0 0 0 1px #2b3c52!important;
+  }
+  html[data-hs-theme="dark"] body.hs-user-form-page #conteudo form .hs-user-checkbox-state{
+    background:rgba(61, 130, 246, .15)!important;
+    color:#dce9fb!important;
+    border:1px solid #466489!important;
+  }
+  html[data-hs-theme="dark"] body.hs-user-form-page #conteudo form .hs-user-checkbox-state.is-on{
+    background:rgba(52, 211, 153, .18)!important;
+    color:#d7ffee!important;
+    border-color:#3a9070!important;
+  }
+  html[data-hs-theme="light"] body.hs-user-form-page #conteudo form .hs-user-v2-card{
+    background:linear-gradient(180deg, #ffffff, #f6f9ff)!important;
+    border-color:#d4e0ee!important;
+    box-shadow:0 12px 24px rgba(20,45,90,.1)!important;
+  }
+  html[data-hs-theme="light"] body.hs-user-form-page #conteudo form .hs-user-v2-label{
+    background:#ecf3fd!important;
+    color:#17395f!important;
+  }
+  html[data-hs-theme="light"] body.hs-user-form-page #conteudo form .hs-user-v2-value{
+    background:#ffffff!important;
+    color:#1f3d62!important;
+    box-shadow:inset 0 0 0 1px #d8e3f2!important;
+  }
+  html[data-hs-theme="light"] body.hs-user-form-page #conteudo form .hs-user-checkbox-state{
+    background:#eef5ff!important;
+    color:#23476f!important;
+    border:1px solid #c7d8ec!important;
+  }
+  html[data-hs-theme="light"] body.hs-user-form-page #conteudo form .hs-user-checkbox-state.is-on{
+    background:#e7f8ef!important;
+    color:#246444!important;
+    border-color:#b9dfc8!important;
+  }
+  @media (max-width:880px){
+    body.hs-user-form-page #cabecalho_menu{
+      padding-right:132px!important;
+    }
+    body.hs-user-form-page #cabecalho_menu #${BTN_ID}{
+      top:8px!important;
+      right:8px!important;
+      min-height:28px!important;
+      padding:3px 10px!important;
+      font-size:12px!important;
+    }
+    body.hs-user-form-page #conteudo form #hs-user-layout-v2{
+      gap:12px!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-v2-card{
+      border-radius:16px!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-v2-card-head{
+      padding:14px 12px 10px!important;
+      font-size:18px!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-v2-card-body{
+      padding:0 12px 12px!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-v2-row{
+      grid-template-columns:1fr!important;
+      gap:8px!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-v2-label,
+    body.hs-user-form-page #conteudo form .hs-user-v2-value{
+      padding:11px 12px!important;
+    }
+    body.hs-user-form-page #conteudo form .hs-user-v2-actions .hs-user-action-btn,
+    body.hs-user-form-page #conteudo form .hs-user-v2-actions .hs-user-legacy-action-btn{
+      width:100%!important;
+      min-width:0!important;
+      flex:1 1 100%!important;
     }
   }
 
@@ -4593,10 +5184,6 @@ Atenciosamente.`;
     transform:translateY(1px)!important;
     margin-right:6px!important;
   }
-  body.hs-dashboard-page form[name="filtros"] td:has(input[type="checkbox"]){
-    white-space:normal!important;
-    display:block!important;
-  }
   body.hs-dashboard-page form[name="filtros"] td label{
     display:inline-flex!important;
     align-items:center!important;
@@ -4607,28 +5194,33 @@ Atenciosamente.`;
     margin:0!important;
     transform:none!important;
   }
+  body.hs-dashboard-page form[name="filtros"] td:has(.hs-dashboard-extra-toggle-wrap){
+    white-space:normal!important;
+    vertical-align:top!important;
+  }
   body.hs-dashboard-page form[name="filtros"] .hs-dashboard-extra-toggle-wrap{
     display:block!important;
     width:100%!important;
-    margin-top:4px!important;
-    clear:both!important;
+    margin:2px 0 0 0!important;
+    clear:none!important;
     float:none!important;
-    flex:0 0 100%!important;
-    min-width:100%!important;
+    flex:none!important;
+    min-width:0!important;
   }
   body.hs-dashboard-page form[name="filtros"] .hs-dashboard-extra-toggle{
-    display:inline-flex!important;
-    align-items:center!important;
-    gap:6px!important;
-    color:var(--fg)!important;
-    font-size:11px!important;
-    font-weight:700!important;
-    line-height:1.2!important;
+    display:inline!important;
+    color:inherit!important;
+    font-size:inherit!important;
+    font-weight:inherit!important;
+    line-height:inherit!important;
     cursor:pointer!important;
-  }
-  body.hs-dashboard-page form[name="filtros"] .hs-dashboard-extra-toggle input[type="checkbox"]{
     margin:0!important;
-    transform:translateY(0)!important;
+    vertical-align:middle!important;
+  }
+  body.hs-dashboard-page form[name="filtros"] .hs-dashboard-extra-toggle-wrap input[type="checkbox"]{
+    margin:0 6px 0 0!important;
+    transform:translateY(1px)!important;
+    vertical-align:middle!important;
   }
   body.hs-dashboard-page form[name="filtros"] td :is(img, input[type="image"]){
     float:none!important;
@@ -4912,7 +5504,7 @@ Atenciosamente.`;
     animation:hs-update-pulse 1.9s ease-in-out infinite!important;
   }
   .hs-appearance-modal .hs-update-modal-card{
-    width:min(900px, 96vw);
+    width:min(940px, 96vw);
   }
   .hs-appearance-grid{
     display:grid;
@@ -4980,6 +5572,34 @@ Atenciosamente.`;
     font-size:12px;
     font-weight:700;
     opacity:.92;
+  }
+  .hs-appearance-section{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    padding:12px;
+    border:1px solid rgba(106,141,186,.24);
+    border-radius:var(--hs-radius-card);
+    background:linear-gradient(180deg, rgba(17,30,46,.34), rgba(17,30,46,.16));
+  }
+  .hs-appearance-section-head{
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+  }
+  .hs-appearance-section-head > strong{
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.01em;
+  }
+  .hs-appearance-section-head > span{
+    font-size:11px;
+    line-height:1.4;
+    opacity:.82;
+  }
+  html[data-hs-theme="light"] .hs-appearance-section{
+    border-color:rgba(135,167,205,.3);
+    background:linear-gradient(180deg, rgba(244,248,253,.92), rgba(255,255,255,.88));
   }
   .hs-settings-version-card{
     display:flex!important;
@@ -5073,9 +5693,11 @@ Atenciosamente.`;
     box-sizing:border-box!important;
   }
   body.hs-dashboard-page table.sortable{
+    border:var(--hs-border-width) solid var(--hs-table-border)!important;
     border-radius:var(--hs-radius-table)!important;
     overflow:hidden!important;
-    box-shadow:0 8px 20px rgba(0,0,0,.15)!important;
+    box-shadow:var(--hs-table-shadow)!important;
+    background:var(--hs-table-surface)!important;
     margin-bottom:12px!important;
   }
   body.hs-dashboard-page table.sortable thead th:first-child{ border-top-left-radius:var(--hs-radius-table)!important; }
@@ -5083,25 +5705,43 @@ Atenciosamente.`;
   body.hs-dashboard-page table.sortable tbody tr:last-child td:first-child{ border-bottom-left-radius:var(--hs-radius-table)!important; }
   body.hs-dashboard-page table.sortable tbody tr:last-child td:last-child{ border-bottom-right-radius:var(--hs-radius-table)!important; }
   body.hs-dashboard-page table.sortable thead th{
-    font-size:13px!important;
+    font-size:var(--hs-table-font-size)!important;
     font-weight:800!important;
-    padding:9px 10px!important;
+    padding:var(--hs-table-head-py) var(--hs-table-head-px)!important;
     position:sticky!important;
     top:0!important;
     z-index:2!important;
+    background:var(--hs-table-head-bg)!important;
+    color:var(--hs-table-head-fg)!important;
+    border-bottom:var(--hs-border-width) solid var(--hs-table-head-border)!important;
   }
   body.hs-dashboard-page table.sortable tbody td{
-    font-size:13px!important;
-    line-height:1.58!important;
-    padding:8px 10px!important;
+    font-size:var(--hs-table-font-size)!important;
+    line-height:var(--hs-table-line-height)!important;
+    padding:var(--hs-table-cell-py) var(--hs-table-cell-px)!important;
     vertical-align:top!important;
     white-space:normal!important;
     overflow-wrap:normal!important;
     word-break:normal!important;
+    border-bottom:var(--hs-border-width) solid var(--hs-table-body-border)!important;
+  }
+  body.hs-dashboard-page table.sortable tbody tr{
+    transition:background-color .16s ease!important;
   }
   body.hs-dashboard-page table.sortable tbody td.hs-col-titulo{
     overflow-wrap:anywhere!important;
     word-break:break-word!important;
+  }
+  body.hs-dashboard-page table.sortable tbody td font{
+    color:inherit!important;
+  }
+  body.hs-dashboard-page table.sortable tbody td a{
+    color:inherit!important;
+    text-decoration:none!important;
+  }
+  body.hs-dashboard-page table.sortable tbody td a:hover{
+    color:var(--link-hover)!important;
+    text-decoration:underline!important;
   }
   body.hs-dashboard-page table.sortable thead th.hs-col-situacao,
   body.hs-dashboard-page table.sortable tbody td.hs-col-situacao{
@@ -5109,6 +5749,15 @@ Atenciosamente.`;
     overflow-wrap:normal!important;
     word-break:normal!important;
     hyphens:none!important;
+  }
+  html[data-hs-table-hover="off"] body.hs-dashboard-page table.sortable tbody tr:not([data-hs-sit-row-bg]):nth-child(odd):hover td{
+    background:var(--hs-table-row1)!important;
+  }
+  html[data-hs-table-hover="off"] body.hs-dashboard-page table.sortable tbody tr:not([data-hs-sit-row-bg]):nth-child(even):hover td{
+    background:var(--hs-table-row2)!important;
+  }
+  html:not([data-hs-table-hover="off"]) body.hs-dashboard-page table.sortable tbody tr:not([data-hs-sit-row-bg]):hover td{
+    background:var(--hs-table-hover-bg)!important;
   }
   html[data-hs-theme="dark"] body.hs-dashboard-page #conteudo .filtros form[name="filtros"]{
     background:linear-gradient(180deg, #141e2c, #111a27)!important;
@@ -5161,17 +5810,6 @@ Atenciosamente.`;
     color:#cfdcf0!important;
     background:transparent!important;
   }
-  html[data-hs-theme="dark"] body.hs-dashboard-page table.sortable thead th{
-    background:#1a2a3e!important;
-    color:#dfeaf9!important;
-    border-bottom:var(--hs-border-width) solid #3a5068!important;
-  }
-  html[data-hs-theme="dark"] body.hs-dashboard-page table.sortable tbody td{
-    border-bottom:var(--hs-border-width) solid #33495f!important;
-  }
-  html[data-hs-theme="dark"] body.hs-dashboard-page table.sortable tbody tr:hover td{
-    background:#1b2b40!important;
-  }
   html[data-hs-theme="light"] body.hs-dashboard-page form[name="filtros"]{
     background:linear-gradient(180deg, #ffffff, #f5f8fd)!important;
     border:1px solid #d5e0ef!important;
@@ -5181,25 +5819,6 @@ Atenciosamente.`;
   }
   html[data-hs-theme="light"] body.hs-dashboard-page form[name="filtros"] td{
     color:#294565!important;
-  }
-  html[data-hs-theme="light"] body.hs-dashboard-page table.sortable thead th{
-    background:#eaf2fd!important;
-    color:#17395f!important;
-    border-bottom:1px solid #d0deef!important;
-  }
-  /* Dashboard (tema claro): remove contorno escuro residual da grade */
-  html[data-hs-theme="light"] body.hs-dashboard-page table.sortable{
-    border:var(--hs-border-width) solid #d8e3f2!important;
-  }
-  html[data-hs-theme="light"] body.hs-dashboard-page table.sortable thead th,
-  html[data-hs-theme="light"] body.hs-dashboard-page table.sortable tbody td{
-    border-color:#d8e3f2!important;
-  }
-  html[data-hs-theme="light"] body.hs-dashboard-page table.sortable tbody td{
-    border-bottom:var(--hs-border-width) solid #dde7f4!important;
-  }
-  html[data-hs-theme="light"] body.hs-dashboard-page table.sortable tbody tr:hover td{
-    background:#eef5ff!important;
   }
   html[data-hs-theme="dark"] body.hs-dashboard-page .hs-dashboard-empty{
     background:linear-gradient(180deg, #0d1725, #0b1420)!important;
@@ -5515,6 +6134,56 @@ Atenciosamente.`;
     } catch {}
   }
   /**
+   * Objetivo: Normaliza o cache persistido dos filtros da consulta de usuarios.
+   *
+   * Contexto: garante leitura/escrita robusta da toolbar customizada em consulta_usuario.php.
+   * Parametros:
+   * - value: payload bruto vindo do storage.
+   * Retorno: objeto padronizado.
+   */
+  function normalizeUsersPageFilterCache(value) {
+    const raw = value && typeof value === "object" ? value : {};
+    const company = norm(raw.company || "").trim();
+    const query = String(raw.query || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 220);
+    const savedAt = Math.max(0, Math.round(Number(raw.savedAt) || 0));
+    return { company, query, savedAt };
+  }
+  /**
+   * Objetivo: Le cache persistido dos filtros da consulta de usuarios.
+   *
+   * Contexto: usado ao reabrir consulta_usuario.php para restaurar o ultimo contexto do usuario.
+   * Parametros: nenhum.
+   * Retorno: objeto padronizado com empresa e texto.
+   */
+  function readUsersPageFilterCache() {
+    try {
+      return normalizeUsersPageFilterCache(JSON.parse(localStorage.getItem(USERS_PAGE_FILTERS_LS_KEY) || "null"));
+    } catch {
+      return normalizeUsersPageFilterCache(null);
+    }
+  }
+  /**
+   * Objetivo: Persiste filtros da consulta de usuarios no navegador.
+   *
+   * Contexto: chamado durante digitacao/troca de empresa e no fechamento da pagina.
+   * Parametros:
+   * - value: estado desejado da toolbar.
+   * Retorno: objeto normalizado salvo/local.
+   */
+  function writeUsersPageFilterCache(value) {
+    const normalized = normalizeUsersPageFilterCache({
+      ...(value && typeof value === "object" ? value : {}),
+      savedAt: Date.now(),
+    });
+    try {
+      localStorage.setItem(USERS_PAGE_FILTERS_LS_KEY, JSON.stringify(normalized));
+    } catch {}
+    return normalized;
+  }
+  /**
    * Objetivo: Normaliza altura do textarea de acompanhamento em faixa segura.
    *
    * Contexto: usada para persistir/reaplicar resize manual entre chamados.
@@ -5681,6 +6350,159 @@ Atenciosamente.`;
     }
   }
   /**
+   * Objetivo: Normaliza preset de estilo visual da grade.
+   *
+   * Contexto: usado para validar preferencia salva no navegador.
+   * Parametros:
+   * - value: entrada usada por esta rotina.
+   * Retorno: string.
+   */
+  function normalizeAppearanceGridTone(value = "") {
+    const raw = String(value || "").trim().toLowerCase();
+    return APPEARANCE_GRID_TONE_OPTIONS.includes(raw) ? raw : APPEARANCE_GRID_TONE_DEFAULT;
+  }
+  /**
+   * Objetivo: Normaliza preset de densidade da grade.
+   *
+   * Contexto: controla espacamento e altura percebida das linhas.
+   * Parametros:
+   * - value: entrada usada por esta rotina.
+   * Retorno: string.
+   */
+  function normalizeAppearanceGridDensity(value = "") {
+    const raw = String(value || "").trim().toLowerCase();
+    return APPEARANCE_GRID_DENSITY_OPTIONS.includes(raw) ? raw : APPEARANCE_GRID_DENSITY_DEFAULT;
+  }
+  /**
+   * Objetivo: Normaliza preset de hover da grade.
+   *
+   * Contexto: permite desligar ou reforcar o destaque das linhas ao passar o mouse.
+   * Parametros:
+   * - value: entrada usada por esta rotina.
+   * Retorno: string.
+   */
+  function normalizeAppearanceGridHover(value = "") {
+    const raw = String(value || "").trim().toLowerCase();
+    return APPEARANCE_GRID_HOVER_OPTIONS.includes(raw) ? raw : APPEARANCE_GRID_HOVER_DEFAULT;
+  }
+  /**
+   * Objetivo: Gera tokens visuais da grade principal a partir do tema e preferencias.
+   *
+   * Contexto: centraliza os ajustes finos do dashboard/consulta para manter o visual discreto e consistente.
+   * Parametros:
+   * - raw: entrada usada por esta rotina.
+   * Retorno: object.
+   */
+  function buildDashboardGridAppearanceTokens(raw = null) {
+    const source = raw && typeof raw === "object" ? raw : {};
+    const mode = resolveAppearanceThemeMode(source.mode || "");
+    const isLight = mode === "light";
+    const defaults = isLight
+      ? { bg: "#FFFFFF", fg: "#0F172A", accent: "#1F5FB4" }
+      : { bg: "#0E141D", fg: "#DCE6F2", accent: "#3A6FAE" };
+    const bg = normalizeHexColor(source.bg || defaults.bg) || defaults.bg;
+    const fg = normalizeHexColor(source.fg || defaults.fg) || defaults.fg;
+    const accent = normalizeHexColor(source.accent || defaults.accent) || defaults.accent;
+    const panel = normalizeHexColor(source.panel || mixHexColors(bg, fg, isLight ? 0.04 : 0.08))
+      || mixHexColors(bg, fg, isLight ? 0.04 : 0.08);
+    const panel2 = normalizeHexColor(source.panel2 || mixHexColors(bg, fg, isLight ? 0.08 : 0.13))
+      || mixHexColors(bg, fg, isLight ? 0.08 : 0.13);
+    const tone = normalizeAppearanceGridTone(source.dashboardGridTone);
+    const density = normalizeAppearanceGridDensity(source.dashboardGridDensity);
+    const hover = normalizeAppearanceGridHover(source.dashboardGridHover);
+
+    const densityPresets = {
+      compact: {
+        headPy: 8,
+        headPx: 10,
+        cellPy: 7,
+        cellPx: 10,
+        fontSize: 12,
+        lineHeight: 1.46,
+      },
+      comfortable: {
+        headPy: 8.5,
+        headPx: 11,
+        cellPy: 9,
+        cellPx: 11,
+        fontSize: 13,
+        lineHeight: 1.56,
+      },
+      airy: {
+        headPy: 10,
+        headPx: 12,
+        cellPy: 11,
+        cellPx: 12,
+        fontSize: 13,
+        lineHeight: 1.68,
+      },
+    };
+    const tonePresets = {
+      soft: {
+        row1Mix: isLight ? 0.6 : 0.62,
+        row2Mix: isLight ? 0.78 : 0.46,
+        headAccentMix: isLight ? 0.08 : 0.13,
+        headToBg: isLight ? 0.38 : 0.2,
+        borderToFg: isLight ? 0.06 : 0.04,
+        bodyBorderToBg: isLight ? 0.18 : 0.12,
+        shadow: isLight ? "0 8px 18px rgba(20,45,90,.06)" : "0 8px 18px rgba(0,0,0,.14)",
+      },
+      balanced: {
+        row1Mix: isLight ? 0.52 : 0.56,
+        row2Mix: isLight ? 0.68 : 0.38,
+        headAccentMix: isLight ? 0.12 : 0.18,
+        headToBg: isLight ? 0.28 : 0.14,
+        borderToFg: isLight ? 0.08 : 0.06,
+        bodyBorderToBg: isLight ? 0.22 : 0.16,
+        shadow: isLight ? "0 10px 20px rgba(20,45,90,.08)" : "0 10px 22px rgba(0,0,0,.18)",
+      },
+      contrast: {
+        row1Mix: isLight ? 0.44 : 0.5,
+        row2Mix: isLight ? 0.58 : 0.3,
+        headAccentMix: isLight ? 0.16 : 0.22,
+        headToBg: isLight ? 0.18 : 0.1,
+        borderToFg: isLight ? 0.1 : 0.08,
+        bodyBorderToBg: isLight ? 0.26 : 0.2,
+        shadow: isLight ? "0 12px 24px rgba(20,45,90,.1)" : "0 12px 24px rgba(0,0,0,.22)",
+      },
+    };
+    const densityCfg = densityPresets[density] || densityPresets[APPEARANCE_GRID_DENSITY_DEFAULT];
+    const toneCfg = tonePresets[tone] || tonePresets[APPEARANCE_GRID_TONE_DEFAULT];
+    const row1 = mixHexColors(panel, bg, toneCfg.row1Mix);
+    const row2 = mixHexColors(panel2, bg, toneCfg.row2Mix);
+    const tableSurface = mixHexColors(panel, panel2, 0.24);
+    const tableBorder = mixHexColors(mixHexColors(panel2, fg, toneCfg.borderToFg), bg, isLight ? 0.14 : 0.08);
+    const headBase = mixHexColors(panel2, accent, toneCfg.headAccentMix);
+    const headBg = mixHexColors(headBase, bg, toneCfg.headToBg);
+    const headFg = mixHexColors(fg, accent, isLight ? 0.08 : 0.04);
+    const headBorder = mixHexColors(headBg, fg, isLight ? 0.18 : 0.28);
+    const bodyBorder = mixHexColors(tableBorder, bg, toneCfg.bodyBorderToBg);
+    const hoverRatio = hover === "focus" ? (isLight ? 0.16 : 0.22) : isLight ? 0.09 : 0.15;
+    const hoverBg = mixHexColors(row2, accent, hoverRatio);
+
+    return {
+      tone,
+      density,
+      hover,
+      row1,
+      row2,
+      tableSurface,
+      tableBorder,
+      headBg,
+      headFg,
+      headBorder,
+      bodyBorder,
+      hoverBg,
+      shadow: toneCfg.shadow,
+      headPy: `${densityCfg.headPy}px`,
+      headPx: `${densityCfg.headPx}px`,
+      cellPy: `${densityCfg.cellPy}px`,
+      cellPx: `${densityCfg.cellPx}px`,
+      fontSize: `${densityCfg.fontSize}px`,
+      lineHeight: String(densityCfg.lineHeight),
+    };
+  }
+  /**
    * Objetivo: Normaliza objeto de configuracoes de aparencia.
    *
    * Contexto: aplicado no carregamento/salvamento da preferencia local.
@@ -5743,6 +6565,9 @@ Atenciosamente.`;
       borderRadius,
       borderWidth,
       dashboardGridWidth,
+      dashboardGridTone: normalizeAppearanceGridTone(source.dashboardGridTone),
+      dashboardGridDensity: normalizeAppearanceGridDensity(source.dashboardGridDensity),
+      dashboardGridHover: normalizeAppearanceGridHover(source.dashboardGridHover),
     };
   }
   /**
@@ -5843,7 +6668,7 @@ Atenciosamente.`;
     return normalized;
   }
   /**
-   * Objetivo: Recupera API opcional do modulo auxiliar (.user2.js).
+   * Objetivo: Recupera API opcional do modulo embutido de configuracoes.
    *
    * Contexto: usado para abrir configuracoes por guias/subguias quando disponivel.
    * Parametros: nenhum.
@@ -6283,12 +7108,19 @@ Atenciosamente.`;
     const panel = mixHexColors(bg, fg, mode === "light" ? 0.04 : 0.08);
     const panel2 = mixHexColors(bg, fg, mode === "light" ? 0.08 : 0.13);
     const border = mixHexColors(bg, fg, mode === "light" ? 0.18 : 0.24);
-    const row1 = mixHexColors(panel, bg, mode === "light" ? 0.48 : 0.56);
-    const row2 = mixHexColors(panel2, bg, mode === "light" ? 0.6 : 0.38);
     const chipBg = mixHexColors(panel2, bg, mode === "light" ? 0.54 : 0.38);
     const neutral = mixHexColors(fg, bg, mode === "light" ? 0.06 : 0.09);
     const link = mixHexColors(accent, fg, mode === "light" ? 0.2 : 0.38);
     const linkHover = mixHexColors(accent, fg, mode === "light" ? 0.34 : 0.56);
+    const gridAppearance = buildDashboardGridAppearanceTokens({
+      ...settings,
+      mode,
+      bg,
+      fg,
+      accent,
+      panel,
+      panel2,
+    });
     const [r, g, b] = hexToRgb(bg);
     const wallpaperOpacity = clampNumber(
       settings.wallpaperOpacity,
@@ -6340,13 +7172,30 @@ Atenciosamente.`;
     html.style.setProperty("--panel", panel);
     html.style.setProperty("--panel2", panel2);
     html.style.setProperty("--border", border);
-    html.style.setProperty("--row1", row1);
-    html.style.setProperty("--row2", row2);
+    html.style.setProperty("--row1", gridAppearance.row1);
+    html.style.setProperty("--row2", gridAppearance.row2);
+    html.style.setProperty("--hs-table-row1", gridAppearance.row1);
+    html.style.setProperty("--hs-table-row2", gridAppearance.row2);
+    html.style.setProperty("--hs-table-surface", gridAppearance.tableSurface);
+    html.style.setProperty("--hs-table-border", gridAppearance.tableBorder);
+    html.style.setProperty("--hs-table-head-bg", gridAppearance.headBg);
+    html.style.setProperty("--hs-table-head-fg", gridAppearance.headFg);
+    html.style.setProperty("--hs-table-head-border", gridAppearance.headBorder);
+    html.style.setProperty("--hs-table-body-border", gridAppearance.bodyBorder);
+    html.style.setProperty("--hs-table-hover-bg", gridAppearance.hoverBg);
+    html.style.setProperty("--hs-table-shadow", gridAppearance.shadow);
+    html.style.setProperty("--hs-table-head-py", gridAppearance.headPy);
+    html.style.setProperty("--hs-table-head-px", gridAppearance.headPx);
+    html.style.setProperty("--hs-table-cell-py", gridAppearance.cellPy);
+    html.style.setProperty("--hs-table-cell-px", gridAppearance.cellPx);
+    html.style.setProperty("--hs-table-font-size", gridAppearance.fontSize);
+    html.style.setProperty("--hs-table-line-height", gridAppearance.lineHeight);
     html.style.setProperty("--chip-bg", chipBg);
     html.style.setProperty("--neutral", neutral);
     html.style.setProperty("--accent", accent);
     html.style.setProperty("--link", link);
     html.style.setProperty("--link-hover", linkHover);
+    html.setAttribute("data-hs-table-hover", gridAppearance.hover);
     html.style.setProperty("--hs-body-font", fontCss);
     html.style.setProperty("--hs-wallpaper-image", wallpaperCss);
     html.style.setProperty("--hs-wallpaper-overlay", wallpaperOverlay);
@@ -6505,51 +7354,6 @@ Atenciosamente.`;
     if (isAttachmentTextPreviewEnabled()) return true;
     const rawSource = String(source || "").trim();
     return /(?:^|\/)anexo(?:\.php)?(?:[?#]|$)/i.test(rawSource) || /[?&](?:guid|anexo|id_anexo)=/i.test(rawSource);
-  }
-  /**
-   * Objetivo: Le versao de notificacao ja vista no menu de configuracoes.
-   *
-   * Contexto: controla bolinha de alerta no icone de engrenagem.
-   * Parametros: nenhum.
-   * Retorno: string.
-   * Efeitos colaterais: leitura opcional de localStorage.
-   */
-  function readSettingsNoticeSeenVersion() {
-    try {
-      const raw = String(localStorage.getItem(SETTINGS_NOTICE_LAST_SEEN_LS_KEY) || "").trim();
-      return raw;
-    } catch {
-      return "";
-    }
-  }
-  /**
-   * Objetivo: Persiste versao marcada como "ja vista" no menu de configuracoes.
-   *
-   * Contexto: usado ao abrir historico de atualizacoes.
-   * Parametros:
-   * - version: entrada usada por esta rotina.
-   * Retorno: void.
-   * Efeitos colaterais: escrita opcional em localStorage.
-   */
-  function writeSettingsNoticeSeenVersion(version) {
-    const next = String(version || "").trim() || SCRIPT_VERSION;
-    try {
-      localStorage.setItem(SETTINGS_NOTICE_LAST_SEEN_LS_KEY, next);
-    } catch {}
-  }
-  /**
-   * Objetivo: Obtem versao mais recente conhecida para sinalizar informacoes.
-   *
-   * Contexto: usa cache remoto (quando existir) com fallback no catalogo local.
-   * Parametros: nenhum.
-   * Retorno: string.
-   * Efeitos colaterais: leitura opcional de localStorage.
-   */
-  function getLatestKnownSettingsInfoVersion() {
-    const cachedList = readUpdatesLogCache().list;
-    const source = Array.isArray(cachedList) && cachedList.length ? cachedList : RECENT_UPDATES;
-    const top = (Array.isArray(source) ? source : []).find((entry) => String(entry?.version || "").trim());
-    return String(top?.version || SCRIPT_VERSION).trim() || SCRIPT_VERSION;
   }
   /**
    * Objetivo: Normaliza lista de historico de atualizacoes.
@@ -7294,6 +8098,9 @@ Atenciosamente.`;
     const borderRadius = modal.querySelector("#hs-appearance-border-radius");
     const borderWidth = modal.querySelector("#hs-appearance-border-width");
     const gridWidth = modal.querySelector("#hs-appearance-grid-width");
+    const gridTone = modal.querySelector("#hs-appearance-grid-tone");
+    const gridDensity = modal.querySelector("#hs-appearance-grid-density");
+    const gridHover = modal.querySelector("#hs-appearance-grid-hover");
     if (font instanceof HTMLSelectElement) font.value = settings.fontFamily || APPEARANCE_DEFAULTS.fontFamily;
     if (bg instanceof HTMLInputElement)
       bg.value = normalizeHexColor(settings.bgColor) || (getTheme() === "light" ? "#FFFFFF" : "#0E141D");
@@ -7315,6 +8122,12 @@ Atenciosamente.`;
     if (borderShape instanceof HTMLSelectElement) borderShape.value = settings.borderShape || APPEARANCE_DEFAULTS.borderShape;
     if (borderRadius instanceof HTMLInputElement) borderRadius.value = String(Math.round(settings.borderRadius || APPEARANCE_BORDER_RADIUS_DEFAULT));
     if (borderWidth instanceof HTMLInputElement) borderWidth.value = String(Math.round(settings.borderWidth || APPEARANCE_BORDER_WIDTH_DEFAULT));
+    if (gridTone instanceof HTMLSelectElement)
+      gridTone.value = normalizeAppearanceGridTone(settings.dashboardGridTone);
+    if (gridDensity instanceof HTMLSelectElement)
+      gridDensity.value = normalizeAppearanceGridDensity(settings.dashboardGridDensity);
+    if (gridHover instanceof HTMLSelectElement)
+      gridHover.value = normalizeAppearanceGridHover(settings.dashboardGridHover);
     if (gridWidth instanceof HTMLInputElement) {
       const widthValue = Number(settings.dashboardGridWidth);
       gridWidth.value =
@@ -7346,6 +8159,9 @@ Atenciosamente.`;
     const borderRadius = modal.querySelector("#hs-appearance-border-radius");
     const borderWidth = modal.querySelector("#hs-appearance-border-width");
     const gridWidth = modal.querySelector("#hs-appearance-grid-width");
+    const gridTone = modal.querySelector("#hs-appearance-grid-tone");
+    const gridDensity = modal.querySelector("#hs-appearance-grid-density");
+    const gridHover = modal.querySelector("#hs-appearance-grid-hover");
 
     const wallpaperInputRaw = wallpaper instanceof HTMLInputElement ? String(wallpaper.value || "").trim() : "";
     const wallpaperUrl = sanitizeWallpaperUrl(wallpaperInputRaw);
@@ -7406,6 +8222,18 @@ Atenciosamente.`;
               );
             })()
           : base.dashboardGridWidth,
+      dashboardGridTone:
+        gridTone instanceof HTMLSelectElement
+          ? normalizeAppearanceGridTone(gridTone.value)
+          : base.dashboardGridTone,
+      dashboardGridDensity:
+        gridDensity instanceof HTMLSelectElement
+          ? normalizeAppearanceGridDensity(gridDensity.value)
+          : base.dashboardGridDensity,
+      dashboardGridHover:
+        gridHover instanceof HTMLSelectElement
+          ? normalizeAppearanceGridHover(gridHover.value)
+          : base.dashboardGridHover,
     });
   }
   /**
@@ -7495,6 +8323,38 @@ Atenciosamente.`;
                 </div>
               </label>
             </div>
+            <section class="hs-appearance-section">
+              <div class="hs-appearance-section-head">
+                <strong>Grade de consultas</strong>
+                <span>Refino leve para dashboard e consulta de requisicoes, mantendo a estrutura atual.</span>
+              </div>
+              <div class="hs-appearance-subgrid">
+                <label class="hs-appearance-field">
+                  <span>Estilo da grade</span>
+                  <select id="hs-appearance-grid-tone">
+                    <option value="soft">Discreta</option>
+                    <option value="balanced">Profissional</option>
+                    <option value="contrast">Classica</option>
+                  </select>
+                </label>
+                <label class="hs-appearance-field">
+                  <span>Densidade das linhas</span>
+                  <select id="hs-appearance-grid-density">
+                    <option value="comfortable">Confortavel</option>
+                    <option value="compact">Compacta</option>
+                    <option value="airy">Respirada</option>
+                  </select>
+                </label>
+                <label class="hs-appearance-field">
+                  <span>Hover da linha</span>
+                  <select id="hs-appearance-grid-hover">
+                    <option value="soft">Suave</option>
+                    <option value="focus">Destaque</option>
+                    <option value="off">Desligado</option>
+                  </select>
+                </label>
+              </div>
+            </section>
             <div class="hs-appearance-range-row">
               <span>Intensidade do papel de fundo</span>
               <input id="hs-appearance-wallpaper-opacity" type="range" min="0" max="18" step="1" value="6" />
@@ -8457,35 +9317,6 @@ Atenciosamente.`;
    * Retorno: string.
    * Efeitos colaterais: leitura de localStorage.
    */
-  function getLastUpdatePopupVersion() {
-    try {
-      return String(localStorage.getItem(UPDATE_POPUP_LAST_VERSION_LS_KEY) || "").trim();
-    } catch {
-      return "";
-    }
-  }
-  /**
-   * Objetivo: Persiste ultima versao remota notificada em popup.
-   *
-   * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
-   * Parametros:
-   * - version: entrada usada por esta rotina.
-   * Retorno: void.
-   * Efeitos colaterais: escrita em localStorage.
-   */
-  function setLastUpdatePopupVersion(version) {
-    try {
-      localStorage.setItem(UPDATE_POPUP_LAST_VERSION_LS_KEY, String(version || "").trim());
-    } catch {}
-  }
-  /**
-   * Objetivo: Determina se o resultado de update representa correcao obrigatoria.
-   *
-   * Contexto: usado para forcar abertura do modal de update em casos criticos.
-   * Parametros:
-   * - result: payload do checker de atualizacao.
-   * Retorno: boolean.
-   */
   function isMandatoryUpdateResult(result) {
     const hasUpdate = !!result?.hasUpdate && !!String(result?.remoteVersion || "").trim();
     if (!hasUpdate) return false;
@@ -8507,7 +9338,6 @@ Atenciosamente.`;
     if (!remoteVersion) return;
     if (hsMandatoryUpdatePromptVersion === remoteVersion) return;
     hsMandatoryUpdatePromptVersion = remoteVersion;
-    setLastUpdatePopupVersion(remoteVersion);
 
     const mandatoryVersion = String(result?.mandatoryVersion || remoteVersion).trim() || remoteVersion;
     const mandatoryReason = String(result?.mandatoryReason || "").trim();
@@ -9119,52 +9949,6 @@ Atenciosamente.`;
     if (b) b.remove();
   }
   /**
-   * Objetivo: Renderiza badge premium de versao com metadados do ultimo commit.
-   *
-   * Contexto: exibido ao lado da logo do cabecalho.
-   * Parametros:
-   * - badge: elemento alvo.
-   * - commitMeta: dados normalizados do commit mais recente.
-   * Retorno: void.
-   */
-  function renderLogoVersionBadge(badge, commitMeta = null) {
-    if (!(badge instanceof HTMLElement)) return;
-    let main = badge.querySelector(".hs-logo-version-main");
-    if (!(main instanceof HTMLElement)) {
-      main = document.createElement("span");
-      main.className = "hs-logo-version-main";
-      badge.appendChild(main);
-    }
-
-    let dot = badge.querySelector(".hs-logo-version-dot");
-    if (!(dot instanceof HTMLElement)) {
-      dot = document.createElement("span");
-      dot.className = "hs-logo-version-dot";
-      badge.appendChild(dot);
-    }
-
-    let meta = badge.querySelector(".hs-logo-version-meta");
-    if (!(meta instanceof HTMLElement)) {
-      meta = document.createElement("span");
-      meta.className = "hs-logo-version-meta";
-      badge.appendChild(meta);
-    }
-
-    main.textContent = `v${SCRIPT_VERSION}`;
-    if (commitMeta?.shaShort) {
-      const datePart = commitMeta.dateShort ? ` ${commitMeta.dateShort}` : "";
-      meta.textContent = `#${commitMeta.shaShort}${datePart}`;
-      badge.dataset.hsCommitUrl = String(commitMeta.url || "").trim();
-      badge.title = commitMeta.message
-        ? `Versao ${SCRIPT_VERSION}\nCommit ${commitMeta.shaShort} (${commitMeta.dateShort || "sem data"})\n${commitMeta.message}`
-        : `Versao ${SCRIPT_VERSION}\nCommit ${commitMeta.shaShort} (${commitMeta.dateShort || "sem data"})`;
-    } else {
-      meta.textContent = "commit ...";
-      badge.dataset.hsCommitUrl = "";
-      badge.title = `Versao ${SCRIPT_VERSION}\nBuscando ultimo commit...`;
-    }
-  }
-  /**
    * Objetivo: Substitui a logo do cabecalho pela URL padrao do projeto.
    *
    * Contexto: Parte do fluxo de UI/automacao do suporte Headsoft.
@@ -9177,8 +9961,6 @@ Atenciosamente.`;
     if (!wrap) return;
     const img = wrap.querySelector("img");
     if (img) img.src = NEW_LOGO;
-    // Badge de versao saiu do cabecalho e agora fica no menu de Configuracoes.
-    wrap.querySelector(".hs-logo-version")?.remove();
   }
   /**
    * Objetivo: Configura navegaÃ§Ã£o da logo conforme contexto da pÃ¡gina.
@@ -9210,8 +9992,6 @@ Atenciosamente.`;
       "click",
       (ev) => {
         if (ev.button !== 0) return;
-        const target = ev.target instanceof Element ? ev.target : null;
-        if (target?.closest(".hs-logo-version")) return;
         const href = getTargetHref();
         if (!href) return;
 
@@ -10015,7 +10795,7 @@ Atenciosamente.`;
         toControl(
           "appearance-main",
           appearanceBtn,
-          "Abre os controles de fonte, tema, bordas e largura da grade salvos por tema."
+          "Abre os controles de fonte, tema, bordas e refinamento da grade salvos por tema."
         ),
       ].filter((item) => !item.hidden);
 
@@ -10403,7 +11183,6 @@ Atenciosamente.`;
       ev.stopPropagation();
       try {
         await showRecentUpdatesDialog();
-        writeSettingsNoticeSeenVersion(getLatestKnownSettingsInfoVersion());
         refreshSettingsNotification();
       } catch {
         toast("Nao foi possivel abrir o historico de atualizacoes agora.", "err", 3000);
@@ -10805,7 +11584,7 @@ Atenciosamente.`;
       wrap.id = "hs2025-dashboard-em-servico-wrap";
       wrap.className = "hs-dashboard-extra-toggle-wrap";
       wrap.innerHTML =
-        '<label class="hs-dashboard-extra-toggle"><input type="checkbox" id="hs2025-dashboard-em-servico-toggle" /><span>Exibir Em servico</span></label>';
+        '<input type="checkbox" id="hs2025-dashboard-em-servico-toggle" /><label class="hs-dashboard-extra-toggle" for="hs2025-dashboard-em-servico-toggle">Exibir Em servico</label>';
     }
     if (anchor instanceof HTMLElement && anchor.parentElement === host) {
       let insertRef = anchor.nextSibling;
@@ -10910,6 +11689,30 @@ Atenciosamente.`;
         el.style.removeProperty("box-shadow");
       });
     }
+
+    const getDirectTableRows = (tb) =>
+      Array.from(tb?.rows || []).filter((tr) => tr instanceof HTMLTableRowElement && tr.closest("table") === tb);
+
+    const prepareMainTable = (tb) => {
+      if (!(tb instanceof HTMLTableElement)) return;
+      tb.classList.add("hs-user-main-table");
+      tb.removeAttribute("width");
+      tb.style.removeProperty("width");
+      tb.style.removeProperty("max-width");
+
+      getDirectTableRows(tb).forEach((tr) => {
+        tr.classList.add("hs-user-form-row");
+        const cells = Array.from(tr.cells || []);
+        cells.forEach((cell, idx) => {
+          cell.removeAttribute("width");
+          cell.style.removeProperty("width");
+          cell.classList.add(idx === 0 ? "hs-user-form-label-cell" : "hs-user-form-value-cell");
+        });
+        if (cells.length <= 1) tr.classList.add("hs-user-row-full");
+        if (tr.querySelector('input[type="checkbox"]')) tr.classList.add("hs-user-row-checkbox");
+        if (tr.querySelector('input[type="password"]')) tr.classList.add("hs-user-row-password");
+      });
+    };
 
     const hideHeaderSearchRef = () => {
       const header = document.getElementById("cabecalho") || document.getElementById("cabecalho_menu");
@@ -11022,12 +11825,81 @@ Atenciosamente.`;
         });
       });
     }
+    prepareMainTable(infoTable);
+    prepareMainTable(passTable);
 
-    const titleNodes = Array.from(form.querySelectorAll("h1,h2,h3,strong,b,div,td,span"));
-    const sectionMain = titleNodes.find((el) => /novo usu|editar usu|usu[aÃ¡]rio\s*:/.test(norm(el.textContent || "")));
+    const titleNodes = Array.from(form.querySelectorAll("h1,h2,h3,strong,b,div,td,span")).filter((el) => {
+      if (!(el instanceof HTMLElement)) return false;
+      if (el.id === "hs-user-info-heading" || el.id === "hs-user-pass-heading") return false;
+      if (el.closest(".hs-user-section-card")) return false;
+      return true;
+    });
+    const sectionMain = titleNodes.find((el) =>
+      /novo usu|editar usu|detalh.*usu|cadastro.*usu|dados.*usu|usu[aÃ¡]rio\s*:/.test(
+        norm(el.textContent || "")
+      )
+    );
     const sectionPass = titleNodes.find((el) => /definir senha|senha de acesso/.test(norm(el.textContent || "")));
     if (sectionMain) sectionMain.classList.add("hs-user-section-title");
     if (sectionPass) sectionPass.classList.add("hs-user-section-title");
+    const getSectionTitleText = (node, fallback) => {
+      const raw = String(node?.textContent || "")
+        .replace(/\s+/g, " ")
+        .trim();
+      return raw || fallback;
+    };
+    const ensureSectionHeading = (id, text) => {
+      let heading = form.querySelector(`#${id}`);
+      if (!(heading instanceof HTMLHeadingElement)) {
+        heading = document.createElement("h2");
+        heading.id = id;
+      }
+      heading.className = "hs-user-section-title";
+      heading.textContent = text;
+      return heading;
+    };
+    const markLegacyTitleSource = (node, tableRef) => {
+      if (!(node instanceof HTMLElement)) return;
+      if (node.id === "hs-user-info-heading" || node.id === "hs-user-pass-heading") return;
+      if (node.closest(".hs-user-section-card")) return;
+      if (tableRef instanceof HTMLTableElement && tableRef.contains(node)) return;
+      node.classList.add("hs-user-legacy-title-source");
+    };
+    const ensureSectionCard = (id, extraClass, heading, tableRef) => {
+      if (!(tableRef instanceof HTMLTableElement)) return null;
+      let card = form.querySelector(`#${id}`);
+      if (!(card instanceof HTMLElement)) {
+        card = document.createElement("section");
+        card.id = id;
+        card.className = `hs-user-section-card ${extraClass}`.trim();
+        const body = document.createElement("div");
+        body.className = "hs-user-section-card-body";
+        card.appendChild(body);
+      }
+      card.className = `hs-user-section-card ${extraClass}`.trim();
+
+      let body = card.querySelector(".hs-user-section-card-body");
+      if (!(body instanceof HTMLElement)) {
+        body = document.createElement("div");
+        body.className = "hs-user-section-card-body";
+        card.appendChild(body);
+      }
+      if (heading instanceof HTMLElement && card.firstElementChild !== heading) {
+        card.insertBefore(heading, body);
+      }
+      if (tableRef.parentElement !== body) body.appendChild(tableRef);
+      return card;
+    };
+
+    if (sectionMain) markLegacyTitleSource(sectionMain, infoTable);
+    if (sectionPass) markLegacyTitleSource(sectionPass, passTable);
+
+    const infoHeading = infoTable
+      ? ensureSectionHeading("hs-user-info-heading", getSectionTitleText(sectionMain, "Detalhes do usuario"))
+      : null;
+    const passHeading = passTable
+      ? ensureSectionHeading("hs-user-pass-heading", getSectionTitleText(sectionPass, "Alterar senha de acesso"))
+      : null;
 
     let actionsWrap = form.querySelector(".hs-user-actions");
     if (!actionsWrap) {
@@ -11096,9 +11968,191 @@ Atenciosamente.`;
       secondaryWrap.remove();
     }
 
+    const infoCard = ensureSectionCard("hs-user-info-card", "hs-user-info-card", infoHeading, infoTable);
+    const passCard = ensureSectionCard("hs-user-pass-card", "hs-user-pass-card", passHeading, passTable);
+    const cardsAnchor = actionsWrap.isConnected ? actionsWrap : secondaryWrap.isConnected ? secondaryWrap : null;
+    if (infoCard) form.insertBefore(infoCard, cardsAnchor);
+    if (passCard) form.insertBefore(passCard, cardsAnchor);
+
     actionTables.forEach((tb) => {
       tb.style.display = "none";
     });
+  }
+  function rebuildUserFormPageLayout() {
+    if (!/visualizar_usuario\.php/i.test(location.pathname)) return;
+    const form = document.querySelector("#conteudo form");
+    if (!(form instanceof HTMLFormElement)) return;
+    if (form.dataset.hsUserLayoutV2Built === "1" && form.querySelector("#hs-user-layout-v2")) return;
+
+    const infoTable = form.querySelector("table.hs-user-info-table");
+    const passTable = form.querySelector("table.hs-user-pass-table");
+    if (!(infoTable instanceof HTMLTableElement) && !(passTable instanceof HTMLTableElement)) return;
+
+    const getDirectRows = (tb) =>
+      Array.from(tb?.rows || []).filter((tr) => tr instanceof HTMLTableRowElement && tr.closest("table") === tb);
+    const getLabelText = (row) =>
+      String(row?.cells?.[0]?.textContent || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/\s*:\s*$/, "");
+    const getTitleText = (fallback) => {
+      const candidates = Array.from(form.querySelectorAll("h1,h2,h3,strong,b,div,td,span")).filter(
+        (el) => el instanceof HTMLElement && !el.closest("#hs-user-layout-v2")
+      );
+      const found = candidates.find((el) =>
+        /detalh.*usu|novo usu|editar usu|usu[aÃƒÂ¡]rio\s*:/.test(norm(el.textContent || ""))
+      );
+      return (
+        String(found?.textContent || "")
+          .replace(/\s+/g, " ")
+          .trim() || fallback
+      );
+    };
+    const fieldSelector =
+      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]),select,textarea';
+    const sanitizeControl = (control) => {
+      if (!(control instanceof HTMLElement)) return;
+      control.removeAttribute("width");
+      if (control instanceof HTMLSelectElement) control.removeAttribute("size");
+      [
+        "width",
+        "min-width",
+        "max-width",
+        "height",
+        "min-height",
+        "margin",
+        "background",
+        "background-color",
+        "background-image",
+        "border",
+        "border-color",
+        "box-shadow",
+      ].forEach((prop) => control.style.removeProperty(prop));
+    };
+    const buildCheckboxState = (checkbox) => {
+      const state = document.createElement("span");
+      state.className = "hs-user-checkbox-state";
+      const sync = () => {
+        state.textContent = checkbox.checked ? "Ativado" : "Desativado";
+        state.classList.toggle("is-on", !!checkbox.checked);
+      };
+      sync();
+      if (checkbox.dataset.hsUserV2Bound !== "1") {
+        checkbox.dataset.hsUserV2Bound = "1";
+        checkbox.addEventListener("change", sync);
+      }
+      return state;
+    };
+    const buildFieldRow = (row) => {
+      if (!(row instanceof HTMLTableRowElement)) return null;
+      const labelText = getLabelText(row);
+      const controls = Array.from(row.querySelectorAll(fieldSelector)).filter((el) => !el.closest("#hs-user-layout-v2"));
+      const textValue = controls.length
+        ? ""
+        : Array.from(row.cells || [])
+            .slice(1)
+            .map((cell) =>
+              String(cell.textContent || "")
+                .replace(/\s+/g, " ")
+                .trim()
+            )
+            .filter(Boolean)
+            .join(" ");
+      if (!labelText && !controls.length && !textValue) return null;
+
+      const rowEl = document.createElement("div");
+      rowEl.className = "hs-user-v2-row";
+      if (controls.length === 1 && controls[0] instanceof HTMLInputElement && controls[0].type === "checkbox") {
+        rowEl.classList.add("is-checkbox");
+      }
+
+      const labelEl = document.createElement("div");
+      labelEl.className = "hs-user-v2-label";
+      labelEl.textContent = labelText || "Campo";
+
+      const valueEl = document.createElement("div");
+      valueEl.className = "hs-user-v2-value";
+      if (controls.length) {
+        controls.forEach((control) => {
+          sanitizeControl(control);
+          valueEl.appendChild(control);
+          if (control instanceof HTMLInputElement && control.type === "checkbox") {
+            valueEl.appendChild(buildCheckboxState(control));
+          }
+        });
+      } else {
+        const textEl = document.createElement("span");
+        textEl.className = "hs-user-v2-text";
+        textEl.textContent = textValue;
+        valueEl.appendChild(textEl);
+      }
+
+      rowEl.appendChild(labelEl);
+      rowEl.appendChild(valueEl);
+      row.classList.add("hs-user-v2-hidden");
+      return rowEl;
+    };
+    const buildCard = (title, tableRef) => {
+      if (!(tableRef instanceof HTMLTableElement)) return null;
+      const rows = getDirectRows(tableRef).map(buildFieldRow).filter(Boolean);
+      if (!rows.length) return null;
+
+      const card = document.createElement("section");
+      card.className = "hs-user-v2-card";
+      card.innerHTML = `<div class="hs-user-v2-card-head"></div><div class="hs-user-v2-card-body"><div class="hs-user-v2-grid"></div></div>`;
+      const head = card.querySelector(".hs-user-v2-card-head");
+      const grid = card.querySelector(".hs-user-v2-grid");
+      if (head) head.textContent = title;
+      if (grid) rows.forEach((row) => grid.appendChild(row));
+      tableRef.classList.add("hs-user-v2-hidden");
+      tableRef.closest(".hs-user-section-card")?.classList.add("hs-user-v2-hidden");
+      return card;
+    };
+
+    let layout = form.querySelector("#hs-user-layout-v2");
+    if (!(layout instanceof HTMLElement)) {
+      layout = document.createElement("div");
+      layout.id = "hs-user-layout-v2";
+    }
+    layout.replaceChildren();
+
+    const pageTitle = document.createElement("h1");
+    pageTitle.className = "hs-user-page-title";
+    pageTitle.textContent = getTitleText("Detalhes do usuario");
+    layout.appendChild(pageTitle);
+
+    const infoCard = buildCard("Detalhes do usuario", infoTable);
+    if (infoCard) layout.appendChild(infoCard);
+
+    const passTitleSource = Array.from(form.querySelectorAll(".hs-user-section-title, h1, h2, h3, strong, b")).find((el) =>
+      /senha de acesso|definir senha/.test(norm(el.textContent || ""))
+    );
+    const passCard = buildCard(
+      String(passTitleSource?.textContent || "").replace(/\s+/g, " ").trim() || "Alterar senha de acesso",
+      passTable
+    );
+    if (passCard) layout.appendChild(passCard);
+
+    const actionsCard = document.createElement("section");
+    actionsCard.className = "hs-user-v2-actions";
+    const actionsWrap = form.querySelector(".hs-user-actions");
+    const secondaryWrap = form.querySelector(".hs-user-actions-secondary");
+    if (actionsWrap instanceof HTMLElement && actionsWrap.children.length) actionsCard.appendChild(actionsWrap);
+    if (secondaryWrap instanceof HTMLElement && secondaryWrap.children.length) actionsCard.appendChild(secondaryWrap);
+    if (actionsCard.childElementCount) layout.appendChild(actionsCard);
+
+    Array.from(
+      form.querySelectorAll(
+        "#hs-user-info-card, #hs-user-pass-card, .hs-user-legacy-title-source, table.hs-user-info-table, table.hs-user-pass-table"
+      )
+    ).forEach((el) => {
+      if (el instanceof HTMLElement) el.classList.add("hs-user-v2-hidden");
+    });
+
+    if (layout.parentElement !== form) form.insertBefore(layout, form.firstChild);
+    else if (form.firstElementChild !== layout) form.insertBefore(layout, form.firstChild);
+
+    form.dataset.hsUserLayoutV2Built = "1";
   }
   /**
    * Objetivo: Adiciona barra de filtros e organizaÃ§Ã£o da consulta de usuÃ¡rios.
@@ -11192,6 +12246,7 @@ Atenciosamente.`;
     const search = bar.querySelector("#hs-users-text-filter");
     const actions = bar.querySelector(".hs-users-actions");
     if (!select || !search || !actions) return;
+    const cachedFilters = readUsersPageFilterCache();
 
     const headersNorm = Array.from(headerRow.cells || []).map((c) => norm((c.textContent || "").trim()));
     const idxSobrenome = headersNorm.findIndex((h) => h.startsWith("sobrenome"));
@@ -11239,7 +12294,7 @@ Atenciosamente.`;
       if (empresa) companies.push(empresa);
     });
 
-    const currentCompany = select.value;
+    const currentCompany = String(select.value || "").trim();
     const companyNormSet = new Map();
     companies.forEach((empresa) => {
       const key = norm(empresa);
@@ -11254,11 +12309,22 @@ Atenciosamente.`;
       opt.textContent = label;
       select.appendChild(opt);
     });
-    if (currentCompany && Array.from(select.options).some((o) => o.value === currentCompany)) {
-      select.value = currentCompany;
+    const desiredCompany = currentCompany || cachedFilters.company;
+    if (desiredCompany && Array.from(select.options).some((o) => o.value === desiredCompany)) {
+      select.value = desiredCompany;
+    }
+    if (search.dataset.hsUsersCacheApplied !== "1") {
+      search.value = cachedFilters.query || "";
+      search.dataset.hsUsersCacheApplied = "1";
     }
 
-    const applyFilters = () => {
+    const persistFilters = () =>
+      writeUsersPageFilterCache({
+        company: select.value || "",
+        query: search.value || "",
+      });
+
+    const applyFilters = (persist = false) => {
       const q = norm(search.value || "").trim();
       const company = select.value;
       rows.forEach((tr) => {
@@ -11268,12 +12334,26 @@ Atenciosamente.`;
         const okText = !q || rowText.includes(q);
         tr.style.display = okCompany && okText ? "" : "none";
       });
+      if (persist) persistFilters();
     };
 
     if (bar.dataset.hsUsersBound !== "1") {
       bar.dataset.hsUsersBound = "1";
-      select.addEventListener("change", applyFilters);
-      search.addEventListener("input", applyFilters);
+      select.addEventListener("change", () => applyFilters(true));
+      search.addEventListener("input", () => applyFilters(true));
+      search.addEventListener("change", () => applyFilters(true));
+    }
+    if (bar.dataset.hsUsersPersistBound !== "1") {
+      bar.dataset.hsUsersPersistBound = "1";
+      const persistOnLeave = () => {
+        if (!document.body.classList.contains("hs-users-page")) return;
+        persistFilters();
+      };
+      window.addEventListener("pagehide", persistOnLeave);
+      window.addEventListener("beforeunload", persistOnLeave);
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) persistOnLeave();
+      });
     }
 
     const isNovo = (el) => {
@@ -11292,6 +12372,7 @@ Atenciosamente.`;
     }
 
     applyFilters();
+    persistFilters();
   }
 
   /* --------------- SECTION: AJUSTES DINAMICOS DE LAYOUT/GRID ---------------- */
@@ -13830,27 +14911,6 @@ Atenciosamente.`;
    * - content: texto bruto do arquivo.
    * Retorno: void.
    */
-  function openTextPreviewModalWithContent(title, content) {
-    const modal = ensureTextPreviewModal();
-    if (!(modal instanceof HTMLElement)) return;
-    const titleEl = modal.querySelector(".hs-text-viewer-title");
-    const stateEl = modal.querySelector(".hs-text-viewer-state");
-    const codeEl = modal.querySelector(".hs-text-viewer-code");
-    if (!(codeEl instanceof HTMLElement)) return;
-
-    const clean = normalizeTextPreviewContent(content);
-    if (titleEl instanceof HTMLElement) {
-      const txt = String(title || "").trim();
-      titleEl.textContent = txt ? `Preview de texto - ${txt}` : "Preview de texto";
-    }
-    if (stateEl instanceof HTMLElement) {
-      stateEl.style.display = "none";
-      stateEl.textContent = "";
-    }
-    setTextPreviewModalSourceUrl(modal, "");
-    codeEl.textContent = clean || "// arquivo vazio";
-    modal.classList.add("open");
-  }
   /**
    * Objetivo: Baixa conteudo textual real de anexo, seguindo wrappers HTML quando existir.
    *
@@ -15910,13 +16970,6 @@ Atenciosamente.`;
    * Retorno: valor calculado.
    * Efeitos colaterais: pode ler/alterar DOM, storage e estado de execucao conforme o caso.
    */
-  function getStoredGeminiKey() {
-    try {
-      return (localStorage.getItem(GEMINI_API_KEY_LS) || "").trim();
-    } catch {
-      return "";
-    }
-  }
   /**
    * Objetivo: Persiste chave Gemini no navegador.
    *
@@ -15926,11 +16979,6 @@ Atenciosamente.`;
    * Retorno: void.
    * Efeitos colaterais: pode ler/alterar DOM, storage e estado de execucao conforme o caso.
    */
-  function setStoredGeminiKey(key) {
-    try {
-      localStorage.setItem(GEMINI_API_KEY_LS, String(key || "").trim());
-    } catch {}
-  }
   /**
    * Objetivo: ObtÃ©m modo de IA atual (grÃ¡tis/pago).
    *
@@ -18017,6 +19065,7 @@ Atenciosamente.`;
     runStep(styleRequestPage, "styleRequestPage");
     runStep(linkifyReferencedRequestNumbers, "linkifyReferencedRequestNumbers");
     runStep(styleUserFormPage, "styleUserFormPage");
+    runStep(rebuildUserFormPageLayout, "rebuildUserFormPageLayout");
     runStep(hideSomeFilters, "hideSomeFilters");
     runStep(ensureDashboardPreviewModeToggle, "ensureDashboardPreviewModeToggle");
     runStep(hideVisualizarActions, "hideVisualizarActions");
@@ -18140,7 +19189,7 @@ Atenciosamente.`;
   }
 })();
 
-// HS_USER2_EMBEDDED_START
+// HS_SETTINGS_EMBEDDED_START
 (() => {
   const API_NAME = "HSHeadsoftUser2";
   const STYLE_ID = "hs-user2-settings-style";
@@ -18338,7 +19387,7 @@ Atenciosamente.`;
       txt(source.resumo || source.mensagem || source.descricao) ||
       "Foi detectada uma nova atualizacao no chamado. Confira os detalhes na grade.";
     const responsavel = txt(source.responsavel || source.usuario || "Equipe");
-    const origem = txt(source.origem || source.source || "Teste do user2.js (Configuracoes)");
+    const origem = txt(source.origem || source.source || "Teste de notificacao (Configuracoes)");
     const updatedAt = txt(source.updatedAt || source.data || "") || formatDateTimePtBr();
     const accent = normalizeHexColor(source.highlightColor || source.accentColor || "#22D3EE") || "#22D3EE";
     const autoCloseMs = Math.min(30000, Math.max(1600, Number(source.autoCloseMs) || NOTIFY_DEFAULT_MS));
@@ -18431,16 +19480,16 @@ Atenciosamente.`;
         responsavel: sampleOwner,
         resumo: sampleSummary,
         highlightColor: sampleAccent,
-        origem: "Teste do user2.js em Configuracoes",
+        origem: "Teste de notificacao em Configuracoes",
         updatedAt: formatDateTimePtBr(),
       });
       if (!(rendered instanceof HTMLElement)) {
-        showPlainNotificationFallback("Teste user2 acionado, mas card principal nao renderizou.");
+        showPlainNotificationFallback("Teste de notificacao acionado, mas o card principal nao renderizou.");
       }
       return true;
     } catch (err) {
       console.warn("[HSUser2] Falha no teste de notificacao:", err);
-      showPlainNotificationFallback("Teste user2 acionado com fallback visual.");
+      showPlainNotificationFallback("Teste de notificacao acionado com fallback visual.");
       return false;
     }
   }
@@ -19354,4 +20403,4 @@ Atenciosamente.`;
   window[API_NAME] = api;
 })();
 
-// HS_USER2_EMBEDDED_END
+// HS_SETTINGS_EMBEDDED_END
