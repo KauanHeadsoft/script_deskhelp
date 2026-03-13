@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.94
+// @version      2.15.95
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -11,6 +11,7 @@
 // @downloadURL  https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user.js
 // @run-at       document-start
 // @grant        none
+// @require      https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user2.js
 // ==/UserScript==
 
 // HeadSoft UI â€” tema, logo, filtros, cores, zebrado, contadores,
@@ -60,6 +61,7 @@
   const DASHBOARD_EM_SERVICO_SECTION_LS_KEY = "hs2025-dashboard-em-servico-section";
   const USERS_PAGE_FILTERS_LS_KEY = "hs2025-users-page-filters-v1";
   const ACOMP_TEXTAREA_SIZE_LS_KEY = "hs2025-acomp-textarea-size";
+  const EXPERIMENTAL_USER2_MODE_LS_KEY = "hs2025-experimental-user2-mode";
   const HIDE_SUGGESTION_FILTER_DEFAULT = true;
   const HIDE_SUGGESTION_FILTER_LS_KEY = "hs2025-hide-suggestion-filter";
   const APPEARANCE_SETTINGS_LS_KEY = "hs2025-appearance-settings";
@@ -111,7 +113,7 @@
     lucida: "'Lucida Sans Unicode', 'Lucida Grande', sans-serif",
     monospace: "'Consolas', 'Courier New', monospace",
   });
-  const SCRIPT_VERSION_FALLBACK = "2.15.94";
+  const SCRIPT_VERSION_FALLBACK = "2.15.95";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -400,6 +402,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-13",
+      version: "2.15.95",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "O .user.js voltou a carregar o modulo remoto .user2.js via @require para iniciar a separacao do script gigante.",
+        "Configuracoes agora exibem o toggle 'Nova versao teste user2' para cada usuario optar por ligar ou nao a experiencia experimental.",
+        "Novo .user2.js publica um painel visual de teste para validar a comunicacao entre user.js e user2.js antes da migracao completa.",
+      ],
+    },
     {
       date: "2026-03-13",
       version: "2.15.94",
@@ -6681,6 +6694,39 @@ Atenciosamente.`;
     } catch {}
     return null;
   }
+  function isExperimentalUser2Enabled() {
+    try {
+      return String(localStorage.getItem(EXPERIMENTAL_USER2_MODE_LS_KEY) || "").trim() === "1";
+    } catch {}
+    return false;
+  }
+  function setExperimentalUser2Enabled(next) {
+    const enabled = !!next;
+    try {
+      localStorage.setItem(EXPERIMENTAL_USER2_MODE_LS_KEY, enabled ? "1" : "0");
+    } catch {}
+    return enabled;
+  }
+  function applyExperimentalUser2Bridge() {
+    const api = getUser2SettingsApi();
+    if (!api) return false;
+    try {
+      if (isExperimentalUser2Enabled()) {
+        if (typeof api.mountExperimentalVersion === "function") {
+          api.mountExperimentalVersion({
+            scriptVersion: SCRIPT_VERSION,
+            page: location.pathname,
+            theme: getTheme(),
+          });
+        }
+        return true;
+      }
+      if (typeof api.unmountExperimentalVersion === "function") api.unmountExperimentalVersion();
+    } catch (err) {
+      console.warn("[HeadsoftHelper] Falha ao sincronizar modo experimental user2:", err);
+    }
+    return false;
+  }
   /**
    * Objetivo: Normaliza chave de situacao para persistencia robusta.
    *
@@ -10727,6 +10773,8 @@ Atenciosamente.`;
     const suggestionFilterBtn = ensureMenuButton("hs-suggestion-filter-toggle", visualGroup);
     const appearanceBtn = ensureMenuButton("hs-appearance-toggle", styleGroup);
     const versionCard = ensureMenuCard("hs-settings-version-card", scriptGroup);
+    const experimentalUser2Btn = ensureMenuButton("hs-user2-experimental-toggle", scriptGroup);
+    const experimentalUser2PanelBtn = ensureMenuButton("hs-user2-experimental-panel-btn", scriptGroup);
     const updatesBtn = ensureMenuButton("hs-updates-log-btn", updateGroup);
     const checkBtn = ensureMenuButton("hs-update-check-btn", updateGroup);
     const manualBtn = ensureMenuButton("hs-update-manual-btn", updateGroup);
@@ -10752,6 +10800,8 @@ Atenciosamente.`;
       syncAttachmentPreviewLabel();
       syncTextAttachmentPreviewLabel();
       syncSuggestionFilterLabel();
+      syncExperimentalUser2Label();
+      syncExperimentalUser2PanelLabel();
 
       const isVisibleControl = (el) => {
         if (!(el instanceof HTMLElement)) return false;
@@ -10808,6 +10858,16 @@ Atenciosamente.`;
 
       const controlsScript = [
         toControl("script-version", versionCard, "Versao atual e commit principal.", "card"),
+        toControl(
+          "script-user2-toggle",
+          experimentalUser2Btn,
+          "Liga/desliga a nova versao de teste carregada pelo .user2.js remoto."
+        ),
+        toControl(
+          "script-user2-panel",
+          experimentalUser2PanelBtn,
+          "Abre um painel visual de teste do user2 para confirmar a ponte entre os arquivos."
+        ),
       ].filter((item) => !item.hidden);
 
       return {
@@ -11051,6 +11111,18 @@ Atenciosamente.`;
         ? "A linha 'Sugestao de melhoria' esta oculta nos filtros."
         : "A linha 'Sugestao de melhoria' fica visivel nos filtros.";
     };
+    const syncExperimentalUser2Label = () => {
+      const enabled = isExperimentalUser2Enabled();
+      experimentalUser2Btn.value = enabled ? "Nova versao teste user2 ON" : "Nova versao teste user2 OFF";
+      experimentalUser2Btn.title = enabled
+        ? "A experiencia experimental do .user2.js esta ativa neste navegador."
+        : "Ativa a experiencia experimental remota do .user2.js neste navegador.";
+    };
+    const syncExperimentalUser2PanelLabel = () => {
+      experimentalUser2PanelBtn.value = "Abrir painel teste user2";
+      experimentalUser2PanelBtn.title =
+        "Abre um painel simples da nova versao de teste para validar a comunicacao com o .user2.js.";
+    };
     const refreshSettingsNotification = (result = null) => {
       const state = result || hsScriptUpdateLastResult || readCachedUpdateCheckResult();
       const hasUpdate = !!state?.hasUpdate && compareVersionTexts(String(state?.remoteVersion || ""), SCRIPT_VERSION) > 0;
@@ -11174,6 +11246,36 @@ Atenciosamente.`;
         "ok",
         2600
       );
+      setMenuOpen(false);
+    };
+    experimentalUser2Btn.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const next = setExperimentalUser2Enabled(!isExperimentalUser2Enabled());
+      applyExperimentalUser2Bridge();
+      syncExperimentalUser2Label();
+      toast(next ? "Nova versao teste user2 ativada." : "Nova versao teste user2 desativada.", "ok", 2400);
+      setMenuOpen(false);
+    };
+    experimentalUser2PanelBtn.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const api = getUser2SettingsApi();
+      if (!api || typeof api.openExperimentalVersionPanel !== "function") {
+        toast("Painel do user2 nao esta disponivel agora.", "err", 2800);
+        setMenuOpen(false);
+        return;
+      }
+      try {
+        api.openExperimentalVersionPanel({
+          scriptVersion: SCRIPT_VERSION,
+          page: location.pathname,
+          theme: getTheme(),
+        });
+      } catch (err) {
+        console.warn("[HeadsoftHelper] Falha ao abrir painel experimental do user2:", err);
+        toast("Falha ao abrir o painel de teste do user2.", "err", 2800);
+      }
       setMenuOpen(false);
     };
     updatesBtn.value = "Atualizacoes";
@@ -19102,6 +19204,7 @@ Atenciosamente.`;
     runStep(adjustRequestTopOffset, "adjustRequestTopOffset");
     runStep(adjustUsersTopOffset, "adjustUsersTopOffset");
     runStep(adjustUserFormTopOffset, "adjustUserFormTopOffset");
+    runStep(applyExperimentalUser2Bridge, "applyExperimentalUser2Bridge");
     runStep(runHealthCheckOnce, "runHealthCheckOnce");
     runStep(runSelfCheck, "runSelfCheck");
   }

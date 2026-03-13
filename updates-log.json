@@ -1,6 +1,17 @@
 ﻿[
     {
         "date":  "2026-03-13",
+        "version":  "2.15.95",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "O .user.js voltou a carregar o modulo remoto .user2.js via @require para iniciar a separacao do script gigante.",
+                      "Configuracoes agora exibem o toggle \u0027Nova versao teste user2\u0027 para cada usuario optar por ligar ou nao a experiencia experimental.",
+                      "Novo .user2.js publica um painel visual de teste para validar a comunicacao entre user.js e user2.js antes da migracao completa."
+                  ]
+    },
+    {
+        "date":  "2026-03-13",
         "version":  "2.15.94",
         "type":  "routine",
         "mandatory":  false,
@@ -61,7 +72,7 @@
         "mandatory":  false,
         "notes":  [
                       "Correcao precisa no bloco de flags do dashboard para respeitar a estrutura legada input + label + quebra de linha.",
-                      "Filtro 'Exibir Em servico' passou a usar o mesmo formato visual e de markup dos demais checkboxes do formulario.",
+                      "Filtro \u0027Exibir Em servico\u0027 passou a usar o mesmo formato visual e de markup dos demais checkboxes do formulario.",
                       "Ajuste remove a organizacao em flex da celula de flags, evitando separar checkbox e label em linhas diferentes."
                   ]
     },
@@ -72,7 +83,7 @@
         "mandatory":  false,
         "notes":  [
                       "Bloco de flags do dashboard foi reorganizado para alinhar melhor os checkboxes no filtro principal.",
-                      "Filtro 'Exibir Em servico' agora segue o mesmo empilhamento, espacamento e alinhamento visual dos demais flags.",
+                      "Filtro \u0027Exibir Em servico\u0027 agora segue o mesmo empilhamento, espacamento e alinhamento visual dos demais flags.",
                       "Ajuste foi mantido apenas na apresentacao do formulario, sem alterar a logica dos filtros nem do grid."
                   ]
     },
@@ -116,7 +127,7 @@
         "mandatory":  false,
         "notes":  [
                       "Modulo user2 ganhou notificacao visual de atualizacao de chamado com animacao de subida (canto inferior direito).",
-                      "Modal de Configuracoes agora exibe botao 'Teste notificacao' para validar rapidamente se o user2.js esta ativo.",
+                      "Modal de Configuracoes agora exibe botao \u0027Teste notificacao\u0027 para validar rapidamente se o user2.js esta ativo.",
                       "API do user2 passou a expor showChamadoUpdateNotification/runSettingsNotificationTest para testes diretos."
                   ]
     },
