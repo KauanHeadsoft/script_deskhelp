@@ -1,6 +1,17 @@
 ﻿[
     {
         "date":  "2026-03-13",
+        "version":  "2.15.97",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Release acompanha o user2 v3.00.03, que passa a assumir um workspace mais completo no dashboard/consulta com preview lateral e tema Dracula.",
+                      "Troca para a nova versao agora altera muito mais da experiencia visual, incluindo a leitura da grade e a abertura da requisicao na v2.",
+                      "Base do user2 foi reforcada para reaplicar shell, preview e estilos da v2 com mais persistencia quando o DOM do sistema muda."
+                  ]
+    },
+    {
+        "date":  "2026-03-13",
         "version":  "2.15.96",
         "type":  "routine",
         "mandatory":  false,

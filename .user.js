@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.96
+// @version      2.15.97
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -113,7 +113,7 @@
     lucida: "'Lucida Sans Unicode', 'Lucida Grande', sans-serif",
     monospace: "'Consolas', 'Courier New', monospace",
   });
-  const SCRIPT_VERSION_FALLBACK = "2.15.96";
+  const SCRIPT_VERSION_FALLBACK = "2.15.97";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -405,6 +405,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-13",
+      version: "2.15.97",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Release acompanha o user2 v3.00.03, que passa a assumir um workspace mais completo no dashboard/consulta com preview lateral e tema Dracula.",
+        "Troca para a nova versao agora altera muito mais da experiencia visual, incluindo a leitura da grade e a abertura da requisicao na v2.",
+        "Base do user2 foi reforcada para reaplicar shell, preview e estilos da v2 com mais persistencia quando o DOM do sistema muda.",
+      ],
+    },
     {
       date: "2026-03-13",
       version: "2.15.96",
