@@ -1,6 +1,17 @@
 ﻿[
     {
         "date":  "2026-03-13",
+        "version":  "2.15.96",
+        "type":  "routine",
+        "mandatory":  false,
+        "notes":  [
+                      "Carregamento do .user2.js foi reforcado com fallback remoto direto pelo user.js para evitar cenarios em que o modulo experimental nao inicializava.",
+                      "Botao da nova versao agora consegue reenfileirar a injecao do user2 e reabrir o painel experimental sem depender apenas do cache do @require.",
+                      "Release acompanha o novo user2 v3.00.02, que finalmente assume a repaginacao da grade com metricas e estilo proprio."
+                  ]
+    },
+    {
+        "date":  "2026-03-13",
         "version":  "2.15.95",
         "type":  "routine",
         "mandatory":  false,

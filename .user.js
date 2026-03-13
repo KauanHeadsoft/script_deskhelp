@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.15.95
+// @version      2.15.96
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -113,13 +113,16 @@
     lucida: "'Lucida Sans Unicode', 'Lucida Grande', sans-serif",
     monospace: "'Consolas', 'Courier New', monospace",
   });
-  const SCRIPT_VERSION_FALLBACK = "2.15.95";
+  const SCRIPT_VERSION_FALLBACK = "2.15.96";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
     ).trim() || SCRIPT_VERSION_FALLBACK;
   const UPDATES_LOG_REMOTE_URL =
     "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/updates-log.json";
+  const USER2_REMOTE_URL =
+    "https://raw.githubusercontent.com/KauanHeadsoft/script_deskhelp/main/.user2.js";
+  const USER2_REMOTE_LOADER_ID = "hs2025-user2-remote-loader";
   const UPDATES_LOG_CACHE_JSON_LS_KEY = "hs2025-updates-log-json";
   const UPDATES_LOG_CACHE_AT_LS_KEY = "hs2025-updates-log-at";
   const UPDATES_LOG_CACHE_MS = 3 * 60 * 1000;
@@ -402,6 +405,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-13",
+      version: "2.15.96",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Carregamento do .user2.js foi reforcado com fallback remoto direto pelo user.js para evitar cenarios em que o modulo experimental nao inicializava.",
+        "Botao da nova versao agora consegue reenfileirar a injecao do user2 e reabrir o painel experimental sem depender apenas do cache do @require.",
+        "Release acompanha o novo user2 v3.00.02, que finalmente assume a repaginacao da grade com metricas e estilo proprio.",
+      ],
+    },
     {
       date: "2026-03-13",
       version: "2.15.95",
@@ -6687,12 +6701,42 @@ Atenciosamente.`;
    * Parametros: nenhum.
    * Retorno: object|null.
    */
-  function getUser2SettingsApi() {
+  function getUser2SettingsApi(requiredMethods = []) {
     try {
       const api = window?.[USER2_SETTINGS_API_GLOBAL];
-      if (api && typeof api.openSettingsHub === "function") return api;
+      if (!api || typeof api !== "object") return null;
+      const methods = Array.isArray(requiredMethods)
+        ? requiredMethods.filter((item) => typeof item === "string" && item.trim())
+        : typeof requiredMethods === "string" && requiredMethods.trim()
+          ? [requiredMethods.trim()]
+          : [];
+      if (!methods.length) return api;
+      if (methods.some((name) => typeof api[name] === "function")) return api;
     } catch {}
     return null;
+  }
+  function ensureUser2RemoteScript(forceReload = false) {
+    try {
+      const readyApi = getUser2SettingsApi([
+        "mountExperimentalVersion",
+        "openExperimentalVersionPanel",
+        "getUser2VersionInfo",
+      ]);
+      if (readyApi && !forceReload) return true;
+      let script = document.getElementById(USER2_REMOTE_LOADER_ID);
+      if (script && !forceReload) return false;
+      if (script) script.remove();
+      script = document.createElement("script");
+      script.id = USER2_REMOTE_LOADER_ID;
+      script.src = `${USER2_REMOTE_URL}?v=${encodeURIComponent(SCRIPT_VERSION)}&r=${
+        forceReload ? Date.now() : "cached"
+      }`;
+      script.async = true;
+      (document.head || document.documentElement || document.body)?.appendChild(script);
+    } catch (err) {
+      console.warn("[HeadsoftHelper] Falha ao injetar loader remoto do user2:", err);
+    }
+    return false;
   }
   function isExperimentalUser2Enabled() {
     try {
@@ -6708,10 +6752,23 @@ Atenciosamente.`;
     return enabled;
   }
   function applyExperimentalUser2Bridge() {
-    const api = getUser2SettingsApi();
-    if (!api) return false;
     try {
       if (isExperimentalUser2Enabled()) {
+        const api = getUser2SettingsApi(["mountExperimentalVersion"]);
+        if (!api) {
+          ensureUser2RemoteScript();
+          window.setTimeout(() => {
+            const delayedApi = getUser2SettingsApi(["mountExperimentalVersion"]);
+            if (delayedApi && typeof delayedApi.mountExperimentalVersion === "function") {
+              delayedApi.mountExperimentalVersion({
+                scriptVersion: SCRIPT_VERSION,
+                page: location.pathname,
+                theme: getTheme(),
+              });
+            }
+          }, 450);
+          return false;
+        }
         if (typeof api.mountExperimentalVersion === "function") {
           api.mountExperimentalVersion({
             scriptVersion: SCRIPT_VERSION,
@@ -6721,6 +6778,7 @@ Atenciosamente.`;
         }
         return true;
       }
+      const api = getUser2SettingsApi(["unmountExperimentalVersion"]);
       if (typeof api.unmountExperimentalVersion === "function") api.unmountExperimentalVersion();
     } catch (err) {
       console.warn("[HeadsoftHelper] Falha ao sincronizar modo experimental user2:", err);
@@ -11260,9 +11318,27 @@ Atenciosamente.`;
     experimentalUser2PanelBtn.onclick = (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      const api = getUser2SettingsApi();
+      let api = getUser2SettingsApi(["openExperimentalVersionPanel"]);
       if (!api || typeof api.openExperimentalVersionPanel !== "function") {
-        toast("Painel do user2 nao esta disponivel agora.", "err", 2800);
+        ensureUser2RemoteScript(true);
+        toast("Carregando painel do user2...", "info", 2200);
+        window.setTimeout(() => {
+          const delayedApi = getUser2SettingsApi(["openExperimentalVersionPanel"]);
+          if (!delayedApi || typeof delayedApi.openExperimentalVersionPanel !== "function") {
+            toast("Painel do user2 nao esta disponivel agora.", "err", 2800);
+            return;
+          }
+          try {
+            delayedApi.openExperimentalVersionPanel({
+              scriptVersion: SCRIPT_VERSION,
+              page: location.pathname,
+              theme: getTheme(),
+            });
+          } catch (err) {
+            console.warn("[HeadsoftHelper] Falha tardia ao abrir painel experimental do user2:", err);
+            toast("Falha ao abrir o painel de teste do user2.", "err", 2800);
+          }
+        }, 550);
         setMenuOpen(false);
         return;
       }

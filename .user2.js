@@ -1,7 +1,16 @@
 (() => {
   const API_NAME = "HSHeadsoftUser2";
-  const USER2_VERSION = "3.00.01";
+  const USER2_VERSION = "3.00.02";
   const USER2_UPDATES = Object.freeze([
+    {
+      version: "3.00.02",
+      date: "2026-03-13",
+      notes: [
+        "Bootstrap do user2 foi reforcado para subir junto do fallback remoto do user.js quando o @require nao bastar sozinho.",
+        "Painel experimental volta a abrir com mais confianca e a repaginacao do grid passa a ser montada logo apos a ativacao.",
+        "Release mantem a grade repaginada, metricas e preferencias separadas da versao antiga.",
+      ],
+    },
     {
       version: "3.00.01",
       date: "2026-03-13",
@@ -555,6 +564,7 @@
   }
 
   const api = window[API_NAME] || {};
+  api.openSettingsHub = api.openSettingsHub || (() => false);
   api.getUser2VersionInfo = getVersionInfo;
   api.isExperimentalVersionEnabled = isEnabled;
   api.setExperimentalVersionEnabled = setEnabled;
