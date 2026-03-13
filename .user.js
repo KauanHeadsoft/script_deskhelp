@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Headsoft Suporte Modern UI
 // @namespace    headsoft.suporte.modern
-// @version      2.16.00
+// @version      2.16.01
 // @description  Modernizacao visual + tema + filtros + contadores + atalhos de atendimento
 // @author       Codex
 // @match        https://suporte.headsoft.com.br/*
@@ -113,7 +113,7 @@
     lucida: "'Lucida Sans Unicode', 'Lucida Grande', sans-serif",
     monospace: "'Consolas', 'Courier New', monospace",
   });
-  const SCRIPT_VERSION_FALLBACK = "2.16.00";
+  const SCRIPT_VERSION_FALLBACK = "2.16.01";
   const SCRIPT_VERSION =
     String(
       (typeof GM_info !== "undefined" && GM_info?.script?.version) || SCRIPT_VERSION_FALLBACK
@@ -405,6 +405,17 @@ Atenciosamente,
 Equipe de Suporte.`;
   const T_ENVIAR_SERVICO = "Em servico.";
   const RECENT_UPDATES = Object.freeze([
+    {
+      date: "2026-03-13",
+      version: "2.16.01",
+      type: "routine",
+      mandatory: false,
+      notes: [
+        "Release acompanha o user2 v3.01.01, que simplifica a V2 para leitura operacional mais limpa e direta.",
+        "Lista da nova versao saiu do card pesado e virou uma fila mais funcional, com foco em titulo, dono, abertura e prioridade sem excesso visual.",
+        "Lateral foi resumida para contexto rapido e o preview vivo deixou de entrar ligado por padrao para nao poluir a triagem.",
+      ],
+    },
     {
       date: "2026-03-13",
       version: "2.16.00",

@@ -1,7 +1,16 @@
 (() => {
   const API_NAME = "HSHeadsoftUser2";
-  const USER2_VERSION = "3.01.00";
+  const USER2_VERSION = "3.01.01";
   const USER2_UPDATES = Object.freeze([
+    {
+      version: "3.01.01",
+      date: "2026-03-13",
+      notes: [
+        "Sidebar da V2 foi simplificada para virar um resumo lateral mais limpo, com menos blocos competindo entre si.",
+        "Lista de chamados saiu do card pesado e ganhou leitura mais direta, mais compacta e mais funcional para bater o olho.",
+        "Preview vivo deixa de entrar ligado por padrao para reduzir peso visual na triagem.",
+      ],
+    },
     {
       version: "3.01.00",
       date: "2026-03-13",
@@ -33,6 +42,7 @@
 
   const ROOT_CLASS = "hsu2-active";
   const STYLE_ID = "hsu2-style";
+  const READABLE_STYLE_ID = "hsu2-style-readable";
   const BADGE_ID = "hsu2-badge";
   const PANEL_ID = "hsu2-panel";
   const SHELL_ID = "hsu2-shell";
@@ -54,7 +64,7 @@
     showAge: true,
     livePreview: true,
     showLegacyFilters: true,
-    showLiveFrame: true,
+    showLiveFrame: false,
   });
 
   const FILTER_OPTIONS = Object.freeze([
@@ -146,7 +156,7 @@
         showAge: parsed?.showAge !== false,
         livePreview: parsed?.livePreview !== false,
         showLegacyFilters: parsed?.showLegacyFilters !== false,
-        showLiveFrame: parsed?.showLiveFrame !== false,
+        showLiveFrame: parsed?.showLiveFrame === true,
       };
     } catch {
       return { ...DEFAULT_SETTINGS };
@@ -517,6 +527,22 @@
     return `<span class="hsu2-signal tone-${escAttr(tone)}">${escHtml(label)}</span>`;
   }
 
+  function getReasonTone(reason) {
+    const text = txt(reason);
+    if (/critica|72 horas|24 horas/i.test(text)) return "danger";
+    if (/sem responsavel|novo|aguardando/i.test(text)) return "medium";
+    return "neutral";
+  }
+
+  function buildDetailItemHtml(label, value, extraClass = "") {
+    return `
+      <div class="hsu2-detail-item ${extraClass}">
+        <span class="hsu2-detail-label">${escHtml(label)}</span>
+        <strong class="hsu2-detail-value">${escHtml(value || "-")}</strong>
+      </div>
+    `;
+  }
+
   function ensureStyle() {
     let style = by(STYLE_ID);
     if (!(style instanceof HTMLStyleElement)) {
@@ -632,6 +658,57 @@
       @media (max-width: 1380px){body.${ROOT_CLASS} #${SHELL_ID}{grid-template-columns:1fr!important;}body.${ROOT_CLASS} #${PREVIEW_ID}{position:static!important;}body.${ROOT_CLASS} .hsu2-kpi-grid,body.${ROOT_CLASS} .hsu2-insights-grid{grid-template-columns:repeat(2, minmax(0,1fr))!important;}}
       @media (max-width: 960px){body.${ROOT_CLASS} .hsu2-command-top,body.${ROOT_CLASS} .hsu2-commandbar,body.${ROOT_CLASS} .hsu2-ticket-top,body.${ROOT_CLASS} .hsu2-ticket-main,body.${ROOT_CLASS} .hsu2-list-head,body.${ROOT_CLASS}.hs-request-page #${REQUEST_BADGE_ID}{display:grid!important;grid-template-columns:1fr!important;}body.${ROOT_CLASS} .hsu2-ticket-actions,body.${ROOT_CLASS} .hsu2-command-actions{justify-content:flex-start!important;}}
       @media (max-width: 760px){body.${ROOT_CLASS} .hsu2-kpi-grid,body.${ROOT_CLASS} .hsu2-insights-grid,body.${ROOT_CLASS} .hsu2-preview-grid{grid-template-columns:1fr!important;}body.${ROOT_CLASS} .hsu2-commandbar{grid-template-columns:1fr!important;}body.${ROOT_CLASS} #${BADGE_ID}{left:12px!important;right:12px!important;justify-content:center!important;}body.${ROOT_CLASS} #${PANEL_ID}{left:12px!important;right:12px!important;width:auto!important;top:auto!important;bottom:72px!important;max-height:calc(100vh - 92px)!important;}}
+    `;
+  }
+
+  function ensureReadableOverrides() {
+    let style = by(READABLE_STYLE_ID);
+    if (!(style instanceof HTMLStyleElement)) {
+      style = document.createElement("style");
+      style.id = READABLE_STYLE_ID;
+      document.head.appendChild(style);
+    }
+    style.textContent = `
+      body.${ROOT_CLASS} #${SHELL_ID}{grid-template-columns:minmax(0,1fr) 360px!important;gap:18px!important;}
+      body.${ROOT_CLASS} #${PREVIEW_ID}{gap:14px!important;top:82px!important;}
+      body.${ROOT_CLASS} #${LIST_ID},body.${ROOT_CLASS} .hsu2-ticket-stack{gap:12px!important;}
+      body.${ROOT_CLASS} .hsu2-ticket{padding:16px 18px 18px!important;border-radius:22px!important;gap:12px!important;background:linear-gradient(180deg, rgba(9,18,30,.98), rgba(7,14,24,.98))!important;box-shadow:0 16px 34px rgba(1,7,16,.22)!important;}
+      body.${ROOT_CLASS} .hsu2-ticket::before{top:14px!important;bottom:14px!important;width:3px!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-top{align-items:center!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-main{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:start!important;gap:14px!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-copy{display:grid!important;gap:8px!important;min-width:0!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-title{font-size:20px!important;line-height:1.15!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-summary{margin:0!important;max-width:780px!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-side{display:grid!important;justify-items:end!important;gap:10px!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-priority{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:32px!important;padding:0 12px!important;border-radius:999px!important;border:1px solid var(--line)!important;background:rgba(13,26,40,.88)!important;color:var(--text)!important;font:800 11px/1 var(--display)!important;letter-spacing:.1em!important;text-transform:uppercase!important;white-space:nowrap!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-priority.tone-critical{border-color:rgba(255,125,148,.34)!important;color:#ffd5dd!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-priority.tone-high{border-color:rgba(255,201,118,.42)!important;color:#ffe6bd!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-priority.tone-medium{border-color:rgba(93,226,255,.42)!important;color:#d9fbff!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-priority.tone-normal{border-color:rgba(98,255,195,.3)!important;color:#dffff2!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-meta-row{display:grid!important;grid-template-columns:repeat(4, minmax(0,1fr))!important;gap:10px!important;}
+      body.${ROOT_CLASS} .hsu2-detail-item{min-width:0!important;padding:10px 12px!important;border-radius:16px!important;border:1px solid rgba(106,180,230,.14)!important;background:rgba(9,18,30,.64)!important;}
+      body.${ROOT_CLASS} .hsu2-detail-label{display:block!important;color:var(--muted)!important;font:800 10px/1 var(--display)!important;letter-spacing:.12em!important;text-transform:uppercase!important;}
+      body.${ROOT_CLASS} .hsu2-detail-value{display:block!important;margin-top:6px!important;color:var(--text)!important;font:800 14px/1.35 var(--body)!important;word-break:break-word!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-footline{display:flex!important;flex-wrap:wrap!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-note{margin:0!important;flex:1 1 320px!important;}
+      body.${ROOT_CLASS} .hsu2-ticket-footline .hsu2-signal-row{flex:1 1 260px!important;}
+      body.${ROOT_CLASS} .hsu2-preview-card .hsu2-card-body{padding:16px 18px 18px!important;}
+      body.${ROOT_CLASS} .hsu2-preview-simple{display:grid!important;gap:14px!important;}
+      body.${ROOT_CLASS} .hsu2-preview-title{margin:10px 0 0!important;color:var(--text)!important;font:900 18px/1.2 var(--display)!important;letter-spacing:-.02em!important;}
+      body.${ROOT_CLASS} .hsu2-preview-note{margin:8px 0 0!important;}
+      body.${ROOT_CLASS} .hsu2-preview-summary{display:grid!important;gap:0!important;padding:0 2px!important;border-top:1px solid rgba(106,180,230,.12)!important;border-bottom:1px solid rgba(106,180,230,.12)!important;}
+      body.${ROOT_CLASS} .hsu2-preview-summary .hsu2-detail-item{padding:12px 0!important;border:0!important;border-radius:0!important;background:transparent!important;}
+      body.${ROOT_CLASS} .hsu2-preview-summary .hsu2-detail-item + .hsu2-detail-item{border-top:1px solid rgba(106,180,230,.1)!important;}
+      body.${ROOT_CLASS} .hsu2-preview-next{display:grid!important;gap:8px!important;padding:14px 16px!important;border-radius:18px!important;border:1px solid rgba(93,226,255,.2)!important;background:linear-gradient(180deg, rgba(12,27,42,.92), rgba(8,18,29,.98))!important;}
+      body.${ROOT_CLASS} .hsu2-preview-caption{display:block!important;color:var(--muted)!important;font:800 10px/1 var(--display)!important;letter-spacing:.14em!important;text-transform:uppercase!important;}
+      body.${ROOT_CLASS} .hsu2-preview-next strong{display:block!important;color:var(--text)!important;font:900 18px/1.3 var(--display)!important;}
+      body.${ROOT_CLASS} .hsu2-preview-next p{margin:0!important;color:var(--muted)!important;font:700 13px/1.55 var(--body)!important;}
+      body.${ROOT_CLASS} .hsu2-preview-actions{display:flex!important;flex-wrap:wrap!important;gap:10px!important;}
+      body.${ROOT_CLASS} .hsu2-preview-actions .hsu2-action{justify-content:center!important;}
+      body.${ROOT_CLASS} .hsu2-preview-frame{min-height:520px!important;}
+      @media (max-width: 1480px){body.${ROOT_CLASS} #${SHELL_ID}{grid-template-columns:1fr!important;}body.${ROOT_CLASS} #${PREVIEW_ID}{position:static!important;}}
+      @media (max-width: 960px){body.${ROOT_CLASS} .hsu2-ticket-main{grid-template-columns:1fr!important;}body.${ROOT_CLASS} .hsu2-ticket-side{justify-items:start!important;}body.${ROOT_CLASS} .hsu2-ticket-meta-row{grid-template-columns:repeat(2, minmax(0,1fr))!important;}}
+      @media (max-width: 720px){body.${ROOT_CLASS} .hsu2-ticket-meta-row{grid-template-columns:1fr!important;}body.${ROOT_CLASS} .hsu2-ticket-footline{align-items:flex-start!important;}body.${ROOT_CLASS} .hsu2-preview-actions{display:grid!important;grid-template-columns:1fr!important;}body.${ROOT_CLASS} .hsu2-preview-actions .hsu2-action{width:100%!important;}}
     `;
   }
 
@@ -872,49 +949,41 @@
   }
 
   function buildTicketCard(data, settings) {
-    const metrics = [
-      buildFactHtml("Cliente", data.client || "Nao informado"),
-      buildFactHtml("Responsavel", data.owner || "Distribuir"),
-      buildFactHtml("Abertura", data.dateRaw || "Nao informada"),
+    const meta = [
+      buildDetailItemHtml("Cliente", data.client || "Nao informado"),
+      buildDetailItemHtml("Responsavel", data.owner || "Distribuir"),
+      buildDetailItemHtml("Abertura", data.dateRaw || "Nao informada"),
+      buildDetailItemHtml(settings.showAge ? "Idade" : "Prioridade", settings.showAge ? data.ageLabel || "n/d" : data.priorityMeta.short),
     ];
-    if (settings.showAge) metrics.push(buildFactHtml("Idade", data.ageLabel || "n/d"));
-    metrics.push(buildFactHtml("Risco", data.priorityMeta.label));
-    const signals = data.attentionReasons.slice(0, 3).map((reason) => {
-      const tone = /critica|72 horas|24 horas/i.test(reason)
-        ? "danger"
-        : /sem responsavel|novo|aguardando/i.test(reason)
-          ? "medium"
-          : "neutral";
-      return buildSignalHtml(reason, tone);
-    });
+    const signals = data.attentionReasons
+      .filter((reason) => !/faixa estavel/i.test(reason))
+      .slice(0, 2)
+      .map((reason) => buildSignalHtml(reason, getReasonTone(reason)));
     return `
       <article class="hsu2-ticket tone-${escAttr(data.priorityMeta.tone)}${selectedKey === data.key ? " is-selected" : ""}" data-key="${escAttr(data.key)}">
         <div class="hsu2-ticket-top">
           <div class="hsu2-ticket-badges">
             ${data.number ? `<span class="hsu2-chip strong">#${escHtml(data.number)}</span>` : ""}
             ${data.status ? `<span class="hsu2-status tone-${escAttr(data.statusClass)}">${escHtml(data.status)}</span>` : ""}
-            ${data.owner ? `<span class="hsu2-chip">${escHtml(data.owner)}</span>` : `<span class="hsu2-chip empty">Sem responsavel</span>`}
+            ${data.owner ? "" : `<span class="hsu2-chip empty">Sem responsavel</span>`}
           </div>
-          <div class="hsu2-ticket-actions">
-            <button type="button" class="hsu2-preview-btn" data-action="preview">Focar</button>
-            ${data.href ? `<a class="hsu2-action subtle" data-action="open" href="${escAttr(data.href)}" target="_blank" rel="noopener">Abrir</a>` : ""}
-          </div>
+          <span class="hsu2-ticket-priority tone-${escAttr(data.priorityMeta.tone)}">${escHtml(data.priorityMeta.label)}</span>
         </div>
         <div class="hsu2-ticket-main">
-          <div>
+          <div class="hsu2-ticket-copy">
             <h3 class="hsu2-ticket-title">${escHtml(data.title || "Chamado sem titulo")}</h3>
-            <p class="hsu2-ticket-summary">${escHtml(data.client || "Cliente nao informado")}${data.dateRaw ? ` | aberto em ${escHtml(data.dateRaw)}` : ""}</p>
+            <p class="hsu2-ticket-summary">${escHtml(data.focusNote || "Chamado pronto para leitura.")}</p>
           </div>
-          <div class="hsu2-priority-chip tone-${escAttr(data.priorityMeta.tone)}">
-            <span>Score</span>
-            <strong>${Math.round(data.priorityScore)}</strong>
-            <em>${escHtml(data.priorityMeta.short)}</em>
+          <div class="hsu2-ticket-side">
+            <div class="hsu2-ticket-actions">
+              <button type="button" class="hsu2-preview-btn" data-action="preview">Resumo</button>
+              ${data.href ? `<a class="hsu2-action subtle" data-action="open" href="${escAttr(data.href)}" target="_blank" rel="noopener">Abrir</a>` : ""}
+            </div>
           </div>
         </div>
-        <div class="hsu2-ticket-grid">${metrics.join("")}</div>
-        <div class="hsu2-ticket-footer">
-          <div class="hsu2-signal-row">${signals.join("")}</div>
-          <div class="hsu2-meter"><span style="width:${Math.max(18, Math.min(100, data.priorityMeta.meter))}%"></span></div>
+        <div class="hsu2-ticket-meta-row">${meta.join("")}</div>
+        <div class="hsu2-ticket-footline">
+          ${signals.length ? `<div class="hsu2-signal-row">${signals.join("")}</div>` : ""}
           <p class="hsu2-ticket-note">${escHtml(data.actionHint)}</p>
         </div>
       </article>
@@ -988,16 +1057,17 @@
           </div>
           <div class="hsu2-card-body">
             <div class="hsu2-empty" data-slot="empty">Selecione um chamado para abrir o resumo operacional da lateral.</div>
-            <div data-slot="content" hidden>
+            <div class="hsu2-preview-simple" data-slot="content" hidden>
               <div class="hsu2-preview-hero">
                 <div class="hsu2-tags" data-slot="chips"></div>
                 <h3 class="hsu2-preview-title" data-slot="title">-</h3>
                 <p class="hsu2-preview-note" data-slot="note">-</p>
               </div>
-              <div class="hsu2-preview-grid" data-slot="meta"></div>
-              <div class="hsu2-preview-insights">
-                <div class="hsu2-fact"><span class="hsu2-fact-label">Sinal operacional</span><strong class="hsu2-fact-value" data-slot="focus">-</strong></div>
-                <div class="hsu2-fact"><span class="hsu2-fact-label">Proxima acao</span><strong class="hsu2-fact-value" data-slot="action">-</strong></div>
+              <div class="hsu2-preview-summary" data-slot="meta"></div>
+              <div class="hsu2-preview-next">
+                <span class="hsu2-preview-caption">Proxima acao</span>
+                <strong data-slot="action">-</strong>
+                <p data-slot="focus">-</p>
               </div>
               <div class="hsu2-signal-row" data-slot="signals"></div>
               <div class="hsu2-preview-actions">
@@ -1075,6 +1145,7 @@
       focus.textContent = "-";
       action.textContent = "-";
       signals.innerHTML = "";
+      signals.hidden = true;
       open.href = "#";
       open.hidden = true;
       if (frame instanceof HTMLIFrameElement) {
@@ -1095,27 +1166,19 @@
     title.textContent = txt(data.title || "Chamado sem titulo");
     note.textContent = txt(data.focusNote || "Chamado pronto para leitura.");
     meta.innerHTML = [
-      buildFactHtml("Cliente", data.client || "Nao informado"),
-      buildFactHtml("Responsavel", data.owner || "Sem responsavel"),
-      buildFactHtml("Abertura", data.dateRaw || "Nao informada"),
-      buildFactHtml("Status", data.status || "Sem status"),
-      buildFactHtml("Idade", settings.showAge ? data.ageLabel || "n/d" : "Oculta"),
-      buildFactHtml("Recorte", data.priorityMeta.short),
+      buildDetailItemHtml("Cliente", data.client || "Nao informado"),
+      buildDetailItemHtml("Responsavel", data.owner || "Sem responsavel"),
+      buildDetailItemHtml("Abertura", data.dateRaw || "Nao informada"),
+      buildDetailItemHtml("Status", data.status || "Sem status"),
+      buildDetailItemHtml(settings.showAge ? "Idade" : "Prioridade", settings.showAge ? data.ageLabel || "n/d" : data.priorityMeta.label),
     ].join("");
-    focus.textContent = txt(data.focusNote || "Fluxo normal");
+    focus.textContent = txt(data.attentionReasons[0] || data.focusNote || "Fluxo normal");
     action.textContent = txt(data.actionHint || "Seguir com a proxima acao");
     signals.innerHTML = data.attentionReasons
-      .slice(0, 4)
-      .map((reason) => {
-        const tone =
-          /critica|72 horas|24 horas/i.test(reason)
-            ? "danger"
-            : /sem responsavel|novo|aguardando/i.test(reason)
-              ? "medium"
-              : "neutral";
-        return buildSignalHtml(reason, tone);
-      })
+      .slice(1, 3)
+      .map((reason) => buildSignalHtml(reason, getReasonTone(reason)))
       .join("");
+    signals.hidden = !txt(signals.textContent || "");
     open.href = data.href || "#";
     open.hidden = !data.href;
     if (settings.showLiveFrame && frame instanceof HTMLIFrameElement && data.previewHref) {
@@ -1330,6 +1393,7 @@
     if (IS_PREVIEW_FRAME) return null;
     lastPayload = { ...lastPayload, ...(payload || {}) };
     ensureStyle();
+    ensureReadableOverrides();
     const panel = ensurePanel();
     syncPanel();
     if (panel instanceof HTMLElement) panel.hidden = false;
@@ -1368,6 +1432,7 @@
     if (!document.body || !document.head) return false;
     lastPayload = { ...lastPayload, ...(payload || {}) };
     ensureStyle();
+    ensureReadableOverrides();
     applyPreferences();
     ensureObserver();
     ensureHeartbeat();
